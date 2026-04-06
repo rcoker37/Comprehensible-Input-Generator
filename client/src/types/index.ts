@@ -37,6 +37,14 @@ export interface Story {
   violation_readings?: Record<string, string>;
 }
 
+export type GenerationPhase = "thinking" | "generating" | "checking";
+
+export interface GenerationProgress {
+  phase: GenerationPhase;
+  reasoning: string;
+  content: string;
+}
+
 export interface KanjiStats {
   total: number;
   known: number;

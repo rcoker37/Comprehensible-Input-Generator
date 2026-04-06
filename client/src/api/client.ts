@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Kanji, KanjiStats, Story, StoryFilters, Formality } from "../types";
+import type { Kanji, KanjiStats, Story, StoryFilters, Formality, GenerationProgress } from "../types";
 
 // Kanji
 
@@ -314,7 +314,7 @@ export async function generateStoryStream(
     formality: Formality;
     filters: StoryFilters;
   },
-  onToken: (text: string) => void
+  onProgress: (progress: GenerationProgress) => void
 ): Promise<Story> {
   // Build allowed kanji list client-side
   const allKanji = await getKanji(userId);
@@ -390,6 +390,7 @@ export async function generateStoryStream(
   const reader = response.body!.getReader();
   const decoder = new TextDecoder();
   let fullText = "";
+  let fullReasoning = "";
   let buffer = "";
 
   while (true) {
@@ -407,10 +408,16 @@ export async function generateStoryStream(
 
       try {
         const parsed = JSON.parse(data);
-        const content = parsed.choices?.[0]?.delta?.content;
+        const delta = parsed.choices?.[0]?.delta;
+        const reasoning = delta?.reasoning;
+        const content = delta?.content;
+        if (reasoning) {
+          fullReasoning += reasoning;
+          onProgress({ phase: "thinking", reasoning: fullReasoning, content: fullText });
+        }
         if (content) {
           fullText += content;
-          onToken(fullText);
+          onProgress({ phase: "generating", reasoning: fullReasoning, content: fullText });
         }
       } catch {
         // skip malformed chunks
@@ -421,6 +428,8 @@ export async function generateStoryStream(
   if (!fullText.trim()) {
     throw new Error("No content received from the model");
   }
+
+  onProgress({ phase: "checking", reasoning: fullReasoning, content: fullText });
 
   // Parse title and content
   const textLines = fullText.split("\n").filter((l) => l.trim());

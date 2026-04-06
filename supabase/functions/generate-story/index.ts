@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
           model,
           messages: [{ role: "user", content: prompt }],
           temperature: stream ? 0.7 : 0.3,
-          max_tokens: stream ? 4096 : 1024,
+          max_tokens: stream ? 16000 : 4096,
           stream,
         }),
       }

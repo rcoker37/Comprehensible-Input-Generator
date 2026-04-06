@@ -81,3 +81,27 @@ label:has(input[type="checkbox"]) {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.thinking-section {
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.thinking-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  user-select: none;
+}
+
+.thinking-content {
+  margin-top: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  line-height: 1.5;
+}
