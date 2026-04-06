@@ -1,6 +1,4 @@
 {
-  "buildCommand": "npm run build --workspace=client",
-  "installCommand": "npm install",
   "rewrites": [
     { "source": "/((?!assets/).*)", "destination": "/index.html" }
   ]
