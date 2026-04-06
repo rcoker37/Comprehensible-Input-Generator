@@ -22,6 +22,7 @@ export default function KanjiManager() {
   const [search, setSearch] = useState("");
   const [jlptFilter, setJlptFilter] = useState<number[]>([]);
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
+  const [knownFilter, setKnownFilter] = useState<"all" | "known" | "unknown">("all");
   const [loading, setLoading] = useState(true);
 
   const userId = user!.id;
@@ -89,15 +90,15 @@ export default function KanjiManager() {
         />
 
         <div className="filter-row">
-          <label>JLPT</label>
+          <label>Status</label>
           <div className="chip-group">
-            {JLPT_LEVELS.map((n) => (
+            {(["all", "known", "unknown"] as const).map((v) => (
               <button
-                key={n}
-                className={`chip ${jlptFilter.includes(n) ? "active" : ""}`}
-                onClick={() => toggleChip(n, jlptFilter, setJlptFilter)}
+                key={v}
+                className={`chip ${knownFilter === v ? "active" : ""}`}
+                onClick={() => setKnownFilter(v)}
               >
-                N{n}
+                {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
             ))}
           </div>
@@ -118,6 +119,21 @@ export default function KanjiManager() {
           </div>
         </div>
 
+        <div className="filter-row">
+          <label>JLPT</label>
+          <div className="chip-group">
+            {JLPT_LEVELS.map((n) => (
+              <button
+                key={n}
+                className={`chip ${jlptFilter.includes(n) ? "active" : ""}`}
+                onClick={() => toggleChip(n, jlptFilter, setJlptFilter)}
+              >
+                N{n}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="bulk-actions">
           <button onClick={() => handleBulk("markKnown")}>
             Mark filtered as known
@@ -132,7 +148,7 @@ export default function KanjiManager() {
         <div className="loading">Loading kanji...</div>
       ) : (
         <div className="kanji-grid">
-          {kanji.map((k) => (
+          {kanji.filter((k) => knownFilter === "all" || (knownFilter === "known" ? k.known : !k.known)).map((k) => (
             <button
               key={k.character}
               className={`kanji-cell ${k.known ? "known" : ""}`}
@@ -140,8 +156,10 @@ export default function KanjiManager() {
               title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}`}
             >
               <span className="kanji-char">{k.character}</span>
-              <span className="kanji-meaning">
-                {k.meanings.split(",")[0]}
+              <span className="kanji-reading">
+                {k.readings_on ? k.readings_on.split(",")[0].trim() : ""}
+                {k.readings_on && k.readings_kun ? " " : ""}
+                {k.readings_kun ? k.readings_kun.split(",")[0].trim() : ""}
               </span>
               <span className="kanji-badges">
                 <span className="badge grade">G{GRADE_LABELS[k.grade] || k.grade}</span>
