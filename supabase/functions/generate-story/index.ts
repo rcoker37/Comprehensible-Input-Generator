@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     const model = profile.preferred_model || "deepseek/deepseek-r1";
 
     // Parse request — client sends the prompt directly
-    const { prompt } = await req.json();
+    const { prompt, stream = true } = await req.json();
 
     if (!prompt) {
       return new Response(JSON.stringify({ error: "Missing prompt" }), {
@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Call OpenRouter with streaming
+    // Call OpenRouter
     const openRouterRes = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
       {
@@ -82,9 +82,9 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           model,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.7,
-          max_tokens: 4096,
-          stream: true,
+          temperature: stream ? 0.7 : 0.3,
+          max_tokens: stream ? 4096 : 1024,
+          stream,
         }),
       }
     );
@@ -102,13 +102,21 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Stream the SSE response through to the client
-    return new Response(openRouterRes.body, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-      },
+    if (stream) {
+      // Stream the SSE response through to the client
+      return new Response(openRouterRes.body, {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+        },
+      });
+    }
+
+    // Non-streaming: return the JSON response directly
+    const result = await openRouterRes.json();
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Generation failed";

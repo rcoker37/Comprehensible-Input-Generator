@@ -29,6 +29,17 @@
   margin-bottom: 1rem;
 }
 
+.story-content ruby {
+  background: #ff980015;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.story-content ruby rt {
+  color: #ff9800;
+  font-size: 0.55em;
+}
+
 .violations {
   margin-top: 1rem;
   padding: 0.75rem;

@@ -34,6 +34,7 @@ export interface Story {
   difficulty: DifficultyEstimate;
   created_at: string;
   violations?: string[];
+  violation_readings?: Record<string, string>;
 }
 
 export interface KanjiStats {

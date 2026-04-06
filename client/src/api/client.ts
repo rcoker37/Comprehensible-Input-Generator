@@ -171,6 +171,7 @@ const GRAMMAR_GUIDANCE: Record<number, string> = {
 function buildPrompt(
   paragraphs: number,
   kanjiList: string,
+  disallowedKanji: string | null,
   formality: Formality,
   grammarLevel: number,
   topic?: string
@@ -181,11 +182,20 @@ function buildPrompt(
     `CRITICAL RULE: You MUST only use the following kanji characters: ${kanjiList}`,
     "You may freely use hiragana and katakana. Do NOT use any kanji not in the list above.",
     "IMPORTANT: You MUST actively use kanji from the allowed list throughout the story. Do not write entirely in hiragana — use the allowed kanji wherever they would naturally appear in Japanese text.",
+  ];
+
+  if (disallowedKanji) {
+    parts.push(
+      `Specifically do NOT use any of these kanji: ${disallowedKanji}`
+    );
+  }
+
+  parts.push(
     "",
     GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
     "",
-    FORMALITY_INSTRUCTIONS[formality],
-  ];
+    FORMALITY_INSTRUCTIONS[formality]
+  );
 
   if (topic) {
     parts.push("", `The story should be about: ${topic}`);
@@ -202,6 +212,75 @@ function buildPrompt(
 }
 
 const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/g;
+
+function findViolations(text: string, allowedKanji: Set<string>): string[] {
+  const allKanji = text.match(KANJI_REGEX) || [];
+  return [...new Set(allKanji.filter((k) => !allowedKanji.has(k)))];
+}
+
+async function getViolationReadings(
+  text: string,
+  violations: string[],
+  edgeFunctionUrl: string,
+  accessToken: string
+): Promise<Record<string, string>> {
+  // Extract sentences containing violations for context
+  const violationSet = new Set(violations);
+  const sentences = text.split(/[。！？\n]/).filter((s) =>
+    [...s].some((ch) => violationSet.has(ch))
+  );
+  const contextText = sentences.join("。");
+
+  const prompt = [
+    "Given this Japanese text, provide the hiragana reading for each of the listed kanji AS USED IN THIS CONTEXT.",
+    "",
+    `Text: ${contextText}`,
+    "",
+    `Kanji to read: ${violations.join(", ")}`,
+    "",
+    "Return ONLY a JSON object mapping each kanji character to its hiragana reading in this context.",
+    'Example: {"経": "けい", "験": "けん"}',
+    "Output ONLY the JSON, nothing else.",
+  ].join("\n");
+
+  const response = await fetch(edgeFunctionUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompt, stream: false }),
+  });
+
+  if (!response.ok) return {};
+
+  const body = await response.json();
+  const content = body.choices?.[0]?.message?.content || "";
+
+  try {
+    // Extract JSON from response (model might wrap in ```json blocks)
+    const jsonMatch = content.match(/\{[^}]+\}/);
+    if (!jsonMatch) return {};
+    return JSON.parse(jsonMatch[0]);
+  } catch {
+    return {};
+  }
+}
+
+export function annotateWithRuby(
+  text: string,
+  readings: Record<string, string>
+): string {
+  let result = "";
+  for (const ch of text) {
+    if (readings[ch]) {
+      result += `<ruby>${ch}<rt>${readings[ch]}</rt></ruby>`;
+    } else {
+      result += ch;
+    }
+  }
+  return result;
+}
 
 function computeDifficulty(
   text: string,
@@ -259,7 +338,17 @@ export async function generateStoryStream(
     );
   }
 
-  const allowedKanji = filtered.map((k) => k.character).join("");
+  const allowedSet = new Set(filtered.map((k) => k.character));
+  const allowedKanji = [...allowedSet].join("");
+
+  // Use negative list when it's shorter (easier for the LLM to follow)
+  const allCharacters = allKanji.map((k) => k.character);
+  const disallowed = allCharacters.filter((ch) => !allowedSet.has(ch));
+  const disallowedKanji =
+    disallowed.length > 0 && disallowed.length < allowedSet.size
+      ? disallowed.join("")
+      : null;
+
   const grammarLevel =
     params.filters.jlptLevels.length > 0
       ? Math.min(...params.filters.jlptLevels)
@@ -268,6 +357,7 @@ export async function generateStoryStream(
   const prompt = buildPrompt(
     params.paragraphs,
     allowedKanji,
+    disallowedKanji,
     params.formality,
     grammarLevel,
     params.topic
@@ -279,19 +369,17 @@ export async function generateStoryStream(
   if (!accessToken) throw new Error("Not authenticated");
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const edgeFunctionUrl = `${supabaseUrl}/functions/v1/generate-story`;
 
   // Call edge function with raw fetch for streaming
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/generate-story`,
-    {
+  const response = await fetch(edgeFunctionUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ prompt }),
-    }
-  );
+    });
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: "Generation failed" }));
@@ -339,6 +427,19 @@ export async function generateStoryStream(
   const title = textLines[0] || "無題";
   const content = textLines.slice(1).join("\n\n");
 
+  // Detect kanji violations
+  const violations = findViolations(fullText, allowedSet);
+  let violationReadings: Record<string, string> = {};
+
+  if (violations.length > 0) {
+    violationReadings = await getViolationReadings(
+      fullText,
+      violations,
+      edgeFunctionUrl,
+      accessToken
+    );
+  }
+
   // Compute difficulty client-side
   const kanjiMeta = new Map(
     allKanji.map((k) => [k.character, { grade: k.grade, jlpt: k.jlpt }])
@@ -358,6 +459,8 @@ export async function generateStoryStream(
       filters: params.filters,
       allowed_kanji: allowedKanji,
       difficulty,
+      violations,
+      violation_readings: violationReadings,
     })
     .select()
     .single();
