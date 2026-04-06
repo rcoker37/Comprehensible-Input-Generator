@@ -1,0 +1,130 @@
+.kanji-manager {
+  max-width: 1000px;
+}
+
+.kanji-stats {
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-dim);
+}
+
+.kanji-stats strong {
+  color: var(--accent);
+}
+
+.kanji-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--surface);
+  padding: 1.25rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.search-input {
+  width: 100%;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.filter-row > label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  min-width: 45px;
+}
+
+.bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bulk-actions button {
+  padding: 0.4rem 1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.bulk-actions button:hover {
+  border-color: var(--accent);
+}
+
+.kanji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 0.5rem;
+}
+
+.kanji-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.25rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.kanji-cell:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.kanji-cell.known {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.kanji-char {
+  font-size: 1.8rem;
+  line-height: 1.2;
+}
+
+.kanji-meaning {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 80px;
+}
+
+.kanji-badges {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.badge {
+  font-size: 0.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 6px;
+}
+
+.badge.grade {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.badge.jlpt {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+@media (max-width: 600px) {
+  .kanji-grid {
+    grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+  }
+}
