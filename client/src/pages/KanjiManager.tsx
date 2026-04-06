@@ -138,9 +138,6 @@ export default function KanjiManager() {
           <button onClick={() => handleBulk("markKnown")}>
             Mark filtered as known
           </button>
-          <button onClick={() => handleBulk("markUnknown")}>
-            Mark filtered as unknown
-          </button>
         </div>
       </div>
 
