@@ -43,11 +43,6 @@ export async function generateStory(
     topic
   );
 
-  console.log("[ollama] === FULL PROMPT ===");
-  console.log(prompt);
-  console.log("[ollama] === END PROMPT ===");
-  console.log(`[ollama] Prompt length: ${prompt.length} chars, Allowed kanji count: ${allowedKanji.length}`);
-
   const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -61,24 +56,10 @@ export async function generateStory(
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    console.error("[ollama] Error response:", body);
     throw new Error(`Ollama error: ${response.status} ${response.statusText}`);
   }
 
-  const raw = await response.text();
-  console.log("[ollama] === RAW JSON (first 2000 chars) ===");
-  console.log(raw.slice(0, 2000));
-  console.log("[ollama] === END RAW ===");
-
-  const data = JSON.parse(raw) as Record<string, unknown>;
-  console.log("[ollama] Keys:", Object.keys(data));
-  console.log("[ollama] response type:", typeof data.response);
-  console.log("[ollama] response value:", JSON.stringify(data.response));
-  console.log("[ollama] done:", data.done, "done_reason:", data.done_reason);
-
-  return String(data.response || "").trim();
-
+  const data = (await response.json()) as { response: string };
   return data.response.trim();
 }
 
@@ -101,8 +82,6 @@ export async function retryWithFeedback(
 
 IMPORTANT CORRECTION: Your previous story contained these disallowed kanji: ${violations.join(", ")}. You MUST NOT use these characters. Rewrite without them. Only use kanji from the allowed list.`;
 
-  console.log("[ollama] Retry prompt:\n", prompt.slice(0, 300), "...");
-
   const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -116,16 +95,10 @@ IMPORTANT CORRECTION: Your previous story contained these disallowed kanji: ${vi
   });
 
   if (!response.ok) {
-    const body = await response.text();
-    console.error("[ollama] Retry error response:", body);
     throw new Error(`Ollama error: ${response.status} ${response.statusText}`);
   }
 
-  const raw = await response.text();
-  console.log("[ollama] Retry raw response length:", raw.length);
-  console.log("[ollama] Retry response (first 500 chars):", raw.slice(0, 500));
-
-  const data = JSON.parse(raw) as { response: string; done: boolean };
+  const data = (await response.json()) as { response: string };
   return data.response.trim();
 }
 

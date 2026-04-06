@@ -90,6 +90,7 @@
 .kanji-char {
   font-size: 1.8rem;
   line-height: 1.2;
+  color: var(--text);
 }
 
 .kanji-meaning {
