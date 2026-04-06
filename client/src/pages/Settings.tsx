@@ -9,31 +9,12 @@ export default function Settings() {
   const [model, setModel] = useState("deepseek/deepseek-r1-0528");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [usage, setUsage] = useState<{ used: number; limit: number | null } | null>(null);
-
   useEffect(() => {
     if (profile) {
       setApiKey(profile.openrouter_api_key || "");
       setModel(profile.preferred_model || "deepseek/deepseek-r1-0528");
     }
   }, [profile]);
-
-  useEffect(() => {
-    if (!apiKey) {
-      setUsage(null);
-      return;
-    }
-    fetch("https://openrouter.ai/api/v1/auth/key", {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.data) {
-          setUsage({ used: data.data.usage, limit: data.data.limit });
-        }
-      })
-      .catch(() => setUsage(null));
-  }, [apiKey]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -88,12 +69,6 @@ export default function Settings() {
           <span className="field-hint">
             Get a key at openrouter.ai. Required to generate stories.
           </span>
-          {usage && (
-            <span className="field-hint">
-              Usage: ${usage.used.toFixed(2)}
-              {usage.limit != null && ` / $${usage.limit.toFixed(2)} ($${(usage.limit - usage.used).toFixed(2)} remaining)`}
-            </span>
-          )}
         </div>
         <div className="settings-field">
           <label htmlFor="model">Preferred Model</label>
