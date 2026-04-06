@@ -1,0 +1,81 @@
+.settings-page {
+  max-width: 600px;
+}
+
+.settings-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-section h2 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+}
+
+.settings-field label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.settings-field span:not(.field-hint) {
+  color: var(--text);
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.save-btn {
+  padding: 0.6rem 1.5rem;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.save-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+}
+
+.success {
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: #4caf5022;
+  border: 1px solid #4caf50;
+  color: #4caf50;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
+
+.signout-btn {
+  padding: 0.6rem 1.5rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.signout-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

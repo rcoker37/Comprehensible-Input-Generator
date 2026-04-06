@@ -4,55 +4,69 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-A local web app that generates short Japanese stories constrained to kanji the user knows, using a local LLM (Ollama with gemma4:27b). Designed for Japanese reading practice via comprehensible input.
+A web app that generates short Japanese stories constrained to kanji the user knows, using OpenRouter LLM APIs. Designed for Japanese reading practice via comprehensible input. Each user has their own kanji known-state and story history.
 
 ## Commands
 
 ```bash
-# Install dependencies (all workspaces)
+# Install dependencies
 npm install
 
-# Fetch kanji seed data from kanjiapi.dev (~2140 joyo kanji, takes ~1 min)
-npx tsx data/fetch-kanji.ts
+# Start local Supabase (requires Docker)
+npx supabase start
 
-# Seed the SQLite database from data/kanji.json
-npm run seed
+# Apply migrations and seed data
+npx supabase db reset
 
-# Run both server and client in dev mode
+# Generate seed SQL from kanji.json (only needed if kanji data changes)
+npm run generate-seed
+
+# Generate TypeScript types from Supabase schema
+npx supabase gen types typescript --local > client/src/lib/database.types.ts
+
+# Run client dev server
 npm run dev
 
-# Run individually
-npm run dev --workspace=server   # Express on :3001
-npm run dev --workspace=client   # Vite on :5173, proxies /api to :3001
+# Build client
+npm run build
 
-# Build client for production
-npm run build --workspace=client
+# Serve Edge Functions locally
+npx supabase functions serve
+
+# Deploy Edge Functions
+npx supabase functions deploy generate-story
 ```
 
 ## Architecture
 
-Monorepo with npm workspaces: `client/` (Vite + React + TS) and `server/` (Express + TS + SQLite).
+**Client** (`client/`): Vite + React + TypeScript. Talks directly to Supabase (no backend server).
 
-**Server** (`server/src/`):
-- `routes/kanji.ts` — CRUD for kanji known-status, bulk updates, filtering/search
-- `routes/stories.ts` — Story generation via Ollama, validation, CRUD
-- `services/ollama.ts` — Prompt construction and Ollama API calls. Formality and grammar level are mapped to Japanese-specific prompt instructions
-- `services/validation.ts` — Extracts kanji from generated text via Unicode range regex, checks against allowed set
-- `services/difficulty.ts` — Computes reading level estimate from kanji grade/JLPT stats
-- `db/connection.ts` — SQLite via better-sqlite3, auto-creates schema on first access. DB stored at `data/kanji.db`
-
-**Client** (`client/src/`):
-- `api/client.ts` — All backend calls, uses Vite proxy in dev (`/api` -> `:3001`)
-- `pages/Generator.tsx` — Home page: paragraph count, topic, formality, kanji filters -> generate story
-- `pages/KanjiManager.tsx` — Grid of all kanji, click to toggle known, bulk mark by grade/JLPT
+- `lib/supabase.ts` — Supabase client singleton
+- `contexts/AuthContext.tsx` — Auth state provider (session, user, profile)
+- `api/client.ts` — All data operations via Supabase SDK. Kanji uses `get_user_kanji` RPC. Stories use direct table queries (RLS-scoped). Generation invokes the `generate-story` Edge Function.
+- `pages/Generator.tsx` — Story generation with kanji filters, formality, topic
+- `pages/KanjiManager.tsx` — Grid of 2,140 kanji, click to toggle known, bulk operations
 - `pages/Stories.tsx` / `StoryDetail.tsx` — Story history and detail view
+- `pages/Login.tsx` — Email/password + Google OAuth
+- `pages/Settings.tsx` — OpenRouter API key and model configuration
 
-**Generation flow**: Build kanji allow-list from filters -> construct prompt with kanji constraint + grammar level + formality -> call Ollama -> validate output contains only allowed kanji -> retry up to 3x on failure -> compute difficulty -> save to DB.
+**Supabase** (`supabase/`):
+- `migrations/001_initial_schema.sql` — Tables (kanji, user_kanji, stories, profiles), RLS policies, `get_user_kanji` RPC, auto-profile trigger
+- `seed.sql` — 2,140 joyo kanji reference data
+- `functions/generate-story/` — Edge Function (Deno): builds kanji allow-list, calls OpenRouter, validates output, retries up to 3x, computes difficulty, saves story
+
+## Data Model
+
+- `kanji` — Reference data (read-only). character PK, grade (1-6, 8=secondary), jlpt (5=easiest, 1=hardest), meanings, readings
+- `user_kanji` — Per-user known state. Composite PK (user_id, character). Missing row = unknown.
+- `stories` — Per-user stories. JSONB columns for filters and difficulty. RLS-scoped.
+- `profiles` — Auto-created on signup. Stores openrouter_api_key and preferred_model.
 
 ## Key Details
 
-- Kanji grades use the kanjiapi.dev convention: 1-6 for elementary school, 8 for secondary (no grade 7)
+- Kanji grades use kanjiapi.dev convention: 1-6 for elementary, 8 for secondary (no grade 7)
 - JLPT levels: 5 = easiest, 1 = hardest. ~176 kanji have no JLPT classification
-- Server listens on 0.0.0.0 for local network access
-- Ollama URL configurable via `OLLAMA_URL` env var (default: `http://localhost:11434`)
-- Model configurable via `OLLAMA_MODEL` env var (default: `gemma4:27b`)
+- `get_user_kanji` RPC returns all kanji with `COALESCE(uk.known, false)` — avoids pre-populating 2,140 rows per user
+- Edge Function reads OpenRouter API key from profiles table using service role (bypasses RLS)
+- OpenRouter API is OpenAI-compatible (chat completions endpoint)
+- Client env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`

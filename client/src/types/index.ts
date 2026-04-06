@@ -2,7 +2,7 @@ export interface Kanji {
   character: string;
   grade: number;
   jlpt: number | null;
-  known: number; // SQLite boolean: 0 or 1
+  known: boolean;
   meanings: string;
   readings_on: string;
   readings_kun: string;
@@ -24,6 +24,7 @@ export interface DifficultyEstimate {
 
 export interface Story {
   id: number;
+  user_id?: string;
   title: string;
   content: string;
   paragraphs: number;
@@ -45,4 +46,12 @@ export interface GenerateRequest {
 export interface KanjiStats {
   total: number;
   known: number;
+}
+
+export interface Profile {
+  user_id: string;
+  display_name: string | null;
+  openrouter_api_key: string | null;
+  preferred_model: string;
+  created_at: string;
 }

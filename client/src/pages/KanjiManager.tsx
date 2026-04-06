@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import {
   getKanji,
   getKanjiStats,
@@ -15,6 +16,7 @@ const GRADE_LABELS: Record<number, string> = {
 };
 
 export default function KanjiManager() {
+  const { user } = useAuth();
   const [kanji, setKanji] = useState<Kanji[]>([]);
   const [stats, setStats] = useState<KanjiStats>({ total: 0, known: 0 });
   const [search, setSearch] = useState("");
@@ -22,19 +24,21 @@ export default function KanjiManager() {
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const userId = user!.id;
+
   const fetchKanji = useCallback(async () => {
-    const params: Record<string, string> = {};
-    if (search) params.search = search;
-    if (jlptFilter.length > 0) params.jlpt = jlptFilter.join(",");
-    if (gradeFilter.length > 0) params.grade = gradeFilter.join(",");
-    const data = await getKanji(params);
+    const data = await getKanji(userId, {
+      search: search || undefined,
+      jlpt: jlptFilter.length > 0 ? jlptFilter : undefined,
+      grade: gradeFilter.length > 0 ? gradeFilter : undefined,
+    });
     setKanji(data);
-  }, [search, jlptFilter, gradeFilter]);
+  }, [userId, search, jlptFilter, gradeFilter]);
 
   const fetchStats = useCallback(async () => {
-    const s = await getKanjiStats();
+    const s = await getKanjiStats(userId);
     setStats(s);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     setLoading(true);
@@ -42,24 +46,25 @@ export default function KanjiManager() {
   }, [fetchKanji, fetchStats]);
 
   const handleToggle = async (character: string) => {
-    const updated = await toggleKanji(character);
+    const current = kanji.find((k) => k.character === character);
+    if (!current) return;
+    const newKnown = await toggleKanji(userId, character, current.known);
     setKanji((prev) =>
-      prev.map((k) => (k.character === character ? updated : k))
+      prev.map((k) =>
+        k.character === character ? { ...k, known: newKnown } : k
+      )
     );
-    setStats((prev) => {
-      const wasKnown = kanji.find((k) => k.character === character)?.known;
-      return {
-        ...prev,
-        known: wasKnown ? prev.known - 1 : prev.known + 1,
-      };
-    });
+    setStats((prev) => ({
+      ...prev,
+      known: newKnown ? prev.known + 1 : prev.known - 1,
+    }));
   };
 
   const handleBulk = async (action: "markKnown" | "markUnknown") => {
     const filter: { grades?: number[]; jlptLevels?: number[] } = {};
     if (gradeFilter.length > 0) filter.grades = gradeFilter;
     if (jlptFilter.length > 0) filter.jlptLevels = jlptFilter;
-    await bulkUpdateKanji(action, filter);
+    await bulkUpdateKanji(userId, action, filter);
     await Promise.all([fetchKanji(), fetchStats()]);
   };
 

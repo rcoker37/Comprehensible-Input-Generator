@@ -1,5 +1,4 @@
 node_modules/
 dist/
-data/kanji.db
-*.db-wal
-*.db-shm
+.env.local
+client/.env.local

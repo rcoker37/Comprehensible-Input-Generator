@@ -49,6 +49,13 @@ body {
 .nav-links {
   display: flex;
   gap: 1rem;
+  flex: 1;
+}
+
+.nav-user {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .nav-links a {

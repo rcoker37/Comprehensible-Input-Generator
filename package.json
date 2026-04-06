@@ -1,12 +1,10 @@
 {
   "name": "comprehensible-input-generator",
   "private": true,
-  "workspaces": ["client", "server"],
+  "workspaces": ["client"],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
-    "seed": "npm run seed --workspace=server"
-  },
-  "devDependencies": {
-    "concurrently": "^9.0.0"
+    "dev": "npm run dev --workspace=client",
+    "build": "npm run build --workspace=client",
+    "generate-seed": "npx tsx scripts/generate-seed-sql.ts"
   }
 }

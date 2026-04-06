@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
 import { generateStory, getKanjiCount } from "../api/client";
 import type { Formality, Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
@@ -11,6 +12,7 @@ const GRADE_LABELS: Record<number, string> = {
 };
 
 export default function Generator() {
+  const { user, profile } = useAuth();
   const [paragraphs, setParagraphs] = useState(5);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
@@ -22,19 +24,25 @@ export default function Generator() {
   const [error, setError] = useState<string | null>(null);
   const [story, setStory] = useState<Story | null>(null);
 
+  const userId = user!.id;
+
   useEffect(() => {
-    const params: Record<string, string> = {};
-    if (knownOnly) params.knownOnly = "true";
-    if (jlptLevels.length > 0) params.jlpt = jlptLevels.join(",");
-    if (grades.length > 0) params.grade = grades.join(",");
-    getKanjiCount(params).then((r) => setKanjiCount(r.count));
-  }, [knownOnly, jlptLevels, grades]);
+    getKanjiCount(userId, {
+      knownOnly,
+      jlpt: jlptLevels.length > 0 ? jlptLevels : undefined,
+      grade: grades.length > 0 ? grades : undefined,
+    }).then(setKanjiCount);
+  }, [userId, knownOnly, jlptLevels, grades]);
 
   const toggleChip = (value: number, list: number[], setter: (v: number[]) => void) => {
     setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
   };
 
   const handleGenerate = async () => {
+    if (!profile?.openrouter_api_key) {
+      setError("Please set your OpenRouter API key in Settings first.");
+      return;
+    }
     setLoading(true);
     setError(null);
     setStory(null);
