@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Kanji, KanjiStats, Story, GenerateRequest } from "../types";
+import type { Kanji, KanjiStats, Story, StoryFilters, Formality, GenerateRequest } from "../types";
 
 // Kanji
 
@@ -144,7 +144,49 @@ export async function bulkUpdateKanji(
 
 // Stories
 
-export async function generateStory(req: GenerateRequest): Promise<Story> {
+export async function generateStory(
+  userId: string,
+  params: {
+    paragraphs: number;
+    topic?: string;
+    formality: Formality;
+    filters: StoryFilters;
+  }
+): Promise<Story> {
+  // Build allowed kanji list client-side to avoid DB queries in the edge function
+  const allKanji = await getKanji(userId);
+  let filtered = allKanji;
+
+  if (params.filters.knownOnly) {
+    filtered = filtered.filter((k) => k.known);
+  }
+  if (params.filters.jlptLevels.length > 0) {
+    filtered = filtered.filter(
+      (k) => k.jlpt !== null && params.filters.jlptLevels.includes(k.jlpt)
+    );
+  }
+  if (params.filters.grades.length > 0) {
+    filtered = filtered.filter((k) => params.filters.grades.includes(k.grade));
+  }
+
+  if (filtered.length === 0) {
+    throw new Error(
+      "No kanji match the current filters. Adjust your filters and try again."
+    );
+  }
+
+  const allowedKanji = filtered.map((k) => k.character).join("");
+  const kanjiMeta: Record<string, { grade: number; jlpt: number | null }> = {};
+  for (const k of allKanji) {
+    kanjiMeta[k.character] = { grade: k.grade, jlpt: k.jlpt };
+  }
+
+  const req: GenerateRequest = {
+    ...params,
+    allowedKanji,
+    kanjiMeta,
+  };
+
   const { data, error } = await supabase.functions.invoke("generate-story", {
     body: req,
   });

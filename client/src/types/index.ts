@@ -41,6 +41,8 @@ export interface GenerateRequest {
   topic?: string;
   formality: Formality;
   filters: StoryFilters;
+  allowedKanji: string;
+  kanjiMeta: Record<string, { grade: number; jlpt: number | null }>;
 }
 
 export interface KanjiStats {

@@ -47,7 +47,7 @@ export default function Generator() {
     setError(null);
     setStory(null);
     try {
-      const result = await generateStory({
+      const result = await generateStory(userId, {
         paragraphs,
         topic: topic.trim() || undefined,
         formality,

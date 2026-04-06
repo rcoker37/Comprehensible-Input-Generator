@@ -19,6 +19,8 @@ interface GenerateRequest {
   topic?: string;
   formality: Formality;
   filters: StoryFilters;
+  allowedKanji: string;
+  kanjiMeta: Record<string, { grade: number; jlpt: number | null }>;
 }
 
 interface DifficultyEstimate {
@@ -27,7 +29,13 @@ interface DifficultyEstimate {
   jlpt: { min: number; avg: number };
 }
 
-// --- Prompt building (ported from server/src/services/ollama.ts) ---
+// --- Module-level Supabase admin client (reused across requests) ---
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+// --- Prompt building ---
 
 const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
   impolite:
@@ -79,7 +87,7 @@ function buildPrompt(
   return parts.join("\n");
 }
 
-// --- Validation (ported from server/src/services/validation.ts) ---
+// --- Validation ---
 
 const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/g;
 
@@ -94,6 +102,62 @@ function validate(
   const usedKanji = extractKanji(story);
   const violations = usedKanji.filter((k) => !allowedKanji.has(k));
   return { valid: violations.length === 0, violations };
+}
+
+// --- Difficulty (computed from client-provided metadata, no DB query) ---
+
+function computeDifficulty(
+  story: string,
+  kanjiMeta: Record<string, { grade: number; jlpt: number | null }>
+): DifficultyEstimate {
+  const usedKanji = extractKanji(story);
+
+  if (usedKanji.length === 0) {
+    return {
+      uniqueKanji: 0,
+      grade: { max: 0, avg: 0 },
+      jlpt: { min: 0, avg: 0 },
+    };
+  }
+
+  const rows = usedKanji
+    .map((k) => kanjiMeta[k])
+    .filter((r) => r != null);
+
+  if (rows.length === 0) {
+    return {
+      uniqueKanji: usedKanji.length,
+      grade: { max: 0, avg: 0 },
+      jlpt: { min: 0, avg: 0 },
+    };
+  }
+
+  const grades = rows.map((r) => r.grade);
+  const jlpts = rows
+    .filter((r) => r.jlpt != null)
+    .map((r) => r.jlpt!);
+
+  return {
+    uniqueKanji: usedKanji.length,
+    grade: {
+      max: grades.length > 0 ? Math.max(...grades) : 0,
+      avg:
+        grades.length > 0
+          ? Math.round(
+              (grades.reduce((a, b) => a + b, 0) / grades.length) * 10
+            ) / 10
+          : 0,
+    },
+    jlpt: {
+      min: jlpts.length > 0 ? Math.min(...jlpts) : 0,
+      avg:
+        jlpts.length > 0
+          ? Math.round(
+              (jlpts.reduce((a, b) => a + b, 0) / jlpts.length) * 10
+            ) / 10
+          : 0,
+    },
+  };
 }
 
 // --- OpenRouter API ---
@@ -138,7 +202,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth
+    // Auth — verify user via admin client (no second client needed)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -147,21 +211,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-    // Client for reading user data (service role bypasses RLS)
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
-    // Get user from JWT
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseUser = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const token = authHeader.replace("Bearer ", "");
     const {
       data: { user },
       error: userError,
-    } = await supabaseUser.auth.getUser();
+    } = await supabaseAdmin.auth.getUser(token);
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -193,16 +247,10 @@ Deno.serve(async (req) => {
 
     // Parse request
     const body: GenerateRequest = await req.json();
-    const { paragraphs, topic, formality, filters } = body;
+    const { paragraphs, topic, formality, filters, allowedKanji, kanjiMeta } =
+      body;
 
-    // Build kanji allow-list
-    const allowedKanji = await buildKanjiList(
-      supabaseAdmin,
-      user.id,
-      filters
-    );
-
-    if (allowedKanji.length === 0) {
+    if (!allowedKanji || allowedKanji.length === 0) {
       return new Response(
         JSON.stringify({
           error:
@@ -219,17 +267,16 @@ Deno.serve(async (req) => {
     const grammarLevel =
       filters.jlptLevels.length > 0 ? Math.min(...filters.jlptLevels) : 2;
 
-    const kanjiList = allowedKanji.join("");
     const basePrompt = buildPrompt(
       paragraphs,
-      kanjiList,
+      allowedKanji,
       formality,
       grammarLevel,
       topic
     );
 
     // Generate with retry
-    const allowedSet = new Set(allowedKanji);
+    const allowedSet = new Set([...allowedKanji]);
     let storyText: string | null = null;
     let bestAttempt = { text: "", violationCount: Infinity };
     const MAX_RETRIES = 3;
@@ -265,8 +312,8 @@ Deno.serve(async (req) => {
     const title = lines[0] || "無題";
     const content = lines.slice(1).join("\n\n");
 
-    // Compute difficulty
-    const difficulty = await computeDifficulty(supabaseAdmin, finalText);
+    // Compute difficulty from client-provided metadata (no DB query)
+    const difficulty = computeDifficulty(finalText, kanjiMeta);
 
     // Save story
     const { data: story, error: insertError } = await supabaseAdmin
@@ -279,7 +326,7 @@ Deno.serve(async (req) => {
         topic: topic || null,
         formality,
         filters,
-        allowed_kanji: kanjiList,
+        allowed_kanji: allowedKanji,
         difficulty,
       })
       .select()
@@ -306,98 +353,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-// --- Helpers ---
-
-async function buildKanjiList(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  filters: StoryFilters
-): Promise<string[]> {
-  // Get all kanji with user's known state
-  const { data } = await supabase.rpc("get_user_kanji", {
-    p_user_id: userId,
-  });
-
-  if (!data) return [];
-
-  let results = data as Array<{
-    character: string;
-    grade: number;
-    jlpt: number | null;
-    known: boolean;
-  }>;
-
-  if (filters.knownOnly) {
-    results = results.filter((k) => k.known);
-  }
-  if (filters.jlptLevels.length > 0) {
-    results = results.filter(
-      (k) => k.jlpt !== null && filters.jlptLevels.includes(k.jlpt)
-    );
-  }
-  if (filters.grades.length > 0) {
-    results = results.filter((k) => filters.grades.includes(k.grade));
-  }
-
-  return results.map((k) => k.character);
-}
-
-async function computeDifficulty(
-  supabase: ReturnType<typeof createClient>,
-  story: string
-): Promise<DifficultyEstimate> {
-  const usedKanji = extractKanji(story);
-
-  if (usedKanji.length === 0) {
-    return {
-      uniqueKanji: 0,
-      grade: { max: 0, avg: 0 },
-      jlpt: { min: 0, avg: 0 },
-    };
-  }
-
-  const { data: rows } = await supabase
-    .from("kanji")
-    .select("grade, jlpt")
-    .in("character", usedKanji);
-
-  if (!rows || rows.length === 0) {
-    return {
-      uniqueKanji: usedKanji.length,
-      grade: { max: 0, avg: 0 },
-      jlpt: { min: 0, avg: 0 },
-    };
-  }
-
-  const grades = rows.map((r: { grade: number }) => r.grade);
-  const jlpts = rows
-    .filter((r: { jlpt: number | null }) => r.jlpt != null)
-    .map((r: { jlpt: number }) => r.jlpt);
-
-  return {
-    uniqueKanji: usedKanji.length,
-    grade: {
-      max: grades.length > 0 ? Math.max(...grades) : 0,
-      avg:
-        grades.length > 0
-          ? Math.round(
-              (grades.reduce((a: number, b: number) => a + b, 0) /
-                grades.length) *
-                10
-            ) / 10
-          : 0,
-    },
-    jlpt: {
-      min: jlpts.length > 0 ? Math.min(...jlpts) : 0,
-      avg:
-        jlpts.length > 0
-          ? Math.round(
-              (jlpts.reduce((a: number, b: number) => a + b, 0) /
-                jlpts.length) *
-                10
-            ) / 10
-          : 0,
-    },
-  };
-}
