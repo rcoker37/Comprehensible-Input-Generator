@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Kanji, KanjiStats, Story, StoryFilters, Formality, GenerateRequest } from "../types";
+import type { Kanji, KanjiStats, Story, StoryFilters, Formality } from "../types";
 
 // Kanji
 
@@ -142,18 +142,95 @@ export async function bulkUpdateKanji(
   return characters.length;
 }
 
-// Stories
+// Stories — prompt building & generation
 
-export async function generateStory(
+const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
+  impolite:
+    "Use casual/rough speech (タメ口, ぞ/ぜ sentence endings, masculine rough style).",
+  casual: "Use plain form (だ/である, dictionary form verbs).",
+  polite: "Use polite form (です/ます).",
+  keigo:
+    "Use honorific/humble Japanese (敬語) — include 尊敬語 and 謙譲語 where natural.",
+};
+
+const GRAMMAR_GUIDANCE: Record<number, string> = {
+  5: "Use only basic grammar: て-form, ます-form, basic particles (は, が, を, に, で, へ), です/だ, simple adjectives.",
+  4: "Use up to JLPT N4 grammar: conditionals (たら/ば), passive basics, てある/ている, たい-form, ～ことができる.",
+  3: "Use up to JLPT N3 grammar: causative, passive, compound sentences, ようにする, ～ために, ～ことにする.",
+  2: "You may use advanced grammar freely.",
+  1: "You may use advanced grammar freely.",
+};
+
+function buildPrompt(
+  paragraphs: number,
+  kanjiList: string,
+  formality: Formality,
+  grammarLevel: number,
+  topic?: string
+): string {
+  const parts = [
+    "You are a Japanese language teacher writing a short story for a student learning Japanese.",
+    "",
+    `CRITICAL RULE: You MUST only use the following kanji characters: ${kanjiList}`,
+    "You may freely use hiragana and katakana. Do NOT use any kanji not in the list above.",
+    "IMPORTANT: You MUST actively use kanji from the allowed list throughout the story. Do not write entirely in hiragana — use the allowed kanji wherever they would naturally appear in Japanese text.",
+    "",
+    GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
+    "",
+    FORMALITY_INSTRUCTIONS[formality],
+  ];
+
+  if (topic) {
+    parts.push("", `The story should be about: ${topic}`);
+  }
+
+  parts.push(
+    "",
+    `Write exactly ${paragraphs} paragraphs.`,
+    "",
+    "Output ONLY the story in Japanese. Start with a short title on the first line. Do not include any English text, explanations, or translations."
+  );
+
+  return parts.join("\n");
+}
+
+const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/g;
+
+function computeDifficulty(
+  text: string,
+  kanjiMeta: Map<string, { grade: number; jlpt: number | null }>
+) {
+  const usedKanji = [...new Set(text.match(KANJI_REGEX) || [])];
+  if (usedKanji.length === 0) {
+    return { uniqueKanji: 0, grade: { max: 0, avg: 0 }, jlpt: { min: 0, avg: 0 } };
+  }
+  const rows = usedKanji.map((k) => kanjiMeta.get(k)).filter((r) => r != null);
+  const grades = rows.map((r) => r.grade);
+  const jlpts = rows.filter((r) => r.jlpt != null).map((r) => r.jlpt!);
+  return {
+    uniqueKanji: usedKanji.length,
+    grade: {
+      max: grades.length > 0 ? Math.max(...grades) : 0,
+      avg: grades.length > 0 ? Math.round((grades.reduce((a, b) => a + b, 0) / grades.length) * 10) / 10 : 0,
+    },
+    jlpt: {
+      min: jlpts.length > 0 ? Math.min(...jlpts) : 0,
+      avg: jlpts.length > 0 ? Math.round((jlpts.reduce((a, b) => a + b, 0) / jlpts.length) * 10) / 10 : 0,
+    },
+  };
+}
+
+export async function generateStoryStream(
   userId: string,
   params: {
     paragraphs: number;
     topic?: string;
     formality: Formality;
     filters: StoryFilters;
-  }
+  },
+  onToken: (text: string) => void
 ): Promise<Story> {
-  // Build allowed kanji list client-side to avoid DB queries in the edge function
+  // Build allowed kanji list client-side
   const allKanji = await getKanji(userId);
   let filtered = allKanji;
 
@@ -176,22 +253,110 @@ export async function generateStory(
   }
 
   const allowedKanji = filtered.map((k) => k.character).join("");
-  const kanjiMeta: Record<string, { grade: number; jlpt: number | null }> = {};
-  for (const k of allKanji) {
-    kanjiMeta[k.character] = { grade: k.grade, jlpt: k.jlpt };
+  const grammarLevel =
+    params.filters.jlptLevels.length > 0
+      ? Math.min(...params.filters.jlptLevels)
+      : 2;
+
+  const prompt = buildPrompt(
+    params.paragraphs,
+    allowedKanji,
+    params.formality,
+    grammarLevel,
+    params.topic
+  );
+
+  // Get auth token for the edge function
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+
+  // Call edge function with raw fetch for streaming
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/generate-story`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
+    }
+  );
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Generation failed" }));
+    throw new Error(body.error || `HTTP ${response.status}`);
   }
 
-  const req: GenerateRequest = {
-    ...params,
-    allowedKanji,
-    kanjiMeta,
-  };
+  // Read SSE stream
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let fullText = "";
+  let buffer = "";
 
-  const { data, error } = await supabase.functions.invoke("generate-story", {
-    body: req,
-  });
-  if (error) throw new Error(error.message);
-  return data as Story;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6);
+      if (data === "[DONE]") continue;
+
+      try {
+        const parsed = JSON.parse(data);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) {
+          fullText += content;
+          onToken(fullText);
+        }
+      } catch {
+        // skip malformed chunks
+      }
+    }
+  }
+
+  if (!fullText.trim()) {
+    throw new Error("No content received from the model");
+  }
+
+  // Parse title and content
+  const textLines = fullText.split("\n").filter((l) => l.trim());
+  const title = textLines[0] || "無題";
+  const content = textLines.slice(1).join("\n\n");
+
+  // Compute difficulty client-side
+  const kanjiMeta = new Map(
+    allKanji.map((k) => [k.character, { grade: k.grade, jlpt: k.jlpt }])
+  );
+  const difficulty = computeDifficulty(fullText, kanjiMeta);
+
+  // Save story directly via Supabase (RLS allows user inserts)
+  const { data: story, error: insertError } = await supabase
+    .from("stories")
+    .insert({
+      user_id: userId,
+      title,
+      content,
+      paragraphs: params.paragraphs,
+      topic: params.topic || null,
+      formality: params.formality,
+      filters: params.filters,
+      allowed_kanji: allowedKanji,
+      difficulty,
+    })
+    .select()
+    .single();
+
+  if (insertError) throw new Error(`Failed to save story: ${insertError.message}`);
+  return story as Story;
 }
 
 export async function getStories(): Promise<Story[]> {

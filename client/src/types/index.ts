@@ -36,15 +36,6 @@ export interface Story {
   violations?: string[];
 }
 
-export interface GenerateRequest {
-  paragraphs: number;
-  topic?: string;
-  formality: Formality;
-  filters: StoryFilters;
-  allowedKanji: string;
-  kanjiMeta: Record<string, { grade: number; jlpt: number | null }>;
-}
-
 export interface KanjiStats {
   total: number;
   known: number;

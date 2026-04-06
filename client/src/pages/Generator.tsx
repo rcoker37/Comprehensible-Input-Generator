@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { generateStory, getKanjiCount } from "../api/client";
+import { generateStoryStream, getKanjiCount } from "../api/client";
 import type { Formality, Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
@@ -23,6 +23,7 @@ export default function Generator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [story, setStory] = useState<Story | null>(null);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
 
   const userId = user!.id;
 
@@ -46,13 +47,19 @@ export default function Generator() {
     setLoading(true);
     setError(null);
     setStory(null);
+    setStreamingText(null);
     try {
-      const result = await generateStory(userId, {
-        paragraphs,
-        topic: topic.trim() || undefined,
-        formality,
-        filters: { knownOnly, jlptLevels, grades },
-      });
+      const result = await generateStoryStream(
+        userId,
+        {
+          paragraphs,
+          topic: topic.trim() || undefined,
+          formality,
+          filters: { knownOnly, jlptLevels, grades },
+        },
+        (text) => setStreamingText(text)
+      );
+      setStreamingText(null);
       setStory(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
@@ -158,6 +165,15 @@ export default function Generator() {
       </div>
 
       {error && <div className="error">{error}</div>}
+      {streamingText && (
+        <div className="story-display">
+          <div className="story-content">
+            {streamingText.split("\n").filter((l) => l.trim()).map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
+        </div>
+      )}
       {story && <StoryDisplay story={story} />}
     </div>
   );
