@@ -13,7 +13,7 @@ const GRADE_LABELS: Record<number, string> = {
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const [paragraphs, setParagraphs] = useState(1);
+  const [paragraphs, setParagraphs] = useState(5);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
   const [knownOnly, setKnownOnly] = useState(true);
