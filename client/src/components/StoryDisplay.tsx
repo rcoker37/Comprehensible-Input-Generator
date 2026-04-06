@@ -1,5 +1,4 @@
 import type { Story } from "../types";
-import DifficultyBadge from "./DifficultyBadge";
 import "./StoryDisplay.css";
 
 interface Props {
@@ -12,8 +11,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
     <div className="story-display">
       <h2 className="story-title">{story.title}</h2>
       <div className="story-meta">
-        <DifficultyBadge difficulty={story.difficulty} />
-        <span className="formality-tag">{story.formality}</span>
+<span className="formality-tag">{story.formality}</span>
         {story.topic && <span className="topic-tag">{story.topic}</span>}
       </div>
       <div className="story-content">

@@ -13,7 +13,7 @@ const GRADE_LABELS: Record<number, string> = {
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const [paragraphs, setParagraphs] = useState(5);
+  const [paragraphs, setParagraphs] = useState(1);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
   const [knownOnly, setKnownOnly] = useState(true);
@@ -76,16 +76,17 @@ export default function Generator() {
         <div className="form-row">
           <label>
             Paragraphs
-            <input
-              type="number"
-              min={1}
-              max={10}
+            <select
               value={paragraphs}
               onChange={(e) => setParagraphs(Number(e.target.value))}
-            />
+            >
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>{n}</option>
+              ))}
+            </select>
           </label>
           <label>
-            Topic <span className="optional">(optional)</span>
+            <span>Topic <span className="optional">(optional)</span></span>
             <input
               type="text"
               placeholder="e.g., cooking, school life, travel..."

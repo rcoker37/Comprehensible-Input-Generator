@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getStories, deleteStory } from "../api/client";
 import type { Story } from "../types";
-import DifficultyBadge from "../components/DifficultyBadge";
 import "./Stories.css";
 
 export default function Stories() {
@@ -40,12 +39,11 @@ export default function Stories() {
                   onClick={() => handleDelete(story.id)}
                   title="Delete story"
                 >
-                  &times;
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
                 </button>
               </div>
               <div className="story-card-meta">
-                <DifficultyBadge difficulty={story.difficulty} />
-                <span className="formality-tag">{story.formality}</span>
+<span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
                 <span className="date">
                   {new Date(story.created_at).toLocaleDateString()}
