@@ -52,7 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Use refreshSession instead of getSession to ensure a fresh token
+    // after deploys (getSession returns the cached/possibly-expired token)
+    supabase.auth.refreshSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
