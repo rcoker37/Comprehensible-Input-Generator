@@ -25,6 +25,7 @@ export default function KanjiManager() {
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
   const [knownFilter, setKnownFilter] = useState<"all" | "known" | "unknown">("all");
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<Set<string>>(new Set());
 
   const userId = user!.id;
   const { refreshKnownKanji } = useKnownKanji();
@@ -50,18 +51,27 @@ export default function KanjiManager() {
 
   const handleToggle = async (character: string) => {
     const current = kanji.find((k) => k.character === character);
-    if (!current) return;
-    const newKnown = await toggleKanji(userId, character, current.known);
-    setKanji((prev) =>
-      prev.map((k) =>
-        k.character === character ? { ...k, known: newKnown } : k
-      )
-    );
-    setStats((prev) => ({
-      ...prev,
-      known: newKnown ? prev.known + 1 : prev.known - 1,
-    }));
-    refreshKnownKanji();
+    if (!current || toggling.has(character)) return;
+    setToggling((prev) => new Set(prev).add(character));
+    try {
+      const newKnown = await toggleKanji(userId, character, current.known);
+      setKanji((prev) =>
+        prev.map((k) =>
+          k.character === character ? { ...k, known: newKnown } : k
+        )
+      );
+      setStats((prev) => ({
+        ...prev,
+        known: newKnown ? prev.known + 1 : prev.known - 1,
+      }));
+      refreshKnownKanji();
+    } finally {
+      setToggling((prev) => {
+        const next = new Set(prev);
+        next.delete(character);
+        return next;
+      });
+    }
   };
 
   const handleBulk = async (action: "markKnown" | "markUnknown") => {
@@ -158,7 +168,7 @@ export default function KanjiManager() {
           {kanji.filter((k) => knownFilter === "all" || (knownFilter === "known" ? k.known : !k.known)).map((k) => (
             <button
               key={k.character}
-              className={`kanji-cell ${k.known ? "known" : ""}`}
+              className={`kanji-cell ${k.known ? "known" : ""}${toggling.has(k.character) ? " toggling" : ""}`}
               onClick={() => handleToggle(k.character)}
               title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}`}
             >

@@ -82,6 +82,11 @@
   transform: translateY(-1px);
 }
 
+.kanji-cell.toggling {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .kanji-cell.known {
   border-color: var(--success);
   background: var(--success-soft);
