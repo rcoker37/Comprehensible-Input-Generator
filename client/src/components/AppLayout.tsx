@@ -42,7 +42,7 @@ export default function AppLayout() {
                 ${usage.used.toFixed(3)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
               </span>
             )}
-            {user.email}
+            <span>{user.email}</span>
           </span>
         )}
       </nav>

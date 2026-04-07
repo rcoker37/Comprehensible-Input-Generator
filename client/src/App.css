@@ -38,6 +38,9 @@ body {
   padding: 1rem 2rem;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .nav-brand {
@@ -57,13 +60,13 @@ body {
   align-items: center;
   gap: 0.75rem;
   font-size: 0.8rem;
+  line-height: 1;
   color: var(--text-dim);
   white-space: nowrap;
 }
 
 .nav-usage {
   color: var(--accent);
-  font-size: 0.75rem;
 }
 
 .nav-links a {

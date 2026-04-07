@@ -138,6 +138,13 @@ export default function KanjiManager() {
           <button onClick={() => handleBulk("markKnown")}>
             Mark filtered as known
           </button>
+          <button onClick={() => {
+            if (window.confirm("Are you sure you want to mark all filtered kanji as unknown?")) {
+              handleBulk("markUnknown");
+            }
+          }}>
+            Mark filtered as unknown
+          </button>
         </div>
       </div>
 
