@@ -15,17 +15,19 @@ export default function StoryDisplay({ story, showLink }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
   const [paragraphs, setParagraphs] = useState<FuriganaSegment[][] | null>(null);
 
+  const content = useMemo(() => story.content.replace(/\*\*/g, ""), [story.content]);
+
   // Compute the set of unknown kanji in this story
   const unknownKanji = useMemo(() => {
     if (!knownKanjiLoaded) return new Set<string>();
     const unknown = new Set<string>();
-    for (const ch of story.content) {
+    for (const ch of content) {
       if (KANJI_REGEX.test(ch) && !knownKanji.has(ch)) {
         unknown.add(ch);
       }
     }
     return unknown;
-  }, [story.content, knownKanji, knownKanjiLoaded]);
+  }, [content, knownKanji, knownKanjiLoaded]);
 
   useEffect(() => {
     if (unknownKanji.size === 0) {
@@ -34,18 +36,18 @@ export default function StoryDisplay({ story, showLink }: Props) {
     }
 
     let cancelled = false;
-    const parts = story.content.split("\n\n");
+    const parts = content.split("\n\n");
     Promise.all(parts.map((p) => getFurigana(p, unknownKanji))).then(
       (results) => {
         if (!cancelled) setParagraphs(results);
       }
     );
     return () => { cancelled = true; };
-  }, [story.content, unknownKanji]);
+  }, [content, unknownKanji]);
 
   return (
     <div className="story-display">
-      <h2 className="story-title">{story.title}</h2>
+      <h2 className="story-title">{story.title.replace(/\*\*/g, "")}</h2>
       <div className="story-meta">
         <span className="formality-tag">{story.formality}</span>
         {story.topic && <span className="topic-tag">{story.topic}</span>}
@@ -66,7 +68,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
                 )}
               </p>
             ))
-          : story.content.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}
+          : content.split("\n\n").map((p, i) => <p key={i}>{p}</p>)}
       </div>
       {unknownKanji.size > 0 && (
         <div className="violations">

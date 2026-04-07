@@ -164,8 +164,8 @@ const GRAMMAR_GUIDANCE: Record<number, string> = {
   5: "Use only basic grammar: て-form, ます-form, basic particles (は, が, を, に, で, へ), です/だ, simple adjectives.",
   4: "Use up to JLPT N4 grammar: conditionals (たら/ば), passive basics, てある/ている, たい-form, ～ことができる.",
   3: "Use up to JLPT N3 grammar: causative, passive, compound sentences, ようにする, ～ために, ～ことにする.",
-  2: "You may use advanced grammar freely.",
-  1: "You may use advanced grammar freely.",
+  2: "Use up to JLPT N2 grammar: ～わけではない, ～に対して, ～ことから, ～一方で, ～とは限らない, formal conjunctions (したがって, それにもかかわらず).",
+  1: "You may use any grammar freely, including literary and classical forms.",
 };
 
 function buildPrompt(
@@ -233,6 +233,8 @@ export async function generateStoryStream(
     paragraphs: number;
     topic?: string;
     formality: Formality;
+    grammarLevel: number;
+    model: string;
   },
   onProgress: (progress: GenerationProgress) => void
 ): Promise<Story> {
@@ -253,7 +255,7 @@ export async function generateStoryStream(
     params.paragraphs,
     allowedKanji,
     params.formality,
-    2,
+    params.grammarLevel,
     params.topic
   );
 
@@ -272,7 +274,7 @@ export async function generateStoryStream(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt, model: "deepseek/deepseek-r1-0528" }),
+      body: JSON.stringify({ prompt, model: params.model }),
     });
 
   if (!response.ok) {
@@ -323,8 +325,9 @@ export async function generateStoryStream(
     throw new Error("No content received from the model");
   }
 
-  // Parse title and content
-  const textLines = fullText.split("\n").filter((l) => l.trim());
+  // Parse title and content, strip markdown bold markers the model sometimes adds
+  const clean = fullText.replace(/\*\*/g, "");
+  const textLines = clean.split("\n").filter((l) => l.trim());
   const title = textLines[0] || "無題";
   const content = textLines.slice(1).join("\n\n");
 

@@ -32,7 +32,7 @@ export default function Stories() {
             <div key={story.id} className="story-card">
               <div className="story-card-header">
                 <Link to={`/stories/${story.id}`} className="story-card-title">
-                  {story.title}
+                  {story.title.replace(/\*\*/g, "")}
                 </Link>
                 <button
                   className="delete-btn"

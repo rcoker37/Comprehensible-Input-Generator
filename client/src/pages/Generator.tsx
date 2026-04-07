@@ -22,6 +22,8 @@ export default function Generator() {
   const [paragraphs, setParagraphs] = useState(5);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
+  const [grammarLevel, setGrammarLevel] = useState(2);
+  const [thinking, setThinking] = useState(false);
 
   const handleGenerate = () => {
     if (!profile?.openrouter_api_key) return;
@@ -29,6 +31,8 @@ export default function Generator() {
       paragraphs,
       topic: topic.trim() || undefined,
       formality,
+      grammarLevel,
+      model: thinking ? "deepseek/deepseek-r1-0528" : "deepseek/deepseek-v3.2",
     });
   };
 
@@ -61,6 +65,21 @@ export default function Generator() {
         </div>
 
         <div className="form-group">
+          <label>Grammar Level</label>
+          <div className="chip-group">
+            {[5, 4, 3, 2, 1].map((n) => (
+              <button
+                key={n}
+                className={`chip ${grammarLevel === n ? "active" : ""}`}
+                onClick={() => setGrammarLevel(n)}
+              >
+                N{n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-group">
           <label>Formality</label>
           <div className="chip-group">
             {(["impolite", "casual", "polite", "keigo"] as Formality[]).map((f) => (
@@ -74,6 +93,15 @@ export default function Generator() {
             ))}
           </div>
         </div>
+
+        <label className="thinking-toggle">
+          <input
+            type="checkbox"
+            checked={thinking}
+            onChange={(e) => setThinking(e.target.checked)}
+          />
+          Thinking model
+        </label>
 
         <button
           className="generate-btn"
@@ -94,7 +122,7 @@ export default function Generator() {
       {genProgress?.content && (
         <div className="story-display">
           <div className="story-content">
-            {genProgress.content.split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
+            {genProgress.content.replace(/\*\*/g, "").split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
               <p key={i}>{p}</p>
             ))}
           </div>

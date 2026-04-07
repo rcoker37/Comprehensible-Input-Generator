@@ -7,7 +7,7 @@ interface GenerationContextType {
   error: string | null;
   story: Story | null;
   genProgress: GenerationProgress | null;
-  generate: (userId: string, params: { paragraphs: number; topic?: string; formality: Formality }) => void;
+  generate: (userId: string, params: { paragraphs: number; topic?: string; formality: Formality; grammarLevel: number; model: string }) => void;
   clear: () => void;
 }
 
@@ -31,7 +31,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setGenProgress(null);
   }, []);
 
-  const generate = useCallback((userId: string, params: { paragraphs: number; topic?: string; formality: Formality }) => {
+  const generate = useCallback((userId: string, params: { paragraphs: number; topic?: string; formality: Formality; grammarLevel: number; model: string }) => {
     setLoading(true);
     setError(null);
     setStory(null);
