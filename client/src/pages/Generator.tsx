@@ -86,15 +86,13 @@ export default function Generator() {
               ? <>Thinking<AnimatedDots /></>
               : genProgress?.phase === "generating"
                 ? <>Generating<AnimatedDots /></>
-                : genProgress?.phase === "checking"
-                  ? <>Checking<AnimatedDots /></>
-                  : <>Waiting<AnimatedDots /></>}
+                : <>Waiting<AnimatedDots /></>}
         </button>
       </div>
 
       {error && <div className="error">{error}</div>}
       {genProgress?.content && (
-        <div className={`story-display${genProgress.phase === "checking" ? " checking-glow" : ""}`}>
+        <div className="story-display">
           <div className="story-content">
             {genProgress.content.split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
               <p key={i}>{p}</p>

@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": ["client"],
   "scripts": {
+    "postinstall": "mkdir -p client/public/dict && cp node_modules/@aiktb/kuromoji/dict/* client/public/dict/",
     "dev": "npm run dev --workspace=client",
     "build": "npm run build --workspace=client",
     "generate-seed": "npx tsx scripts/generate-seed-sql.ts"

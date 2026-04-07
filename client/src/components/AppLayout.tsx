@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
+import { KanjiProvider } from "../contexts/KanjiContext";
 
 export default function AppLayout() {
   const { user, profile } = useAuth();
@@ -47,9 +48,11 @@ export default function AppLayout() {
         )}
       </nav>
       <main className="main">
-        <GenerationProvider>
-          <Outlet />
-        </GenerationProvider>
+        <KanjiProvider>
+          <GenerationProvider>
+            <Outlet />
+          </GenerationProvider>
+        </KanjiProvider>
       </main>
     </div>
   );

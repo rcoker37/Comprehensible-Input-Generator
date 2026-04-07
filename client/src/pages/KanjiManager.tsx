@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import { useKnownKanji } from "../contexts/KanjiContext";
 import {
   getKanji,
   getKanjiStats,
@@ -26,6 +27,7 @@ export default function KanjiManager() {
   const [loading, setLoading] = useState(true);
 
   const userId = user!.id;
+  const { refreshKnownKanji } = useKnownKanji();
 
   const fetchKanji = useCallback(async () => {
     const data = await getKanji(userId, {
@@ -59,6 +61,7 @@ export default function KanjiManager() {
       ...prev,
       known: newKnown ? prev.known + 1 : prev.known - 1,
     }));
+    refreshKnownKanji();
   };
 
   const handleBulk = async (action: "markKnown" | "markUnknown") => {
@@ -66,7 +69,7 @@ export default function KanjiManager() {
     if (gradeFilter.length > 0) filter.grades = gradeFilter;
     if (jlptFilter.length > 0) filter.jlptLevels = jlptFilter;
     await bulkUpdateKanji(userId, action, filter);
-    await Promise.all([fetchKanji(), fetchStats()]);
+    await Promise.all([fetchKanji(), fetchStats(), refreshKnownKanji()]);
   };
 
   const toggleChip = (value: number, list: number[], setter: (v: number[]) => void) => {

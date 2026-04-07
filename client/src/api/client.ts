@@ -203,75 +203,6 @@ function buildPrompt(
 
 const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/g;
 
-function findViolations(text: string, allowedKanji: Set<string>): string[] {
-  const allKanji = text.match(KANJI_REGEX) || [];
-  return [...new Set(allKanji.filter((k) => !allowedKanji.has(k)))];
-}
-
-async function getViolationReadings(
-  text: string,
-  violations: string[],
-  edgeFunctionUrl: string,
-  accessToken: string
-): Promise<Record<string, string>> {
-  // Extract sentences containing violations for context
-  const violationSet = new Set(violations);
-  const sentences = text.split(/[。！？\n]/).filter((s) =>
-    [...s].some((ch) => violationSet.has(ch))
-  );
-  const contextText = sentences.join("。");
-
-  const prompt = [
-    "Given this Japanese text, provide the hiragana reading for each of the listed kanji AS USED IN THIS CONTEXT.",
-    "",
-    `Text: ${contextText}`,
-    "",
-    `Kanji to read: ${violations.join(", ")}`,
-    "",
-    "Return ONLY a JSON object mapping each kanji character to its hiragana reading in this context.",
-    'Example: {"経": "けい", "験": "けん"}',
-    "Output ONLY the JSON, nothing else.",
-  ].join("\n");
-
-  const response = await fetch(edgeFunctionUrl, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ prompt, model: "deepseek/deepseek-v3.2", stream: false }),
-  });
-
-  if (!response.ok) return {};
-
-  const body = await response.json();
-  const content = body.choices?.[0]?.message?.content || "";
-
-  try {
-    // Extract JSON from response (model might wrap in ```json blocks)
-    const jsonMatch = content.match(/\{[^}]+\}/);
-    if (!jsonMatch) return {};
-    return JSON.parse(jsonMatch[0]);
-  } catch {
-    return {};
-  }
-}
-
-export function annotateWithRuby(
-  text: string,
-  readings: Record<string, string>
-): string {
-  let result = "";
-  for (const ch of text) {
-    if (readings[ch]) {
-      result += `<ruby>${ch}<rt>${readings[ch]}</rt></ruby>`;
-    } else {
-      result += ch;
-    }
-  }
-  return result;
-}
-
 function computeDifficulty(
   text: string,
   kanjiMeta: Map<string, { grade: number; jlpt: number | null }>
@@ -392,25 +323,10 @@ export async function generateStoryStream(
     throw new Error("No content received from the model");
   }
 
-  onProgress({ phase: "checking", reasoning: fullReasoning, content: fullText });
-
   // Parse title and content
   const textLines = fullText.split("\n").filter((l) => l.trim());
   const title = textLines[0] || "無題";
   const content = textLines.slice(1).join("\n\n");
-
-  // Detect kanji violations
-  const violations = findViolations(fullText, allowedSet);
-  let violationReadings: Record<string, string> = {};
-
-  if (violations.length > 0) {
-    violationReadings = await getViolationReadings(
-      fullText,
-      violations,
-      edgeFunctionUrl,
-      accessToken
-    );
-  }
 
   // Compute difficulty client-side
   const kanjiMeta = new Map(
@@ -431,8 +347,6 @@ export async function generateStoryStream(
       filters: { knownOnly: true, jlptLevels: [], grades: [] },
       allowed_kanji: allowedKanji,
       difficulty,
-      violations,
-      violation_readings: violationReadings,
     })
     .select()
     .single();

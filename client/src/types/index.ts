@@ -33,11 +33,9 @@ export interface Story {
   filters: StoryFilters;
   difficulty: DifficultyEstimate;
   created_at: string;
-  violations?: string[];
-  violation_readings?: Record<string, string>;
 }
 
-export type GenerationPhase = "thinking" | "generating" | "checking";
+export type GenerationPhase = "thinking" | "generating";
 
 export interface GenerationProgress {
   phase: GenerationPhase;
