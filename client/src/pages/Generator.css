@@ -82,26 +82,18 @@ label:has(input[type="checkbox"]) {
   cursor: not-allowed;
 }
 
-.thinking-section {
-  margin-bottom: 1rem;
-  font-size: 0.85rem;
-  color: var(--text-dim);
+.checking-glow {
+  animation: glow-pulse 2s ease-in-out infinite;
+  opacity: 0.5;
 }
 
-.thinking-section summary {
-  cursor: pointer;
-  font-weight: 600;
-  user-select: none;
-}
-
-.thinking-content {
-  margin-top: 0.5rem;
-  max-height: 200px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  padding: 0.75rem;
-  background: var(--bg);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  line-height: 1.5;
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.3), 0 0 20px rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.5), 0 0 40px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.7);
+  }
 }

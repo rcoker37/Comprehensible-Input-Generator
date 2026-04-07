@@ -1,48 +1,35 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { generateStoryStream } from "../api/client";
-import type { Formality, Story, GenerationProgress } from "../types";
+import { useGeneration } from "../contexts/GenerationContext";
+import type { Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
 
+function AnimatedDots() {
+  const [count, setCount] = useState(1);
+  useEffect(() => {
+    const id = setInterval(() => setCount((c) => (c % 3) + 1), 400);
+    return () => clearInterval(id);
+  }, []);
+  return <span className="animated-dots">
+    {".".repeat(count)}<span style={{ visibility: "hidden" }}>{".".repeat(3 - count)}</span>
+  </span>;
+}
+
 export default function Generator() {
   const { user, profile } = useAuth();
+  const { loading, error, story, genProgress, generate } = useGeneration();
   const [paragraphs, setParagraphs] = useState(5);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [story, setStory] = useState<Story | null>(null);
-  const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
 
-  const userId = user!.id;
-
-  const handleGenerate = async () => {
-    if (!profile?.openrouter_api_key) {
-      setError("Please set your OpenRouter API key in Settings first.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setStory(null);
-    setGenProgress(null);
-    try {
-      const result = await generateStoryStream(
-        userId,
-        {
-          paragraphs,
-          topic: topic.trim() || undefined,
-          formality,
-        },
-        (progress) => setGenProgress(progress)
-      );
-      setGenProgress(null);
-      setStory(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Generation failed");
-    } finally {
-      setLoading(false);
-    }
+  const handleGenerate = () => {
+    if (!profile?.openrouter_api_key) return;
+    generate(user!.id, {
+      paragraphs,
+      topic: topic.trim() || undefined,
+      formality,
+    });
   };
 
   return (
@@ -96,29 +83,23 @@ export default function Generator() {
           {!loading
             ? "Generate Story"
             : genProgress?.phase === "thinking"
-              ? "Thinking..."
-              : genProgress?.phase === "checking"
-                ? "Checking..."
-                : "Generating..."}
+              ? <>Thinking<AnimatedDots /></>
+              : genProgress?.phase === "generating"
+                ? <>Generating<AnimatedDots /></>
+                : genProgress?.phase === "checking"
+                  ? <>Checking<AnimatedDots /></>
+                  : <>Waiting<AnimatedDots /></>}
         </button>
       </div>
 
       {error && <div className="error">{error}</div>}
-      {genProgress && (
-        <div className="story-display">
-          {genProgress.reasoning && (
-            <details className="thinking-section">
-              <summary>Thinking{genProgress.phase === "thinking" ? "..." : ""}</summary>
-              <div className="thinking-content">{genProgress.reasoning}</div>
-            </details>
-          )}
-          {genProgress.content && (
-            <div className="story-content">
-              {genProgress.content.split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
-                <p key={i}>{p}</p>
-              ))}
-            </div>
-          )}
+      {genProgress?.content && (
+        <div className={`story-display${genProgress.phase === "checking" ? " checking-glow" : ""}`}>
+          <div className="story-content">
+            {genProgress.content.split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
         </div>
       )}
       {story && <StoryDisplay story={story} />}

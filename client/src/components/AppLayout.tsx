@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { GenerationProvider } from "../contexts/GenerationContext";
 
 export default function AppLayout() {
   const { user, profile } = useAuth();
@@ -46,7 +47,9 @@ export default function AppLayout() {
         )}
       </nav>
       <main className="main">
-        <Outlet />
+        <GenerationProvider>
+          <Outlet />
+        </GenerationProvider>
       </main>
     </div>
   );
