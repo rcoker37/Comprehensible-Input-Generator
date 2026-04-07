@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     // Get profile (API key + model)
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("openrouter_api_key, preferred_model")
+      .select("openrouter_api_key")
       .eq("user_id", user.id)
       .single();
 
@@ -58,13 +58,12 @@ Deno.serve(async (req) => {
     }
 
     const apiKey = profile.openrouter_api_key;
-    const model = profile.preferred_model || "deepseek/deepseek-r1";
 
-    // Parse request — client sends the prompt directly
-    const { prompt, stream = true } = await req.json();
+    // Parse request — client sends the prompt and model directly
+    const { prompt, model, stream = true } = await req.json();
 
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "Missing prompt" }), {
+    if (!prompt || !model) {
+      return new Response(JSON.stringify({ error: "Missing prompt or model" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

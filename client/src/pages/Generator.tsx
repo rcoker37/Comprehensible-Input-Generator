@@ -1,43 +1,21 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { generateStoryStream, getKanjiCount } from "../api/client";
+import { generateStoryStream } from "../api/client";
 import type { Formality, Story, GenerationProgress } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
-
-const JLPT_LEVELS = [5, 4, 3, 2, 1];
-const GRADES = [1, 2, 3, 4, 5, 6, 8];
-const GRADE_LABELS: Record<number, string> = {
-  1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 8: "S",
-};
 
 export default function Generator() {
   const { user, profile } = useAuth();
   const [paragraphs, setParagraphs] = useState(5);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
-  const [knownOnly, setKnownOnly] = useState(true);
-  const [jlptLevels, setJlptLevels] = useState<number[]>([]);
-  const [grades, setGrades] = useState<number[]>([]);
-  const [kanjiCount, setKanjiCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [story, setStory] = useState<Story | null>(null);
   const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
 
   const userId = user!.id;
-
-  useEffect(() => {
-    getKanjiCount(userId, {
-      knownOnly,
-      jlpt: jlptLevels.length > 0 ? jlptLevels : undefined,
-      grade: grades.length > 0 ? grades : undefined,
-    }).then(setKanjiCount);
-  }, [userId, knownOnly, jlptLevels, grades]);
-
-  const toggleChip = (value: number, list: number[], setter: (v: number[]) => void) => {
-    setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
-  };
 
   const handleGenerate = async () => {
     if (!profile?.openrouter_api_key) {
@@ -55,7 +33,6 @@ export default function Generator() {
           paragraphs,
           topic: topic.trim() || undefined,
           formality,
-          filters: { knownOnly, jlptLevels, grades },
         },
         (progress) => setGenProgress(progress)
       );
@@ -109,51 +86,6 @@ export default function Generator() {
               </button>
             ))}
           </div>
-        </div>
-
-        <div className="form-group">
-          <label>
-            <input
-              type="checkbox"
-              checked={knownOnly}
-              onChange={(e) => setKnownOnly(e.target.checked)}
-            />
-            Only known kanji
-          </label>
-        </div>
-
-        <div className="form-group">
-          <label>JLPT Level</label>
-          <div className="chip-group">
-            {JLPT_LEVELS.map((n) => (
-              <button
-                key={n}
-                className={`chip ${jlptLevels.includes(n) ? "active" : ""}`}
-                onClick={() => toggleChip(n, jlptLevels, setJlptLevels)}
-              >
-                N{n}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label>Grade</label>
-          <div className="chip-group">
-            {GRADES.map((g) => (
-              <button
-                key={g}
-                className={`chip ${grades.includes(g) ? "active" : ""}`}
-                onClick={() => toggleChip(g, grades, setGrades)}
-              >
-                {GRADE_LABELS[g]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="kanji-count">
-          {kanjiCount !== null && `${kanjiCount} kanji match this filter`}
         </div>
 
         <button

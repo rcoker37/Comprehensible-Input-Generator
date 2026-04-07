@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import type { Kanji, KanjiStats, Story, StoryFilters, Formality, GenerationProgress } from "../types";
+import type { Kanji, KanjiStats, Story, Formality, GenerationProgress } from "../types";
 
 // Kanji
 
@@ -171,7 +171,6 @@ const GRAMMAR_GUIDANCE: Record<number, string> = {
 function buildPrompt(
   paragraphs: number,
   kanjiList: string,
-  disallowedKanji: string | null,
   formality: Formality,
   grammarLevel: number,
   topic?: string
@@ -182,20 +181,11 @@ function buildPrompt(
     `CRITICAL RULE: You MUST only use the following kanji characters: ${kanjiList}`,
     "You may freely use hiragana and katakana. Do NOT use any kanji not in the list above.",
     "IMPORTANT: You MUST actively use kanji from the allowed list throughout the story. Do not write entirely in hiragana — use the allowed kanji wherever they would naturally appear in Japanese text.",
-  ];
-
-  if (disallowedKanji) {
-    parts.push(
-      `Specifically do NOT use any of these kanji: ${disallowedKanji}`
-    );
-  }
-
-  parts.push(
     "",
     GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
     "",
-    FORMALITY_INSTRUCTIONS[formality]
-  );
+    FORMALITY_INSTRUCTIONS[formality],
+  ];
 
   if (topic) {
     parts.push("", `The story should be about: ${topic}`);
@@ -249,7 +239,7 @@ async function getViolationReadings(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ prompt, stream: false }),
+    body: JSON.stringify({ prompt, model: "deepseek/deepseek-v3.2", stream: false }),
   });
 
   if (!response.ok) return {};
@@ -312,54 +302,27 @@ export async function generateStoryStream(
     paragraphs: number;
     topic?: string;
     formality: Formality;
-    filters: StoryFilters;
   },
   onProgress: (progress: GenerationProgress) => void
 ): Promise<Story> {
-  // Build allowed kanji list client-side
+  // Build allowed kanji list from known kanji
   const allKanji = await getKanji(userId);
-  let filtered = allKanji;
-
-  if (params.filters.knownOnly) {
-    filtered = filtered.filter((k) => k.known);
-  }
-  if (params.filters.jlptLevels.length > 0) {
-    filtered = filtered.filter(
-      (k) => k.jlpt !== null && params.filters.jlptLevels.includes(Number(k.jlpt))
-    );
-  }
-  if (params.filters.grades.length > 0) {
-    filtered = filtered.filter((k) => params.filters.grades.includes(Number(k.grade)));
-  }
+  const filtered = allKanji.filter((k) => k.known);
 
   if (filtered.length === 0) {
     throw new Error(
-      "No kanji match the current filters. Adjust your filters and try again."
+      "You haven't marked any kanji as known yet. Go to Kanji Manager to mark some kanji."
     );
   }
 
   const allowedSet = new Set(filtered.map((k) => k.character));
   const allowedKanji = [...allowedSet].join("");
 
-  // Use negative list when it's shorter (easier for the LLM to follow)
-  const allCharacters = allKanji.map((k) => k.character);
-  const disallowed = allCharacters.filter((ch) => !allowedSet.has(ch));
-  const disallowedKanji =
-    disallowed.length > 0 && disallowed.length < allowedSet.size
-      ? disallowed.join("")
-      : null;
-
-  const grammarLevel =
-    params.filters.jlptLevels.length > 0
-      ? Math.min(...params.filters.jlptLevels)
-      : 2;
-
   const prompt = buildPrompt(
     params.paragraphs,
     allowedKanji,
-    disallowedKanji,
     params.formality,
-    grammarLevel,
+    2,
     params.topic
   );
 
@@ -378,7 +341,7 @@ export async function generateStoryStream(
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, model: "deepseek/deepseek-r1-0528" }),
     });
 
   if (!response.ok) {
@@ -465,7 +428,7 @@ export async function generateStoryStream(
       paragraphs: params.paragraphs,
       topic: params.topic || null,
       formality: params.formality,
-      filters: params.filters,
+      filters: { knownOnly: true, jlptLevels: [], grades: [] },
       allowed_kanji: allowedKanji,
       difficulty,
       violations,
