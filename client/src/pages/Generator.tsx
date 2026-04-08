@@ -19,7 +19,6 @@ function AnimatedDots() {
 
 const VALID_MODELS = [
   "anthropic/claude-sonnet-4.6",
-  "openai/o4-mini",
   "google/gemini-3.1-pro-preview",
 ];
 
@@ -31,7 +30,7 @@ export default function Generator() {
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
   const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
   const savedModel = profile?.preferred_model;
-  const [model, setModel] = useState(savedModel && VALID_MODELS.includes(savedModel) ? savedModel : "openai/o4-mini");
+  const [model, setModel] = useState(savedModel && VALID_MODELS.includes(savedModel) ? savedModel : "anthropic/claude-sonnet-4.6");
 
   const handleGenerate = () => {
     if (!profile?.openrouter_api_key) return;
@@ -113,8 +112,7 @@ export default function Generator() {
           <div className="chip-group">
             {([
               { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", price: "$" },
-              { id: "openai/o4-mini", label: "ChatGPT o4-mini", price: "$$" },
-              { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", price: "$$$" },
+              { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", price: "$$" },
             ] as const).map((m) => (
               <button
                 key={m.id}

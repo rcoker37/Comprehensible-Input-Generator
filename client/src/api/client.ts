@@ -178,10 +178,11 @@ function buildPrompt(
   const parts = [
     "You are a Japanese language teacher writing a short story for a student learning Japanese.",
     "",
-    `CRITICAL RULE: You MUST only use the following kanji characters: ${kanjiList}`,
-    "You may freely use hiragana and katakana. Do NOT use any kanji not in the list above, and do NOT repeat the entire list in your thinking tokens.",
-    "IMPORTANT: You MUST actively use kanji from the allowed list throughout the story. Do not write entirely in hiragana — use the allowed kanji wherever they would naturally appear in Japanese text.",
-    "If a concept requires kanji not in the allowed list, rephrase using simpler vocabulary or allowed kanji rather than writing the word in hiragana. Avoid long hiragana-only strings where kanji would normally appear.",
+    `Allowed kanji: ${kanjiList}`,
+    "Rules:",
+    "- Try to only use kanji from the list above, minimizing usage of kanji not in the list. Use hiragana and katakana freely.",
+    "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
+    "- If a word needs kanji not in the list, rephrase with simpler vocabulary rather than writing it in hiragana.",
     "",
     GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
     "",
@@ -194,7 +195,7 @@ function buildPrompt(
 
   parts.push(
     "",
-    `Write exactly ${paragraphs} paragraphs.`,
+    `Write exactly ${paragraphs} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
     "",
     "Output ONLY the story in Japanese. Start with a short title on the first line. Do not include any English text, explanations, or translations."
   );
