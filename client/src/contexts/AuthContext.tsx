@@ -13,6 +13,9 @@ export interface Profile {
   display_name: string | null;
   openrouter_api_key: string | null;
   preferred_model: string;
+  preferred_formality: string | null;
+  preferred_grammar_level: number | null;
+  preferred_paragraphs: number | null;
   created_at: string;
 }
 
