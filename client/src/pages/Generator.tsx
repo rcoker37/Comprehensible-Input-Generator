@@ -23,7 +23,7 @@ export default function Generator() {
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
   const [grammarLevel, setGrammarLevel] = useState(2);
-  const [thinking, setThinking] = useState(false);
+  const [model, setModel] = useState("openai/o4-mini");
 
   const handleGenerate = () => {
     if (!profile?.openrouter_api_key) return;
@@ -32,7 +32,7 @@ export default function Generator() {
       topic: topic.trim() || undefined,
       formality,
       grammarLevel,
-      model: thinking ? "deepseek/deepseek-r1-0528" : "deepseek/deepseek-v3.2",
+      model,
     });
   };
 
@@ -94,14 +94,24 @@ export default function Generator() {
           </div>
         </div>
 
-        <label className="thinking-toggle">
-          <input
-            type="checkbox"
-            checked={thinking}
-            onChange={(e) => setThinking(e.target.checked)}
-          />
-          Thinking model
-        </label>
+        <div className="form-group">
+          <label>Model</label>
+          <div className="chip-group">
+            {([
+              { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", price: "$" },
+              { id: "openai/o4-mini", label: "ChatGPT o4-mini", price: "$$" },
+              { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", price: "$$$" },
+            ] as const).map((m) => (
+              <button
+                key={m.id}
+                className={`chip ${model === m.id ? "active" : ""}`}
+                onClick={() => setModel(m.id)}
+              >
+                {m.label} <span className="chip-price">{m.price}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         <button
           className="generate-btn"

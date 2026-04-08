@@ -181,6 +181,7 @@ function buildPrompt(
     `CRITICAL RULE: You MUST only use the following kanji characters: ${kanjiList}`,
     "You may freely use hiragana and katakana. Do NOT use any kanji not in the list above, and do NOT repeat the entire list in your thinking tokens.",
     "IMPORTANT: You MUST actively use kanji from the allowed list throughout the story. Do not write entirely in hiragana — use the allowed kanji wherever they would naturally appear in Japanese text.",
+    "If a concept requires kanji not in the allowed list, rephrase using simpler vocabulary or allowed kanji rather than writing the word in hiragana. Avoid long hiragana-only strings where kanji would normally appear.",
     "",
     GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
     "",
