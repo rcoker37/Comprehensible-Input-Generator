@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
+import { supabase } from "../lib/supabase";
 import type { Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
@@ -16,14 +17,21 @@ function AnimatedDots() {
   </span>;
 }
 
+const VALID_MODELS = [
+  "anthropic/claude-sonnet-4.6",
+  "openai/o4-mini",
+  "google/gemini-3.1-pro-preview",
+];
+
 export default function Generator() {
   const { user, profile } = useAuth();
   const { loading, error, story, genProgress, generate } = useGeneration();
-  const [paragraphs, setParagraphs] = useState(5);
+  const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
-  const [formality, setFormality] = useState<Formality>("polite");
-  const [grammarLevel, setGrammarLevel] = useState(2);
-  const [model, setModel] = useState("openai/o4-mini");
+  const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
+  const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
+  const savedModel = profile?.preferred_model;
+  const [model, setModel] = useState(savedModel && VALID_MODELS.includes(savedModel) ? savedModel : "openai/o4-mini");
 
   const handleGenerate = () => {
     if (!profile?.openrouter_api_key) return;
@@ -34,6 +42,12 @@ export default function Generator() {
       grammarLevel,
       model,
     });
+    supabase.from("profiles").update({
+      preferred_model: model,
+      preferred_formality: formality,
+      preferred_grammar_level: grammarLevel,
+      preferred_paragraphs: paragraphs,
+    }).eq("user_id", user!.id).then(() => {});
   };
 
   return (
