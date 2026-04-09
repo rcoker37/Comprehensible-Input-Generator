@@ -27,6 +27,7 @@ export default function KanjiManager() {
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
   const [knownFilter, setKnownFilter] = useState<"all" | "known" | "unknown">("all");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
 
   const userId = user!.id;
@@ -45,14 +46,21 @@ export default function KanjiManager() {
 
   useEffect(() => {
     setLoading(true);
-    fetchAll().finally(() => setLoading(false));
+    fetchAll()
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load kanji"))
+      .finally(() => setLoading(false));
   }, [fetchAll]);
 
-  const kanji = useMemo(() => filterKanji(allKanji, {
-    search: debouncedSearch || undefined,
-    jlpt: jlptFilter.length > 0 ? jlptFilter : undefined,
-    grade: gradeFilter.length > 0 ? gradeFilter : undefined,
-  }), [allKanji, debouncedSearch, jlptFilter, gradeFilter]);
+  const kanji = useMemo(() => {
+    const filtered = filterKanji(allKanji, {
+      search: debouncedSearch || undefined,
+      jlpt: jlptFilter.length > 0 ? jlptFilter : undefined,
+      grade: gradeFilter.length > 0 ? gradeFilter : undefined,
+    });
+    if (knownFilter === "known") return filtered.filter((k) => k.known);
+    if (knownFilter === "unknown") return filtered.filter((k) => !k.known);
+    return filtered;
+  }, [allKanji, debouncedSearch, jlptFilter, gradeFilter, knownFilter]);
 
   const handleToggle = async (character: string) => {
     const current = kanji.find((k) => k.character === character);
@@ -70,6 +78,8 @@ export default function KanjiManager() {
         known: newKnown ? prev.known + 1 : prev.known - 1,
       }));
       refreshKnownKanji();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to toggle kanji");
     } finally {
       setToggling((prev) => {
         const next = new Set(prev);
@@ -80,11 +90,15 @@ export default function KanjiManager() {
   };
 
   const handleBulk = async (action: "markKnown" | "markUnknown") => {
-    const filter: { grades?: number[]; jlptLevels?: number[] } = {};
-    if (gradeFilter.length > 0) filter.grades = gradeFilter;
-    if (jlptFilter.length > 0) filter.jlptLevels = jlptFilter;
-    await bulkUpdateKanji(userId, action, filter);
-    await Promise.all([fetchAll(), refreshKnownKanji()]);
+    try {
+      const filter: { grades?: number[]; jlptLevels?: number[] } = {};
+      if (gradeFilter.length > 0) filter.grades = gradeFilter;
+      if (jlptFilter.length > 0) filter.jlptLevels = jlptFilter;
+      await bulkUpdateKanji(userId, action, filter);
+      await Promise.all([fetchAll(), refreshKnownKanji()]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update kanji");
+    }
   };
 
   const toggleChip = (value: number, list: number[], setter: (v: number[]) => void) => {
@@ -94,6 +108,7 @@ export default function KanjiManager() {
   return (
     <div className="kanji-manager">
       <h1>Kanji Manager</h1>
+      {error && <div className="error">{error}</div>}
       <div className="kanji-stats">
         You know <strong>{stats.known}</strong> / {stats.total} kanji
       </div>
@@ -170,7 +185,7 @@ export default function KanjiManager() {
         <div className="loading">Loading kanji...</div>
       ) : (
         <div className="kanji-grid">
-          {kanji.filter((k) => knownFilter === "all" || (knownFilter === "known" ? k.known : !k.known)).map((k) => (
+          {kanji.map((k) => (
             <button
               key={k.character}
               className={`kanji-cell ${k.known ? "known" : ""}${toggling.has(k.character) ? " toggling" : ""}`}

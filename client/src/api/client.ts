@@ -1,4 +1,6 @@
 import { supabase } from "../lib/supabase";
+import { KANJI_REGEX_G } from "../lib/constants";
+import { stripBold } from "../lib/text";
 import type { Kanji, KanjiStats, Story, Formality, GenerationProgress } from "../types";
 
 // Kanji
@@ -33,7 +35,7 @@ export function filterKanji(
   }
   if (params.search) {
     const s = params.search.toLowerCase();
-    const kanjiInSearch = s.match(/[\u4e00-\u9faf\u3400-\u4dbf]/g);
+    const kanjiInSearch = s.match(KANJI_REGEX_G);
     if (kanjiInSearch && kanjiInSearch.length > 1) {
       const kanjiSet = new Set(kanjiInSearch);
       results = results.filter((k) => kanjiSet.has(k.character));
@@ -51,38 +53,16 @@ export function filterKanji(
 }
 
 export async function getKanjiStats(userId: string): Promise<KanjiStats> {
-  const { count: total } = await supabase
-    .from("kanji")
-    .select("*", { count: "exact", head: true });
-
-  const { count: known } = await supabase
-    .from("user_kanji")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("known", true);
+  const [{ count: total }, { count: known }] = await Promise.all([
+    supabase.from("kanji").select("*", { count: "exact", head: true }),
+    supabase
+      .from("user_kanji")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("known", true),
+  ]);
 
   return { total: total || 0, known: known || 0 };
-}
-
-export async function getKanjiCount(
-  userId: string,
-  params: { knownOnly?: boolean; jlpt?: number[]; grade?: number[] }
-): Promise<number> {
-  // Use the RPC and filter client-side for count (simpler than complex SQL)
-  const all = await getKanji(userId);
-  let filtered = all;
-
-  if (params.knownOnly) {
-    filtered = filtered.filter((k) => k.known);
-  }
-  if (params.jlpt && params.jlpt.length > 0) {
-    filtered = filtered.filter((k) => k.jlpt !== null && params.jlpt!.includes(Number(k.jlpt)));
-  }
-  if (params.grade && params.grade.length > 0) {
-    filtered = filtered.filter((k) => params.grade!.includes(Number(k.grade)));
-  }
-
-  return filtered.length;
 }
 
 export async function toggleKanji(
@@ -211,13 +191,11 @@ function buildPrompt(
   return parts.join("\n");
 }
 
-const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/g;
-
 function computeDifficulty(
   text: string,
   kanjiMeta: Map<string, { grade: number; jlpt: number | null }>
 ) {
-  const usedKanji = [...new Set(text.match(KANJI_REGEX) || [])];
+  const usedKanji = [...new Set(text.match(KANJI_REGEX_G) || [])];
   if (usedKanji.length === 0) {
     return { uniqueKanji: 0, grade: { max: 0, avg: 0 }, jlpt: { min: 0, avg: 0 } };
   }
@@ -246,7 +224,8 @@ export async function generateStoryStream(
     grammarLevel: number;
     model: string;
   },
-  onProgress: (progress: GenerationProgress) => void
+  onProgress: (progress: GenerationProgress) => void,
+  signal?: AbortSignal
 ): Promise<Story> {
   // Build allowed kanji list from known kanji
   const allKanji = await getKanji(userId);
@@ -285,6 +264,7 @@ export async function generateStoryStream(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ prompt, model: params.model }),
+      signal,
     });
 
   if (!response.ok) {
@@ -336,7 +316,7 @@ export async function generateStoryStream(
   }
 
   // Parse title and content, strip markdown bold markers the model sometimes adds
-  const clean = fullText.replace(/\*\*/g, "");
+  const clean = stripBold(fullText);
   const textLines = clean.split("\n").filter((l) => l.trim());
   const title = textLines[0] || "無題";
   const content = textLines.slice(1).join("\n\n");
@@ -391,5 +371,24 @@ export async function getStory(id: number): Promise<Story> {
 
 export async function deleteStory(id: number): Promise<void> {
   const { error } = await supabase.from("stories").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+// Profiles
+
+export async function updateProfile(
+  userId: string,
+  fields: {
+    openrouter_api_key?: string | null;
+    preferred_model?: string;
+    preferred_formality?: string;
+    preferred_grammar_level?: number;
+    preferred_paragraphs?: number;
+  }
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update(fields)
+    .eq("user_id", userId);
   if (error) throw new Error(error.message);
 }

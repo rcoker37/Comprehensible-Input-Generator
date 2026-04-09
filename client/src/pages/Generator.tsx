@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
-import { supabase } from "../lib/supabase";
+import { updateProfile } from "../api/client";
+import { stripBold } from "../lib/text";
 import type { Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
@@ -41,12 +42,12 @@ export default function Generator() {
       grammarLevel,
       model,
     });
-    supabase.from("profiles").update({
+    updateProfile(user!.id, {
       preferred_model: model,
       preferred_formality: formality,
       preferred_grammar_level: grammarLevel,
       preferred_paragraphs: paragraphs,
-    }).eq("user_id", user!.id).then(() => {});
+    }).catch(() => {});
   };
 
   return (
@@ -144,7 +145,7 @@ export default function Generator() {
       {genProgress?.content && (
         <div className="story-display">
           <div className="story-content">
-            {genProgress.content.replace(/\*\*/g, "").split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
+            {stripBold(genProgress.content).split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
               <p key={i}>{p}</p>
             ))}
           </div>

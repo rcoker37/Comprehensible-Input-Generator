@@ -1,6 +1,5 @@
 import kuromoji from "@aiktb/kuromoji";
-
-const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/;
+import { KANJI_REGEX } from "./constants";
 
 let tokenizer: kuromoji.Tokenizer<kuromoji.IpadicFeatures> | null = null;
 let loading: Promise<kuromoji.Tokenizer<kuromoji.IpadicFeatures>> | null = null;

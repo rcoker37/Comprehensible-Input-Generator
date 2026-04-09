@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { supabase } from "../lib/supabase";
+import { updateProfile } from "../api/client";
 import "./Settings.css";
 
 export default function Settings() {
@@ -18,18 +18,12 @@ export default function Settings() {
     if (!user) return;
     setSaving(true);
     setMessage(null);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        openrouter_api_key: apiKey || null,
-      })
-      .eq("user_id", user.id);
-
-    if (error) {
-      setMessage(`Error: ${error.message}`);
-    } else {
+    try {
+      await updateProfile(user.id, { openrouter_api_key: apiKey || null });
       setMessage("Settings saved!");
       await refreshProfile();
+    } catch (err) {
+      setMessage(`Error: ${err instanceof Error ? err.message : "Failed to save"}`);
     }
     setSaving(false);
   };

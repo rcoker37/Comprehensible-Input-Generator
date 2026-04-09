@@ -9,23 +9,30 @@ export default function StoryDetail() {
   const navigate = useNavigate();
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       getStory(Number(id))
         .then(setStory)
+        .catch((err) => setError(err instanceof Error ? err.message : "Failed to load story"))
         .finally(() => setLoading(false));
     }
   }, [id]);
 
   const handleDelete = async () => {
     if (id) {
-      await deleteStory(Number(id));
-      navigate("/stories");
+      try {
+        await deleteStory(Number(id));
+        navigate("/stories");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to delete story");
+      }
     }
   };
 
   if (loading) return <div className="loading">Loading...</div>;
+  if (error) return <div className="error">{error}</div>;
   if (!story) return <div className="error">Story not found</div>;
 
   return (

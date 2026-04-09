@@ -7,17 +7,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-
-export interface Profile {
-  user_id: string;
-  display_name: string | null;
-  openrouter_api_key: string | null;
-  preferred_model: string;
-  preferred_formality: string | null;
-  preferred_grammar_level: number | null;
-  preferred_paragraphs: number | null;
-  created_at: string;
-}
+import type { Profile } from "../types";
 
 interface AuthContextType {
   session: Session | null;

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { generateStoryStream } from "../api/client";
 import type { Formality, Story, GenerationProgress } from "../types";
 
@@ -24,25 +24,38 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [story, setStory] = useState<Story | null>(null);
   const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Abort any in-flight generation on unmount
+  useEffect(() => {
+    return () => { abortRef.current?.abort(); };
+  }, []);
 
   const clear = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setError(null);
     setStory(null);
     setGenProgress(null);
   }, []);
 
   const generate = useCallback((userId: string, params: { paragraphs: number; topic?: string; formality: Formality; grammarLevel: number; model: string }) => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     setError(null);
     setStory(null);
     setGenProgress(null);
 
-    generateStoryStream(userId, params, (progress) => setGenProgress(progress))
+    generateStoryStream(userId, params, (progress) => setGenProgress(progress), controller.signal)
       .then((result) => {
         setGenProgress(null);
         setStory(result);
       })
       .catch((err) => {
+        if (controller.signal.aborted) return;
         setError(err instanceof Error ? err.message : "Generation failed");
       })
       .finally(() => {
