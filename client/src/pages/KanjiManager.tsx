@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import {
   getKanji,
+  filterKanji,
   getKanjiStats,
   toggleKanji,
   bulkUpdateKanji,
@@ -18,9 +19,10 @@ const GRADE_LABELS: Record<number, string> = {
 
 export default function KanjiManager() {
   const { user } = useAuth();
-  const [kanji, setKanji] = useState<Kanji[]>([]);
+  const [allKanji, setAllKanji] = useState<Kanji[]>([]);
   const [stats, setStats] = useState<KanjiStats>({ total: 0, known: 0 });
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [jlptFilter, setJlptFilter] = useState<number[]>([]);
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
   const [knownFilter, setKnownFilter] = useState<"all" | "known" | "unknown">("all");
@@ -30,24 +32,27 @@ export default function KanjiManager() {
   const userId = user!.id;
   const { refreshKnownKanji } = useKnownKanji();
 
-  const fetchKanji = useCallback(async () => {
-    const data = await getKanji(userId, {
-      search: search || undefined,
-      jlpt: jlptFilter.length > 0 ? jlptFilter : undefined,
-      grade: gradeFilter.length > 0 ? gradeFilter : undefined,
-    });
-    setKanji(data);
-  }, [userId, search, jlptFilter, gradeFilter]);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 150);
+    return () => clearTimeout(id);
+  }, [search]);
 
-  const fetchStats = useCallback(async () => {
-    const s = await getKanjiStats(userId);
+  const fetchAll = useCallback(async () => {
+    const [data, s] = await Promise.all([getKanji(userId), getKanjiStats(userId)]);
+    setAllKanji(data);
     setStats(s);
   }, [userId]);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchKanji(), fetchStats()]).finally(() => setLoading(false));
-  }, [fetchKanji, fetchStats]);
+    fetchAll().finally(() => setLoading(false));
+  }, [fetchAll]);
+
+  const kanji = useMemo(() => filterKanji(allKanji, {
+    search: debouncedSearch || undefined,
+    jlpt: jlptFilter.length > 0 ? jlptFilter : undefined,
+    grade: gradeFilter.length > 0 ? gradeFilter : undefined,
+  }), [allKanji, debouncedSearch, jlptFilter, gradeFilter]);
 
   const handleToggle = async (character: string) => {
     const current = kanji.find((k) => k.character === character);
@@ -55,7 +60,7 @@ export default function KanjiManager() {
     setToggling((prev) => new Set(prev).add(character));
     try {
       const newKnown = await toggleKanji(userId, character, current.known);
-      setKanji((prev) =>
+      setAllKanji((prev: Kanji[]) =>
         prev.map((k) =>
           k.character === character ? { ...k, known: newKnown } : k
         )
@@ -79,7 +84,7 @@ export default function KanjiManager() {
     if (gradeFilter.length > 0) filter.grades = gradeFilter;
     if (jlptFilter.length > 0) filter.jlptLevels = jlptFilter;
     await bulkUpdateKanji(userId, action, filter);
-    await Promise.all([fetchKanji(), fetchStats(), refreshKnownKanji()]);
+    await Promise.all([fetchAll(), refreshKnownKanji()]);
   };
 
   const toggleChip = (value: number, list: number[], setter: (v: number[]) => void) => {

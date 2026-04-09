@@ -3,10 +3,7 @@ import type { Kanji, KanjiStats, Story, Formality, GenerationProgress } from "..
 
 // Kanji
 
-export async function getKanji(
-  userId: string,
-  params?: { search?: string; jlpt?: number[]; grade?: number[] }
-): Promise<Kanji[]> {
+export async function getKanji(userId: string): Promise<Kanji[]> {
   const PAGE_SIZE = 1000;
   let results: Kanji[] = [];
   let offset = 0;
@@ -20,25 +17,36 @@ export async function getKanji(
     if (page.length < PAGE_SIZE) break;
     offset += PAGE_SIZE;
   }
+  return results;
+}
 
-  // Client-side filtering (the RPC returns all kanji sorted by grade)
-  if (params?.jlpt && params.jlpt.length > 0) {
+export function filterKanji(
+  kanji: Kanji[],
+  params: { search?: string; jlpt?: number[]; grade?: number[] }
+): Kanji[] {
+  let results = kanji;
+  if (params.jlpt && params.jlpt.length > 0) {
     results = results.filter((k) => k.jlpt !== null && params.jlpt!.includes(Number(k.jlpt)));
   }
-  if (params?.grade && params.grade.length > 0) {
+  if (params.grade && params.grade.length > 0) {
     results = results.filter((k) => params.grade!.includes(Number(k.grade)));
   }
-  if (params?.search) {
+  if (params.search) {
     const s = params.search.toLowerCase();
-    results = results.filter(
-      (k) =>
-        k.character.includes(s) ||
-        k.meanings.toLowerCase().includes(s) ||
-        k.readings_on.includes(s) ||
-        k.readings_kun.includes(s)
-    );
+    const kanjiInSearch = s.match(/[\u4e00-\u9faf\u3400-\u4dbf]/g);
+    if (kanjiInSearch && kanjiInSearch.length > 1) {
+      const kanjiSet = new Set(kanjiInSearch);
+      results = results.filter((k) => kanjiSet.has(k.character));
+    } else {
+      results = results.filter(
+        (k) =>
+          k.character.includes(s) ||
+          k.meanings.toLowerCase().includes(s) ||
+          k.readings_on.includes(s) ||
+          k.readings_kun.includes(s)
+      );
+    }
   }
-
   return results;
 }
 
