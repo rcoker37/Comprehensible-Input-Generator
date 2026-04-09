@@ -372,7 +372,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, paragraphs, topic, formality, filters, difficulty, created_at"
+      "id, title, content, paragraphs, topic, formality, filters, difficulty, created_at"
     )
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);

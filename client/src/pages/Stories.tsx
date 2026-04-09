@@ -1,12 +1,22 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getStories, deleteStory } from "../api/client";
+import { useKnownKanji } from "../contexts/KanjiContext";
 import type { Story } from "../types";
 import "./Stories.css";
+
+const KANJI_REGEX = /[\u4e00-\u9faf\u3400-\u4dbf]/g;
 
 export default function Stories() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
+  const { knownKanji } = useKnownKanji();
+
+  const unknownCount = (text?: string | null) => {
+    if (!text) return 0;
+    const unique = new Set(text.match(KANJI_REGEX) || []);
+    return [...unique].filter((k) => !knownKanji.has(k)).length;
+  };
 
   useEffect(() => {
     getStories()
@@ -43,11 +53,14 @@ export default function Stories() {
                 </button>
               </div>
               <div className="story-card-meta">
-<span className="formality-tag">{story.formality}</span>
-                {story.topic && <span className="topic-tag">{story.topic}</span>}
                 <span className="date">
                   {new Date(story.created_at).toLocaleDateString()}
                 </span>
+                <span className={`unknown-tag ${unknownCount(story.content) === 0 ? "none" : ""}`}>
+                  {unknownCount(story.content)} unknown kanji
+                </span>
+                <span className="formality-tag">{story.formality}</span>
+                {story.topic && <span className="topic-tag">{story.topic}</span>}
               </div>
             </div>
           ))}
