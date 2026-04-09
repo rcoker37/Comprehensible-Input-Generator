@@ -80,12 +80,13 @@ export default function Generator() {
 
         <div className="form-group">
           <label>Grammar Level</label>
-          <div className="chip-group">
+          <div className="chip-group" role="radiogroup" aria-label="Grammar level">
             {[5, 4, 3, 2, 1].map((n) => (
               <button
                 key={n}
                 className={`chip ${grammarLevel === n ? "active" : ""}`}
                 onClick={() => setGrammarLevel(n)}
+                aria-pressed={grammarLevel === n}
               >
                 N{n}
               </button>
@@ -95,12 +96,13 @@ export default function Generator() {
 
         <div className="form-group">
           <label>Formality</label>
-          <div className="chip-group">
+          <div className="chip-group" role="radiogroup" aria-label="Formality">
             {(["impolite", "casual", "polite", "keigo"] as Formality[]).map((f) => (
               <button
                 key={f}
                 className={`chip ${formality === f ? "active" : ""}`}
                 onClick={() => setFormality(f)}
+                aria-pressed={formality === f}
               >
                 {f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
@@ -110,7 +112,7 @@ export default function Generator() {
 
         <div className="form-group">
           <label>Model</label>
-          <div className="chip-group">
+          <div className="chip-group" role="radiogroup" aria-label="Model">
             {([
               { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", price: "$" },
               { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", price: "$$" },
@@ -119,6 +121,7 @@ export default function Generator() {
                 key={m.id}
                 className={`chip ${model === m.id ? "active" : ""}`}
                 onClick={() => setModel(m.id)}
+                aria-pressed={model === m.id}
               >
                 {m.label} <span className="chip-price">{m.price}</span>
               </button>

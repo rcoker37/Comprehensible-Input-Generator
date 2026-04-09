@@ -63,22 +63,33 @@ export default function KanjiManager() {
   }, [allKanji, debouncedSearch, jlptFilter, gradeFilter, knownFilter]);
 
   const handleToggle = async (character: string) => {
-    const current = kanji.find((k) => k.character === character);
+    const current = allKanji.find((k) => k.character === character);
     if (!current || toggling.has(character)) return;
+
+    const newKnown = !current.known;
+
+    // Optimistic update
+    setAllKanji((prev) =>
+      prev.map((k) => (k.character === character ? { ...k, known: newKnown } : k))
+    );
+    setStats((prev) => ({
+      ...prev,
+      known: newKnown ? prev.known + 1 : prev.known - 1,
+    }));
+
     setToggling((prev) => new Set(prev).add(character));
     try {
-      const newKnown = await toggleKanji(userId, character, current.known);
-      setAllKanji((prev: Kanji[]) =>
-        prev.map((k) =>
-          k.character === character ? { ...k, known: newKnown } : k
-        )
+      await toggleKanji(userId, character, current.known);
+      refreshKnownKanji();
+    } catch (err) {
+      // Revert on failure
+      setAllKanji((prev) =>
+        prev.map((k) => (k.character === character ? { ...k, known: current.known } : k))
       );
       setStats((prev) => ({
         ...prev,
-        known: newKnown ? prev.known + 1 : prev.known - 1,
+        known: current.known ? prev.known + 1 : prev.known - 1,
       }));
-      refreshKnownKanji();
-    } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to toggle kanji");
     } finally {
       setToggling((prev) => {
@@ -124,12 +135,13 @@ export default function KanjiManager() {
 
         <div className="filter-row">
           <label>Status</label>
-          <div className="chip-group">
+          <div className="chip-group" role="radiogroup" aria-label="Known status filter">
             {(["all", "known", "unknown"] as const).map((v) => (
               <button
                 key={v}
                 className={`chip ${knownFilter === v ? "active" : ""}`}
                 onClick={() => setKnownFilter(v)}
+                aria-pressed={knownFilter === v}
               >
                 {v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
@@ -139,12 +151,13 @@ export default function KanjiManager() {
 
         <div className="filter-row">
           <label>Grade</label>
-          <div className="chip-group">
+          <div className="chip-group" role="group" aria-label="Grade filter">
             {GRADES.map((g) => (
               <button
                 key={g}
                 className={`chip ${gradeFilter.includes(g) ? "active" : ""}`}
                 onClick={() => toggleChip(g, gradeFilter, setGradeFilter)}
+                aria-pressed={gradeFilter.includes(g)}
               >
                 {GRADE_LABELS[g]}
               </button>
@@ -154,12 +167,13 @@ export default function KanjiManager() {
 
         <div className="filter-row">
           <label>JLPT</label>
-          <div className="chip-group">
+          <div className="chip-group" role="group" aria-label="JLPT filter">
             {JLPT_LEVELS.map((n) => (
               <button
                 key={n}
                 className={`chip ${jlptFilter.includes(n) ? "active" : ""}`}
                 onClick={() => toggleChip(n, jlptFilter, setJlptFilter)}
+                aria-pressed={jlptFilter.includes(n)}
               >
                 N{n}
               </button>
@@ -183,6 +197,8 @@ export default function KanjiManager() {
 
       {loading ? (
         <div className="loading">Loading kanji...</div>
+      ) : kanji.length === 0 ? (
+        <div className="empty">No kanji match your filters.</div>
       ) : (
         <div className="kanji-grid">
           {kanji.map((k) => (
@@ -190,6 +206,8 @@ export default function KanjiManager() {
               key={k.character}
               className={`kanji-cell ${k.known ? "known" : ""}${toggling.has(k.character) ? " toggling" : ""}`}
               onClick={() => handleToggle(k.character)}
+              aria-label={`${k.character}: ${k.meanings}`}
+              aria-pressed={k.known}
               title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}`}
             >
               <span className="kanji-char">{k.character}</span>

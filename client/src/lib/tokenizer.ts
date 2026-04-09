@@ -25,7 +25,9 @@ function getTokenizer(): Promise<kuromoji.Tokenizer<kuromoji.IpadicFeatures>> {
 
 /** Preload the tokenizer dictionary in the background */
 export function preloadTokenizer(): void {
-  getTokenizer().catch(() => {});
+  getTokenizer().catch((err) => {
+    console.warn("Failed to preload tokenizer:", err);
+  });
 }
 
 function katakanaToHiragana(str: string): string {

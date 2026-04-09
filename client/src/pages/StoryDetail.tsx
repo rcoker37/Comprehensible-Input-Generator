@@ -21,13 +21,13 @@ export default function StoryDetail() {
   }, [id]);
 
   const handleDelete = async () => {
-    if (id) {
-      try {
-        await deleteStory(Number(id));
-        navigate("/stories");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to delete story");
-      }
+    if (!id) return;
+    if (!window.confirm("Delete this story? This cannot be undone.")) return;
+    try {
+      await deleteStory(Number(id));
+      navigate("/stories");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete story");
     }
   };
 

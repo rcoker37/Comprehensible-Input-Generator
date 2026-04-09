@@ -25,6 +25,7 @@ export default function Stories() {
   }, []);
 
   const handleDelete = async (id: number) => {
+    if (!window.confirm("Delete this story? This cannot be undone.")) return;
     try {
       await deleteStory(id);
       setStories((prev) => prev.filter((s) => s.id !== id));

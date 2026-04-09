@@ -14,8 +14,10 @@ export default function AppLayout() {
       setUsage(null);
       return;
     }
+    const controller = new AbortController();
     fetch("https://openrouter.ai/api/v1/auth/key", {
       headers: { Authorization: `Bearer ${key}` },
+      signal: controller.signal,
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -23,7 +25,10 @@ export default function AppLayout() {
           setUsage({ used: data.data.usage, limit: data.data.limit });
         }
       })
-      .catch(() => setUsage(null));
+      .catch(() => {
+        if (!controller.signal.aborted) setUsage(null);
+      });
+    return () => controller.abort();
   }, [profile?.openrouter_api_key]);
 
   return (
