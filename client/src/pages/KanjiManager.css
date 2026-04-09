@@ -78,12 +78,10 @@
 }
 
 .kanji-cell:hover {
-  border-color: var(--accent);
   transform: translateY(-1px);
 }
 
 .kanji-cell.toggling {
-  opacity: 0.5;
   pointer-events: none;
 }
 
