@@ -65,6 +65,7 @@ export default function Stories() {
                 <span className={`unknown-tag ${unknownCount(story.content) === 0 ? "none" : ""}`}>
                   {unknownCount(story.content)} unknown kanji
                 </span>
+                <span className="type-tag">{story.content_type ?? "story"}</span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
               </div>

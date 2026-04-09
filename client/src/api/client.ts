@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { stripBold } from "../lib/text";
-import type { Kanji, KanjiStats, Story, Formality, GenerationProgress } from "../types";
+import type { Kanji, KanjiStats, Story, Formality, ContentType, GenerationProgress } from "../types";
 
 // Kanji
 
@@ -156,7 +156,26 @@ const GRAMMAR_GUIDANCE: Record<number, string> = {
   1: "You may use any grammar freely, including literary and classical forms.",
 };
 
+const CONTENT_TYPE_PREAMBLE: Record<ContentType, string> = {
+  story: "You are a Japanese language teacher writing a short story for a student learning Japanese.",
+  dialogue: "You are a Japanese language teacher writing a dialogue between two characters for a student learning Japanese.",
+  essay: "You are a Japanese language teacher writing a short essay for a student learning Japanese.",
+};
+
+const CONTENT_TYPE_LENGTH: Record<ContentType, (n: number) => string> = {
+  story: (n) => `Write exactly ${n} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
+  dialogue: (n) => `Write exactly ${n} exchanges. Each exchange is one back-and-forth between two characters (two lines). Format each line as 「Name：dialogue」 with brief scene or action descriptions between exchanges where natural.`,
+  essay: (n) => `Write exactly ${n} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
+};
+
+const CONTENT_TYPE_TOPIC_LABEL: Record<ContentType, string> = {
+  story: "The story should be about",
+  dialogue: "The dialogue should be about",
+  essay: "The essay should be about",
+};
+
 function buildPrompt(
+  contentType: ContentType,
   paragraphs: number,
   kanjiList: string,
   formality: Formality,
@@ -164,7 +183,7 @@ function buildPrompt(
   topic?: string
 ): string {
   const parts = [
-    "You are a Japanese language teacher writing a short story for a student learning Japanese.",
+    CONTENT_TYPE_PREAMBLE[contentType],
     "",
     `Allowed kanji: ${kanjiList}`,
     "Rules:",
@@ -178,14 +197,14 @@ function buildPrompt(
   ];
 
   if (topic) {
-    parts.push("", `The story should be about: ${topic}`);
+    parts.push("", `${CONTENT_TYPE_TOPIC_LABEL[contentType]}: ${topic}`);
   }
 
   parts.push(
     "",
-    `Write exactly ${paragraphs} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
+    CONTENT_TYPE_LENGTH[contentType](paragraphs),
     "",
-    "Output ONLY the story in Japanese. Start with a short title on the first line. Do not include any English text, explanations, or translations."
+    "Output ONLY the content in Japanese. Start with a short title on the first line. Do not include any English text, explanations, or translations."
   );
 
   return parts.join("\n");
@@ -218,6 +237,7 @@ function computeDifficulty(
 export async function generateStoryStream(
   userId: string,
   params: {
+    contentType: ContentType;
     paragraphs: number;
     topic?: string;
     formality: Formality;
@@ -241,6 +261,7 @@ export async function generateStoryStream(
   const allowedKanji = [...allowedSet].join("");
 
   const prompt = buildPrompt(
+    params.contentType,
     params.paragraphs,
     allowedKanji,
     params.formality,
@@ -334,6 +355,7 @@ export async function generateStoryStream(
       user_id: userId,
       title,
       content,
+      content_type: params.contentType,
       paragraphs: params.paragraphs,
       topic: params.topic || null,
       formality: params.formality,
@@ -352,7 +374,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, paragraphs, topic, formality, filters, difficulty, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, created_at"
     )
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -381,6 +403,7 @@ export async function updateProfile(
   fields: {
     openrouter_api_key?: string | null;
     preferred_model?: string;
+    preferred_content_type?: string;
     preferred_formality?: string;
     preferred_grammar_level?: number;
     preferred_paragraphs?: number;

@@ -3,7 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { updateProfile } from "../api/client";
 import { stripBold } from "../lib/text";
-import type { Formality } from "../types";
+import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
 
@@ -26,6 +26,7 @@ const VALID_MODELS = [
 export default function Generator() {
   const { user, profile } = useAuth();
   const { loading, error, story, genProgress, generate } = useGeneration();
+  const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
@@ -36,6 +37,7 @@ export default function Generator() {
   const handleGenerate = () => {
     if (!profile?.openrouter_api_key) return;
     generate(user!.id, {
+      contentType,
       paragraphs,
       topic: topic.trim() || undefined,
       formality,
@@ -44,6 +46,7 @@ export default function Generator() {
     });
     updateProfile(user!.id, {
       preferred_model: model,
+      preferred_content_type: contentType,
       preferred_formality: formality,
       preferred_grammar_level: grammarLevel,
       preferred_paragraphs: paragraphs,
@@ -52,12 +55,28 @@ export default function Generator() {
 
   return (
     <div className="generator">
-      <h1>Generate a Story</h1>
+      <h1>Generate</h1>
 
       <div className="form-section">
+        <div className="form-group">
+          <label>Type</label>
+          <div className="chip-group" role="radiogroup" aria-label="Content type">
+            {(["story", "dialogue", "essay"] as ContentType[]).map((t) => (
+              <button
+                key={t}
+                className={`chip ${contentType === t ? "active" : ""}`}
+                onClick={() => setContentType(t)}
+                aria-pressed={contentType === t}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="form-row">
           <label>
-            Paragraphs
+            {contentType === "dialogue" ? "Exchanges" : "Paragraphs"}
             <select
               value={paragraphs}
               onChange={(e) => setParagraphs(Number(e.target.value))}

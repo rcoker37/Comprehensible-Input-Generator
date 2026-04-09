@@ -10,6 +10,8 @@ export interface Kanji {
 
 export type Formality = "impolite" | "casual" | "polite" | "keigo";
 
+export type ContentType = "story" | "dialogue" | "essay";
+
 export interface StoryFilters {
   knownOnly: boolean;
   jlptLevels: number[];
@@ -27,6 +29,7 @@ export interface Story {
   user_id?: string;
   title: string;
   content: string;
+  content_type: ContentType;
   paragraphs: number;
   topic: string | null;
   formality: Formality;
@@ -56,5 +59,6 @@ export interface Profile {
   preferred_formality: string | null;
   preferred_grammar_level: number | null;
   preferred_paragraphs: number | null;
+  preferred_content_type: string | null;
   created_at: string;
 }

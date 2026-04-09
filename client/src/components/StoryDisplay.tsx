@@ -41,6 +41,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
     <div className="story-display">
       <h2 className="story-title">{stripBold(story.title)}</h2>
       <div className="story-meta">
+        <span className="type-tag">{story.content_type ?? "story"}</span>
         <span className="formality-tag">{story.formality}</span>
         {story.topic && <span className="topic-tag">{story.topic}</span>}
       </div>

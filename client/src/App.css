@@ -246,6 +246,7 @@ button {
   color: #999;
 }
 
+.type-tag,
 .formality-tag,
 .topic-tag,
 .unknown-tag {
