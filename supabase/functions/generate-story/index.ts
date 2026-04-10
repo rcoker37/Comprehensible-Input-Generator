@@ -6,6 +6,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+const ALLOWED_MODELS = new Set([
+  "anthropic/claude-sonnet-4.6",
+  "google/gemini-3.1-pro-preview",
+]);
+
 // Module-level admin client (reused across requests in per_worker mode)
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -69,6 +74,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (!ALLOWED_MODELS.has(model)) {
+      return new Response(JSON.stringify({ error: "Unsupported model" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Call OpenRouter
     const openRouterRes = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -83,15 +95,22 @@ Deno.serve(async (req) => {
           messages: [{ role: "user", content: prompt }],
           stream,
         }),
+        signal: AbortSignal.timeout(120_000),
       }
     );
 
     if (!openRouterRes.ok) {
-      const body = await openRouterRes.text();
+      const status = openRouterRes.status;
+      console.error("OpenRouter error:", status, await openRouterRes.text());
+
+      const userMessage =
+        status === 401 ? "Invalid OpenRouter API key. Please check your key in Settings." :
+        status === 402 ? "Insufficient OpenRouter credits." :
+        status === 429 ? "Rate limited by OpenRouter. Please wait and try again." :
+        "Story generation failed. Please try again.";
+
       return new Response(
-        JSON.stringify({
-          error: `OpenRouter error (${openRouterRes.status}): ${body}`,
-        }),
+        JSON.stringify({ error: userMessage }),
         {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -116,6 +135,15 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      return new Response(
+        JSON.stringify({ error: "The model took too long to respond. Please try again." }),
+        {
+          status: 504,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
     const message = err instanceof Error ? err.message : "Generation failed";
     return new Response(JSON.stringify({ error: message }), {
       status: 500,

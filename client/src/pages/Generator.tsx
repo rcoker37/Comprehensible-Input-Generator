@@ -50,7 +50,7 @@ export default function Generator() {
       preferred_formality: formality,
       preferred_grammar_level: grammarLevel,
       preferred_paragraphs: paragraphs,
-    }).catch(() => {});
+    }).catch((err) => console.warn("Failed to save preferences:", err));
   };
 
   return (
