@@ -43,14 +43,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get profile (API key + model)
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("openrouter_api_key")
-      .eq("user_id", user.id)
-      .single();
+    // Get API key from Vault via service-role RPC
+    const { data: apiKey, error: keyError } = await supabaseAdmin.rpc(
+      "get_openrouter_api_key_for_user",
+      { p_user_id: user.id }
+    );
 
-    if (profileError || !profile?.openrouter_api_key) {
+    if (keyError || !apiKey) {
       return new Response(
         JSON.stringify({
           error: "Please configure your OpenRouter API key in Settings.",
@@ -61,8 +60,6 @@ Deno.serve(async (req) => {
         }
       );
     }
-
-    const apiKey = profile.openrouter_api_key;
 
     // Parse request — client sends the prompt and model directly
     const { prompt, model, stream = true } = await req.json();

@@ -54,7 +54,7 @@ export interface KanjiStats {
 export interface Profile {
   user_id: string;
   display_name: string | null;
-  openrouter_api_key: string | null;
+  has_openrouter_api_key: boolean;
   preferred_model: string;
   preferred_formality: string | null;
   preferred_grammar_level: number | null;

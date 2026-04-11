@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { updateProfile } from "../api/client";
@@ -35,7 +36,7 @@ export default function Generator() {
   const [model, setModel] = useState(savedModel && VALID_MODELS.includes(savedModel) ? savedModel : "anthropic/claude-sonnet-4.6");
 
   const handleGenerate = () => {
-    if (!profile?.openrouter_api_key) return;
+    if (!profile?.has_openrouter_api_key) return;
     generate(user!.id, {
       contentType,
       paragraphs,
@@ -53,9 +54,19 @@ export default function Generator() {
     }).catch((err) => console.warn("Failed to save preferences:", err));
   };
 
+  const hasKey = profile?.has_openrouter_api_key ?? false;
+  const profileLoaded = profile != null;
+
   return (
     <div className="generator">
       <h1>Generate</h1>
+
+      {profileLoaded && !hasKey && (
+        <div className="warning" role="alert">
+          You need an OpenRouter API key to generate stories.{" "}
+          <Link to="/settings">Add one in Settings →</Link>
+        </div>
+      )}
 
       <div className="form-section">
         <div className="form-group">
@@ -151,7 +162,8 @@ export default function Generator() {
         <button
           className="generate-btn"
           onClick={handleGenerate}
-          disabled={loading}
+          disabled={loading || !hasKey}
+          title={!hasKey ? "Add an OpenRouter API key in Settings first" : undefined}
         >
           {!loading
             ? "Generate Story"

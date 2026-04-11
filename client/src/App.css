@@ -154,6 +154,21 @@ h1 {
   margin: 1rem 0;
 }
 
+.warning {
+  background: #f5a52422;
+  border: 1px solid #f5a524;
+  color: #f5a524;
+  padding: 1rem;
+  border-radius: var(--radius);
+  margin: 0 0 1rem 0;
+}
+
+.warning a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 .empty {
   color: var(--text-dim);
   text-align: center;

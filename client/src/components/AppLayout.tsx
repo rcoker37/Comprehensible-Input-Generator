@@ -3,33 +3,27 @@ import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
 import { KanjiProvider } from "../contexts/KanjiContext";
+import { getOpenRouterUsage } from "../api/client";
 
 export default function AppLayout() {
   const { user, profile } = useAuth();
   const [usage, setUsage] = useState<{ used: number; limit: number | null } | null>(null);
 
   useEffect(() => {
-    const key = profile?.openrouter_api_key;
-    if (!key) {
+    if (!profile?.has_openrouter_api_key) {
       setUsage(null);
       return;
     }
     const controller = new AbortController();
-    fetch("https://openrouter.ai/api/v1/auth/key", {
-      headers: { Authorization: `Bearer ${key}` },
-      signal: controller.signal,
-    })
-      .then((res) => (res.ok ? res.json() : null))
+    getOpenRouterUsage(controller.signal)
       .then((data) => {
-        if (data?.data) {
-          setUsage({ used: data.data.usage, limit: data.data.limit });
-        }
+        if (data) setUsage({ used: data.usage, limit: data.limit });
       })
       .catch(() => {
         if (!controller.signal.aborted) setUsage(null);
       });
     return () => controller.abort();
-  }, [profile?.openrouter_api_key]);
+  }, [profile?.has_openrouter_api_key]);
 
   return (
     <div className="app">

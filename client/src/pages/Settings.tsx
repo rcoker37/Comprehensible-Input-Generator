@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { updateProfile } from "../api/client";
+import { setOpenRouterApiKey, clearOpenRouterApiKey } from "../api/client";
 import "./Settings.css";
 
 export default function Settings() {
@@ -8,22 +8,38 @@ export default function Settings() {
   const [apiKey, setApiKey] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  useEffect(() => {
-    if (profile) {
-      setApiKey(profile.openrouter_api_key || "");
-    }
-  }, [profile]);
 
   const handleSave = async () => {
+    if (!user) return;
+    const trimmed = apiKey.trim();
+    if (!trimmed) {
+      setMessage("Error: API key cannot be empty");
+      return;
+    }
+    setSaving(true);
+    setMessage(null);
+    try {
+      await setOpenRouterApiKey(trimmed);
+      setMessage("API key saved!");
+      setApiKey("");
+      await refreshProfile();
+    } catch (err) {
+      setMessage(`Error: ${err instanceof Error ? err.message : "Failed to save"}`);
+    }
+    setSaving(false);
+  };
+
+  const handleClear = async () => {
     if (!user) return;
     setSaving(true);
     setMessage(null);
     try {
-      await updateProfile(user.id, { openrouter_api_key: apiKey || null });
-      setMessage("Settings saved!");
+      await clearOpenRouterApiKey();
+      setMessage("API key cleared.");
+      setApiKey("");
       await refreshProfile();
     } catch (err) {
-      setMessage(`Error: ${err instanceof Error ? err.message : "Failed to save"}`);
+      setMessage(`Error: ${err instanceof Error ? err.message : "Failed to clear"}`);
     }
     setSaving(false);
   };
@@ -47,8 +63,18 @@ export default function Settings() {
       <div className="settings-section">
         <h2>LLM Configuration</h2>
         <div className="settings-field">
+          <label>Status</label>
+          <span>
+            {profile?.has_openrouter_api_key
+              ? "API key configured"
+              : "No API key configured"}
+          </span>
+        </div>
+        <div className="settings-field">
           <label htmlFor="api-key">
-            OpenRouter API Key
+            {profile?.has_openrouter_api_key
+              ? "Replace OpenRouter API Key"
+              : "OpenRouter API Key"}
           </label>
           <input
             id="api-key"
@@ -56,14 +82,26 @@ export default function Settings() {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="sk-or-..."
+            autoComplete="off"
           />
           <span className="field-hint">
-            Get a key at openrouter.ai. Required to generate stories.
+            Get a key at openrouter.ai. Required to generate stories. Keys are
+            stored encrypted server-side and never returned to the browser.
           </span>
         </div>
         <button onClick={handleSave} disabled={saving} className="save-btn">
-          {saving ? "Saving..." : "Save Settings"}
+          {saving ? "Saving..." : "Save API Key"}
         </button>
+        {profile?.has_openrouter_api_key && (
+          <button
+            onClick={handleClear}
+            disabled={saving}
+            className="save-btn"
+            style={{ marginLeft: 8 }}
+          >
+            Clear API Key
+          </button>
+        )}
         {message && (
           <div className={message.startsWith("Error") ? "error" : "success"}>
             {message}

@@ -39,11 +39,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select(
+          "user_id, display_name, preferred_model, preferred_formality, preferred_grammar_level, preferred_paragraphs, preferred_content_type, created_at, openrouter_api_key_secret_id"
+        )
         .eq("user_id", userId)
         .single();
       if (error) throw error;
-      setProfile(data as Profile | null);
+      if (!data) {
+        setProfile(null);
+        return;
+      }
+      const { openrouter_api_key_secret_id, ...rest } = data as {
+        openrouter_api_key_secret_id: string | null;
+      } & Omit<Profile, "has_openrouter_api_key">;
+      setProfile({
+        ...rest,
+        has_openrouter_api_key: openrouter_api_key_secret_id != null,
+      });
     } catch (err) {
       console.error("Failed to fetch profile:", err);
       setProfile(null);
