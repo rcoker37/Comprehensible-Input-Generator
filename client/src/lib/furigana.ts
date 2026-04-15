@@ -31,7 +31,12 @@ export interface ParsedFurigana {
 
 // Kanji run followed by 《reading》. The reading may contain hiragana,
 // katakana, or the long-vowel mark — never another 《 or 》.
-const RUBY_RE = /([\u4e00-\u9faf\u3400-\u4dbf]+)《([^《》]+)》/g;
+//
+// The base allows CJK Unified Ideographs plus 々 (U+3005, the kanji
+// iteration mark): 人々, 時々, 日々 read as a single word and are annotated
+// as one ruby block. 々 is not itself a kanji in Unicode (CJK Symbols &
+// Punctuation block) so it must be whitelisted explicitly.
+const RUBY_RE = /([\u4e00-\u9faf\u3400-\u4dbf\u3005]+)《([^《》]+)》/g;
 
 /**
  * Strip Aozora ruby annotations from `raw` and return both the clean text and

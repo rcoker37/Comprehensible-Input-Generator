@@ -54,6 +54,17 @@ describe("parseAnnotatedText", () => {
     expect(cleanText).toBe("今日\n\n明日");
     expect(annotations).toHaveLength(2);
   });
+
+  it("handles the 々 kanji iteration mark inside a base", () => {
+    const { cleanText, annotations } = parseAnnotatedText(
+      "人々《ひとびと》は時々《ときどき》歩く。"
+    );
+    expect(cleanText).toBe("人々は時々歩く。");
+    expect(annotations).toEqual([
+      { start: 0, end: 2, reading: "ひとびと" },
+      { start: 3, end: 5, reading: "ときどき" },
+    ]);
+  });
 });
 
 describe("stripAnnotations", () => {
