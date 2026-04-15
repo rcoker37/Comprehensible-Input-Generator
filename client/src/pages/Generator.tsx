@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { updateProfile } from "../api/client";
 import { stripBold } from "../lib/text";
+import { stripAnnotations } from "../lib/furigana";
 import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import "./Generator.css";
@@ -179,9 +180,12 @@ export default function Generator() {
       {genProgress?.content && (
         <div className="story-display">
           <div className="story-content">
-            {stripBold(genProgress.content).split("\n").filter((l: string) => l.trim()).map((p: string, i: number) => (
-              <p key={i}>{p}</p>
-            ))}
+            {stripAnnotations(stripBold(genProgress.content))
+              .split("\n")
+              .filter((l: string) => l.trim())
+              .map((p: string, i: number) => (
+                <p key={i}>{p}</p>
+              ))}
           </div>
         </div>
       )}

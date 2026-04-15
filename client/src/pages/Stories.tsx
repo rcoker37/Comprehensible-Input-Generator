@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getStories, deleteStory } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { stripBold, getUnknownKanji } from "../lib/text";
+import { stripAnnotations } from "../lib/furigana";
 import type { Story } from "../types";
 import "./Stories.css";
 
@@ -48,7 +49,7 @@ export default function Stories() {
             <div key={story.id} className="story-card">
               <div className="story-card-header">
                 <Link to={`/stories/${story.id}`} className="story-card-title">
-                  {stripBold(story.title)}
+                  {stripAnnotations(stripBold(story.title))}
                 </Link>
                 <button
                   className="delete-btn"

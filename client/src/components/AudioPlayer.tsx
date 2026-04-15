@@ -7,6 +7,7 @@ import {
 } from "react";
 import type { Story, StoryAudio } from "../types";
 import { tokenizeForAudio } from "../lib/tokenizer";
+import { parseAnnotatedText } from "../lib/furigana";
 import { generateStoryAudio, getStoryAudioUrl } from "../api/client";
 import { stripBold } from "../lib/text";
 import "./AudioPlayer.css";
@@ -137,8 +138,18 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPlayer(
 
   const runGenerate = async (force: boolean) => {
     setError(null);
-    const sourceText = stripBold(`${story.title}\n\n${story.content}`);
-    const tokens = await tokenizeForAudio(sourceText);
+    // Strip Aozora annotations from the source text, keeping them as a
+    // separate annotations array so tokenizeForAudio can prefer LLM-provided
+    // readings over kuromoji's (fixes e.g. 二人 → ふたり vs ににん).
+    const rawText = stripBold(`${story.title}\n\n${story.content}`);
+    const { cleanText, annotations } = parseAnnotatedText(rawText);
+    const tokens = await tokenizeForAudio(cleanText, annotations);
+    // eslint-disable-next-line no-console
+    console.log("[audio] rawText first 120 chars:", rawText.slice(0, 120));
+    // eslint-disable-next-line no-console
+    console.log("[audio] parsed annotations:", annotations.length, annotations.slice(0, 5));
+    // eslint-disable-next-line no-console
+    console.log("[audio] tokens with readings (first 10):", tokens.slice(0, 10));
     const generated = await generateStoryAudio(story.id, tokens, { force });
     setAudio(generated);
     setUrl(null); // invalidate signed URL — useEffect will refetch for the new file

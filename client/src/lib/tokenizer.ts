@@ -1,5 +1,9 @@
 import kuromoji from "@aiktb/kuromoji";
 import { KANJI_REGEX } from "./constants";
+import {
+  tokenReadingFromAnnotations,
+  type FuriganaAnnotation,
+} from "./furigana";
 
 let tokenizer: kuromoji.Tokenizer<kuromoji.IpadicFeatures> | null = null;
 let loading: Promise<kuromoji.Tokenizer<kuromoji.IpadicFeatures>> | null = null;
@@ -60,55 +64,150 @@ export interface AudioToken {
  * kanji-containing tokens. Concatenating `s` across tokens reproduces the
  * input text exactly — the token array is the canonical segmentation we
  * render from when audio exists, guaranteeing timing/highlight alignment.
+ *
+ * When `annotations` (LLM-provided ruby readings, parsed from Aozora
+ * notation) are supplied, they take precedence over kuromoji's dictionary
+ * readings. This lets us override IPADIC mistakes like 二人 → ににん with
+ * the correct ふたり.
+ *
+ * Kuromoji may split a kanji compound into per-character tokens (e.g.
+ * 二人 → [二, 人]). When an annotation spans across such a split, we merge
+ * the affected tokens into one so the annotation's reading applies to the
+ * whole kanji run.
  */
-export async function tokenizeForAudio(text: string): Promise<AudioToken[]> {
+export async function tokenizeForAudio(
+  text: string,
+  annotations: FuriganaAnnotation[] = []
+): Promise<AudioToken[]> {
   const t = await getTokenizer();
   const tokens = t.tokenize(text);
   const out: AudioToken[] = [];
 
-  for (const token of tokens) {
-    const surface = token.surface_form;
-    const hasKanji = [...surface].some((ch) => KANJI_REGEX.test(ch));
+  let charPos = 0;
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+    const tokenStart = charPos;
+    const tokenEnd = tokenStart + token.surface_form.length;
 
-    if (hasKanji && token.reading && token.reading !== "*") {
-      out.push({ s: surface, r: katakanaToHiragana(token.reading) });
-    } else {
-      out.push({ s: surface });
+    // If an annotation starts within this token but extends past its end,
+    // merge forward until we cover the annotation's range. Using `find`
+    // (rather than filter) is fine — we only care about the first such
+    // annotation; additional overlapping annotations are resolved below in
+    // tokenReadingFromAnnotations against the merged range.
+    const straddling = annotations.find(
+      (a) => a.start >= tokenStart && a.start < tokenEnd && a.end > tokenEnd
+    );
+
+    if (straddling) {
+      let mergedSurface = token.surface_form;
+      let mergedEnd = tokenEnd;
+      let j = i + 1;
+      while (mergedEnd < straddling.end && j < tokens.length) {
+        mergedSurface += tokens[j].surface_form;
+        mergedEnd += tokens[j].surface_form.length;
+        j++;
+      }
+      const reading = tokenReadingFromAnnotations(
+        mergedSurface,
+        tokenStart,
+        annotations,
+        undefined
+      );
+      out.push(reading ? { s: mergedSurface, r: reading } : { s: mergedSurface });
+      charPos = mergedEnd;
+      i = j;
+      continue;
     }
+
+    const kuromojiReading =
+      token.reading && token.reading !== "*"
+        ? katakanaToHiragana(token.reading)
+        : undefined;
+    const reading = tokenReadingFromAnnotations(
+      token.surface_form,
+      tokenStart,
+      annotations,
+      kuromojiReading
+    );
+    out.push(reading ? { s: token.surface_form, r: reading } : { s: token.surface_form });
+    charPos = tokenEnd;
+    i++;
   }
 
   return out;
 }
 
 /**
- * Tokenize Japanese text and produce furigana segments,
- * only attaching readings to kanji the user doesn't know.
+ * Tokenize Japanese text and produce furigana segments, only attaching
+ * readings to kanji the user doesn't know. When `annotations` are supplied
+ * (LLM-provided ruby), they override kuromoji's dictionary readings. Merges
+ * kuromoji tokens the same way tokenizeForAudio does when an annotation
+ * spans across a kuromoji split.
  */
 export async function getFurigana(
   text: string,
-  unknownKanji: Set<string>
+  unknownKanji: Set<string>,
+  annotations: FuriganaAnnotation[] = []
 ): Promise<FuriganaSegment[]> {
   const t = await getTokenizer();
   const tokens = t.tokenize(text);
   const segments: FuriganaSegment[] = [];
 
-  for (const token of tokens) {
-    const surface = token.surface_form;
-    const reading = token.reading;
+  let charPos = 0;
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+    const tokenStart = charPos;
+    const tokenEnd = tokenStart + token.surface_form.length;
+
+    const straddling = annotations.find(
+      (a) => a.start >= tokenStart && a.start < tokenEnd && a.end > tokenEnd
+    );
+
+    let surface: string;
+    let start: number;
+    let kuromojiReading: string | undefined;
+    if (straddling) {
+      let mergedSurface = token.surface_form;
+      let mergedEnd = tokenEnd;
+      let j = i + 1;
+      while (mergedEnd < straddling.end && j < tokens.length) {
+        mergedSurface += tokens[j].surface_form;
+        mergedEnd += tokens[j].surface_form.length;
+        j++;
+      }
+      surface = mergedSurface;
+      start = tokenStart;
+      kuromojiReading = undefined;
+      charPos = mergedEnd;
+      i = j;
+    } else {
+      surface = token.surface_form;
+      start = tokenStart;
+      kuromojiReading =
+        token.reading && token.reading !== "*"
+          ? katakanaToHiragana(token.reading)
+          : undefined;
+      charPos = tokenEnd;
+      i++;
+    }
 
     const hasUnknown = [...surface].some(
       (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
     );
-
-    if (!reading || !hasUnknown) {
+    if (!hasUnknown) {
       segments.push({ text: surface });
       continue;
     }
 
-    // Token contains unknown kanji — attach reading to the whole token
-    // (e.g., 先生 → せんせい, not per-character, since splitting compound
-    // readings is unreliable)
-    segments.push({ text: surface, reading: katakanaToHiragana(reading) });
+    const reading = tokenReadingFromAnnotations(
+      surface,
+      start,
+      annotations,
+      kuromojiReading
+    );
+    segments.push(reading ? { text: surface, reading } : { text: surface });
   }
 
   return segments;
