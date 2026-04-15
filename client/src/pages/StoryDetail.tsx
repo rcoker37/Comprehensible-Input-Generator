@@ -5,6 +5,7 @@ import type { Story, StoryAudio } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import PlaybackFooter from "../components/PlaybackFooter";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
+import "./StoryDetail.css";
 
 export default function StoryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -46,9 +47,35 @@ export default function StoryDetail() {
   return (
     <div className="story-detail-page">
       <div className="story-detail-actions">
-        <button onClick={() => navigate("/stories")}>&larr; Back</button>
-        <button className="delete-btn" onClick={handleDelete}>
-          Delete
+        <button
+          type="button"
+          className="story-detail-back"
+          onClick={() => navigate("/stories")}
+        >
+          &larr; Stories
+        </button>
+        <button
+          type="button"
+          className="delete-btn"
+          onClick={handleDelete}
+          title="Delete story"
+          aria-label="Delete story"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M2.5 4h11" />
+            <path d="M6 4V2.5h4V4" />
+            <path d="M3.5 4l.7 9a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L12.5 4" />
+          </svg>
         </button>
       </div>
       <StoryDisplay

@@ -1,7 +1,7 @@
 import type { AudioPlayerState } from "../hooks/useAudioPlayer";
 import "./PlaybackFooter.css";
 
-const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+const SPEEDS = [0.75, 1];
 
 export default function PlaybackFooter(props: AudioPlayerState) {
   const {
@@ -36,7 +36,6 @@ export default function PlaybackFooter(props: AudioPlayerState) {
       <div className="playback-footer-inner">
         <div className="playback-left">
           <label className="playback-speed">
-            <span className="playback-speed-label">Speed</span>
             <select
               value={playbackRate}
               onChange={(e) => setPlaybackRate(Number(e.target.value))}
