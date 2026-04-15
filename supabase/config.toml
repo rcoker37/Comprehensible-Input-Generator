@@ -381,6 +381,9 @@ verify_jwt = false
 [functions.openrouter-usage]
 verify_jwt = false
 
+[functions.generate-audio]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

@@ -42,6 +42,45 @@ export interface FuriganaSegment {
 }
 
 /**
+ * Morphological token used for TTS + synchronized highlighting.
+ *   s: surface form
+ *   r: hiragana reading (only set when the surface contains kanji and kuromoji
+ *      produced a reading — forced into SSML via <sub alias> so Azure pronounces
+ *      the intended reading rather than guessing)
+ *   t: start offset in milliseconds (populated by the server after synthesis)
+ */
+export interface AudioToken {
+  s: string;
+  r?: string;
+  t?: number;
+}
+
+/**
+ * Produce morphological tokens for a story, annotated with readings for
+ * kanji-containing tokens. Concatenating `s` across tokens reproduces the
+ * input text exactly — the token array is the canonical segmentation we
+ * render from when audio exists, guaranteeing timing/highlight alignment.
+ */
+export async function tokenizeForAudio(text: string): Promise<AudioToken[]> {
+  const t = await getTokenizer();
+  const tokens = t.tokenize(text);
+  const out: AudioToken[] = [];
+
+  for (const token of tokens) {
+    const surface = token.surface_form;
+    const hasKanji = [...surface].some((ch) => KANJI_REGEX.test(ch));
+
+    if (hasKanji && token.reading && token.reading !== "*") {
+      out.push({ s: surface, r: katakanaToHiragana(token.reading) });
+    } else {
+      out.push({ s: surface });
+    }
+  }
+
+  return out;
+}
+
+/**
  * Tokenize Japanese text and produce furigana segments,
  * only attaching readings to kanji the user doesn't know.
  */

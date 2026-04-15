@@ -24,6 +24,20 @@ export interface DifficultyEstimate {
   jlpt: { min: number; avg: number };
 }
 
+export interface StoryAudioToken {
+  s: string;
+  r?: string;
+  t: number;
+}
+
+export interface StoryAudio {
+  path: string;
+  duration_ms: number;
+  voice: string;
+  version: number;
+  tokens: StoryAudioToken[];
+}
+
 export interface Story {
   id: number;
   user_id?: string;
@@ -35,6 +49,7 @@ export interface Story {
   formality: Formality;
   filters: StoryFilters;
   difficulty: DifficultyEstimate;
+  audio: StoryAudio | null;
   created_at: string;
 }
 
