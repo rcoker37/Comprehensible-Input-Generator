@@ -71,7 +71,7 @@ export function buildPrompt(
     "",
     CONTENT_TYPE_LENGTH[contentType](paragraphs),
     "",
-    "Output ONLY the content in Japanese. Start with a short title on the first line. Do not include any English text, explanations, or translations."
+    "Output ONLY the content in Japanese. Start with a short title on the first line — plain text, no leading # or other markdown headings. Do not use markdown formatting of any kind (no #, **, _, -, >, backticks). Do not include any English text, explanations, or translations."
   );
 
   return parts.join("\n");

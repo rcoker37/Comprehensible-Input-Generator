@@ -1,6 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
-import { stripBold } from "../lib/text";
+import { cleanGeneratedText } from "../lib/text";
 import { buildPrompt, computeDifficulty } from "../lib/generation";
 import type { AudioToken } from "../lib/tokenizer";
 import type { Kanji, KanjiStats, Story, StoryAudio, Formality, ContentType, GenerationProgress } from "../types";
@@ -245,8 +245,9 @@ export async function generateStoryStream(
     throw new Error("No content received from the model");
   }
 
-  // Parse title and content, strip markdown bold markers the model sometimes adds
-  const clean = stripBold(fullText);
+  // Parse title and content, stripping markdown artifacts (#, **, etc.) the
+  // model occasionally emits despite being told to output plain Japanese.
+  const clean = cleanGeneratedText(fullText);
   const textLines = clean.split("\n").filter((l) => l.trim());
   const title = textLines[0] || "無題";
   const content = textLines.slice(1).join("\n\n");

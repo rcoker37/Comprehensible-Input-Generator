@@ -144,12 +144,6 @@ const AudioPlayer = forwardRef<AudioPlayerHandle, Props>(function AudioPlayer(
     const rawText = stripBold(`${story.title}\n\n${story.content}`);
     const { cleanText, annotations } = parseAnnotatedText(rawText);
     const tokens = await tokenizeForAudio(cleanText, annotations);
-    // eslint-disable-next-line no-console
-    console.log("[audio] rawText first 120 chars:", rawText.slice(0, 120));
-    // eslint-disable-next-line no-console
-    console.log("[audio] parsed annotations:", annotations.length, annotations.slice(0, 5));
-    // eslint-disable-next-line no-console
-    console.log("[audio] tokens with readings (first 10):", tokens.slice(0, 10));
     const generated = await generateStoryAudio(story.id, tokens, { force });
     setAudio(generated);
     setUrl(null); // invalidate signed URL — useEffect will refetch for the new file

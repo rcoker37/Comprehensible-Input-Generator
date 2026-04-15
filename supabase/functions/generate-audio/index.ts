@@ -55,10 +55,25 @@ function buildSsml(tokens: AudioToken[]): string {
   // unreliable for Japanese (originally designed for abbreviations), whereas
   // hiragana is unambiguous phonetically. The client's rendered tokens still
   // show the kanji surface; only the SSML swaps to hiragana.
+  //
+  // Whitespace-only tokens (newlines between title/paragraphs) become <break>
+  // elements so the audio has audible pauses at paragraph boundaries.
   const parts: string[] = [];
   for (let i = 0; i < tokens.length; i++) {
     const { s, r } = tokens[i];
     parts.push(`<bookmark mark="t${i}"/>`);
+
+    if (/^\s+$/.test(s)) {
+      const newlines = (s.match(/\n/g) || []).length;
+      if (newlines >= 2) {
+        parts.push('<break time="700ms"/>');
+      } else if (newlines === 1) {
+        parts.push('<break time="250ms"/>');
+      }
+      // Pure spaces/tabs: skip — nothing to pronounce, no pause either.
+      continue;
+    }
+
     parts.push(xmlEscape(r && r.length > 0 ? r : s));
   }
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="${VOICE}">${parts.join("")}</voice></speak>`;
@@ -160,7 +175,6 @@ Deno.serve(async (req) => {
     }
 
     const ssml = buildSsml(tokens as AudioToken[]);
-    console.log(`[generate-audio] story=${story_id} force=${!!force} ssml=${ssml}`);
     const { audio, durationMs, bookmarks } = await synthesize(ssml);
 
     const timedTokens = (tokens as AudioToken[]).map((t, i) => ({
