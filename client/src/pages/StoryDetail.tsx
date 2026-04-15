@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getStory, deleteStory } from "../api/client";
-import type { Story } from "../types";
+import type { Story, StoryAudio } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
+import PlaybackFooter from "../components/PlaybackFooter";
+import { useAudioPlayer } from "../hooks/useAudioPlayer";
 
 export default function StoryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +21,12 @@ export default function StoryDetail() {
         .finally(() => setLoading(false));
     }
   }, [id]);
+
+  const handleAudioGenerated = useCallback((audio: StoryAudio) => {
+    setStory((s) => (s ? { ...s, audio } : s));
+  }, []);
+
+  const player = useAudioPlayer(story, handleAudioGenerated);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -43,7 +51,13 @@ export default function StoryDetail() {
           Delete
         </button>
       </div>
-      <StoryDisplay story={story} />
+      <StoryDisplay
+        story={story}
+        audio={player.audio}
+        activeTokenIdx={player.activeIdx}
+        onTokenClick={player.seekToToken}
+      />
+      <PlaybackFooter {...player} />
     </div>
   );
 }
