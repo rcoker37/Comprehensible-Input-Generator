@@ -120,15 +120,11 @@ export async function tokenizeForAudio(
       continue;
     }
 
-    const kuromojiReading =
-      token.reading && token.reading !== "*"
-        ? katakanaToHiragana(token.reading)
-        : undefined;
     const reading = tokenReadingFromAnnotations(
       token.surface_form,
       tokenStart,
       annotations,
-      kuromojiReading
+      undefined
     );
     out.push(reading ? { s: token.surface_form, r: reading } : { s: token.surface_form });
     charPos = tokenEnd;

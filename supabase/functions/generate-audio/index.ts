@@ -56,11 +56,10 @@ interface SsmlResult {
 }
 
 function buildSsml(tokens: AudioToken[]): SsmlResult {
-  // For tokens with a kuromoji-provided reading, send the hiragana to Azure
-  // directly rather than using <sub alias="…">. Azure's <sub> override is
-  // unreliable for Japanese (originally designed for abbreviations), whereas
-  // hiragana is unambiguous phonetically. The client's rendered tokens still
-  // show the kanji surface; only the SSML swaps to hiragana.
+  // Kanji surfaces are kept as-is so Azure's tokenizer sees word boundaries
+  // clearly. When the client provides a reading override (from LLM
+  // annotations, e.g. 二人《ふたり》), we wrap the kanji in <sub alias="…">
+  // to force Azure's pronunciation while preserving the kanji boundary.
   //
   // Whitespace-only tokens (newlines between title/paragraphs) become <break>
   // elements so the audio has audible pauses at paragraph boundaries.
@@ -90,7 +89,11 @@ function buildSsml(tokens: AudioToken[]): SsmlResult {
       continue;
     }
 
-    parts.push(xmlEscape(r && r.length > 0 ? r : s));
+    if (r && r.length > 0) {
+      parts.push(`<sub alias="${xmlEscape(r)}">${xmlEscape(s)}</sub>`);
+    } else {
+      parts.push(xmlEscape(s));
+    }
   }
 
   const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="${VOICE}">${parts.join("")}</voice></speak>`;
