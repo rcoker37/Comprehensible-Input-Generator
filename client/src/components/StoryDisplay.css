@@ -63,25 +63,21 @@
   font-size: 0.5em;
 }
 
-/* Token-per-span rendering used when audio is available. Preserves paragraph
-   breaks from kuromoji's newline tokens via `pre-line`. */
-.story-tokens {
-  white-space: pre-line;
-}
-
-.story-token {
+.story-paragraph {
   cursor: pointer;
-  border-radius: 3px;
-  transition: background 0.1s;
+  border-radius: var(--radius);
+  padding: 0.25rem 0.4rem;
+  margin: -0.25rem -0.4rem;
+  margin-bottom: 1rem;
+  transition: background 0.15s;
 }
 
-.story-token:hover {
-  background: var(--accent-soft);
+.story-paragraph:hover {
+  background: var(--surface);
 }
 
-.story-token.active {
-  background: var(--accent);
-  color: #fff;
+.story-paragraph.active {
+  background: var(--surface-2);
 }
 
 .violations {

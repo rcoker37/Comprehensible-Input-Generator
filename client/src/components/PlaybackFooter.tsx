@@ -22,9 +22,11 @@ export default function PlaybackFooter(props: AudioPlayerState) {
     ? "Generating audio…"
     : regenerating
       ? "Regenerating audio…"
-      : playing
-        ? "Pause"
-        : "Play story";
+      : !audio
+        ? "Generate audio"
+        : playing
+          ? "Pause"
+          : "Play story";
   const regenTitle = !audio
     ? "Generate audio first"
     : regenerating
@@ -42,6 +44,7 @@ export default function PlaybackFooter(props: AudioPlayerState) {
               const idx = SPEEDS.indexOf(playbackRate);
               setPlaybackRate(SPEEDS[(idx + 1) % SPEEDS.length]);
             }}
+            disabled={!audio}
             aria-label={`Playback speed: ${playbackRate}×`}
             title={`Speed: ${playbackRate}×`}
           >
@@ -59,6 +62,14 @@ export default function PlaybackFooter(props: AudioPlayerState) {
           >
             {loading ? (
               <span className="playback-spinner" aria-hidden="true" />
+            ) : !audio ? (
+              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 8h0" />
+                <path d="M5 5v6" />
+                <path d="M8 3v10" />
+                <path d="M11 5v6" />
+                <path d="M14 8h0" />
+              </svg>
             ) : playing ? (
               <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <rect x="4" y="3" width="3" height="10" />

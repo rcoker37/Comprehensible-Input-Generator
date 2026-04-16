@@ -11,16 +11,16 @@ interface Props {
   story: Story;
   showLink?: boolean;
   audio?: StoryAudio | null;
-  activeTokenIdx?: number;
-  onTokenClick?: (i: number) => void;
+  activeParagraphIdx?: number;
+  onParagraphClick?: (i: number) => void;
 }
 
 export default function StoryDisplay({
   story,
   showLink,
   audio,
-  activeTokenIdx = -1,
-  onTokenClick,
+  activeParagraphIdx = -1,
+  onParagraphClick,
 }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
   const [paragraphs, setParagraphs] = useState<FuriganaSegment[][] | null>(null);
@@ -37,7 +37,7 @@ export default function StoryDisplay({
   }, [cleanContent, knownKanji, knownKanjiLoaded]);
 
   useEffect(() => {
-    if (audio || unknownKanji.size === 0) {
+    if (audio?.paragraphs || unknownKanji.size === 0) {
       setParagraphs(null);
       return;
     }
@@ -75,28 +75,31 @@ export default function StoryDisplay({
         {story.topic && <span className="topic-tag">{story.topic}</span>}
       </div>
       <div className="story-content">
-        {audio ? (
-          <div className="story-tokens">
-            {audio.tokens.map((tok, i) => {
-              const hasUnknown = [...tok.s].some(
-                (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
-              );
-              const showReading = hasUnknown && tok.r;
+        {audio?.paragraphs ? (
+          <div className="story-paragraphs">
+            {audio.paragraphs.map((para, pIdx) => {
+              const nextStart = audio.paragraphs[pIdx + 1]?.start ?? audio.tokens.length;
+              const paraTokens = audio.tokens.slice(para.start, nextStart);
               return (
-                <span
-                  key={i}
-                  className={`story-token${activeTokenIdx === i ? " active" : ""}`}
-                  onClick={() => onTokenClick?.(i)}
+                <p
+                  key={pIdx}
+                  className={`story-paragraph${activeParagraphIdx === pIdx ? " active" : ""}`}
+                  onClick={() => onParagraphClick?.(pIdx)}
                 >
-                  {showReading ? (
-                    <ruby>
-                      {tok.s}
-                      <rt>{tok.r}</rt>
-                    </ruby>
-                  ) : (
-                    tok.s
-                  )}
-                </span>
+                  {paraTokens.map((tok, i) => {
+                    const hasUnknown = [...tok.s].some(
+                      (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
+                    );
+                    return hasUnknown && tok.r ? (
+                      <ruby key={i}>
+                        {tok.s}
+                        <rt>{tok.r}</rt>
+                      </ruby>
+                    ) : (
+                      <span key={i}>{tok.s}</span>
+                    );
+                  })}
+                </p>
               );
             })}
           </div>

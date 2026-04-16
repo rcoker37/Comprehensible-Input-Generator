@@ -14,22 +14,22 @@ export interface AudioPlayerState {
   loading: boolean;
   regenerating: boolean;
   error: string | null;
-  activeIdx: number;
+  activeParagraphIdx: number;
   playbackRate: number;
   setPlaybackRate: (n: number) => void;
   handlePlayPause: () => Promise<void>;
   handleRegenerate: () => Promise<void>;
-  seekToToken: (i: number) => void;
+  seekToParagraph: (i: number) => void;
   audioElement: ReactNode;
 }
 
-function findActiveToken(tokens: { t: number }[], ms: number): number {
+function findActiveParagraph(paragraphs: { t: number }[], ms: number): number {
   let lo = 0;
-  let hi = tokens.length - 1;
+  let hi = paragraphs.length - 1;
   let active = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (tokens[mid].t <= ms) {
+    if (paragraphs[mid].t <= ms) {
       active = mid;
       lo = mid + 1;
     } else {
@@ -49,7 +49,7 @@ export function useAudioPlayer(
   const [regenerating, setRegenerating] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeIdx, setActiveIdx] = useState(-1);
+  const [activeParagraphIdx, setActiveParagraphIdx] = useState(-1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -57,7 +57,7 @@ export function useAudioPlayer(
   const pendingPlay = useRef(false);
 
   const storyId = story?.id ?? null;
-  const storyAudio = story?.audio ?? null;
+  const storyAudio = story?.audio?.paragraphs ? story.audio : null;
 
   useEffect(() => {
     setAudio(storyAudio);
@@ -65,7 +65,7 @@ export function useAudioPlayer(
     setPlaying(false);
     setLoading(false);
     setError(null);
-    setActiveIdx(-1);
+    setActiveParagraphIdx(-1);
     lastActive.current = -1;
     pendingPlay.current = false;
   }, [storyId, storyAudio]);
@@ -104,14 +104,14 @@ export function useAudioPlayer(
   useEffect(() => {
     if (!playing || !audio || !audioRef.current) return;
     const el = audioRef.current;
-    const tokens = audio.tokens;
+    const paragraphs = audio.paragraphs;
 
     const tick = () => {
       const ms = el.currentTime * 1000;
-      const active = findActiveToken(tokens, ms);
+      const active = findActiveParagraph(paragraphs, ms);
       if (active !== lastActive.current) {
         lastActive.current = active;
-        setActiveIdx(active);
+        setActiveParagraphIdx(active);
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -176,7 +176,7 @@ export function useAudioPlayer(
     if (el && !el.paused) el.pause();
     setRegenerating(true);
     lastActive.current = -1;
-    setActiveIdx(-1);
+    setActiveParagraphIdx(-1);
     try {
       await runGenerate(true);
       pendingPlay.current = true;
@@ -187,15 +187,15 @@ export function useAudioPlayer(
     }
   }, [regenerating, loading, audio, runGenerate]);
 
-  const seekToToken = useCallback(
+  const seekToParagraph = useCallback(
     (i: number) => {
       if (!audio || !audioRef.current) return;
-      const t = audio.tokens[i]?.t;
+      const t = audio.paragraphs[i]?.t;
       if (t === undefined) return;
       const wasPlaying = !audioRef.current.paused;
       audioRef.current.currentTime = t / 1000;
       lastActive.current = i;
-      setActiveIdx(i);
+      setActiveParagraphIdx(i);
       if (wasPlaying) {
         audioRef.current.play().catch(() => {});
       }
@@ -213,7 +213,7 @@ export function useAudioPlayer(
         onEnded: () => {
           setPlaying(false);
           lastActive.current = -1;
-          setActiveIdx(-1);
+          setActiveParagraphIdx(-1);
         },
         onError: () => setError("Audio playback failed"),
       })
@@ -226,12 +226,12 @@ export function useAudioPlayer(
     loading,
     regenerating,
     error,
-    activeIdx,
+    activeParagraphIdx,
     playbackRate,
     setPlaybackRate,
     handlePlayPause,
     handleRegenerate,
-    seekToToken,
+    seekToParagraph,
     audioElement,
   };
 }

@@ -19,7 +19,7 @@ const corsHeaders = {
 
 const BUCKET = "story-audio";
 const VOICE = "ja-JP-NanamiNeural";
-const AUDIO_VERSION = 1;
+const AUDIO_VERSION = 2;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -49,7 +49,13 @@ function xmlEscape(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
-function buildSsml(tokens: AudioToken[]): string {
+interface SsmlResult {
+  ssml: string;
+  /** Token indices where each paragraph starts (for bookmark alignment). */
+  paragraphStarts: number[];
+}
+
+function buildSsml(tokens: AudioToken[]): SsmlResult {
   // For tokens with a kuromoji-provided reading, send the hiragana to Azure
   // directly rather than using <sub alias="…">. Azure's <sub> override is
   // unreliable for Japanese (originally designed for abbreviations), whereas
@@ -58,25 +64,37 @@ function buildSsml(tokens: AudioToken[]): string {
   //
   // Whitespace-only tokens (newlines between title/paragraphs) become <break>
   // elements so the audio has audible pauses at paragraph boundaries.
+  //
+  // We only emit one <bookmark> per paragraph (at each double-newline break)
+  // to keep SSML character count low — Azure bills for the full SSML string.
   const parts: string[] = [];
+  const paragraphStarts: number[] = [0]; // first paragraph starts at token 0
+  parts.push('<bookmark mark="p0"/>');
+
   for (let i = 0; i < tokens.length; i++) {
     const { s, r } = tokens[i];
-    parts.push(`<bookmark mark="t${i}"/>`);
 
     if (/^\s+$/.test(s)) {
       const newlines = (s.match(/\n/g) || []).length;
       if (newlines >= 2) {
         parts.push('<break time="700ms"/>');
+        // Find the next non-whitespace token to mark the paragraph start
+        const next = i + 1;
+        if (next < tokens.length) {
+          paragraphStarts.push(next);
+          parts.push(`<bookmark mark="p${paragraphStarts.length - 1}"/>`);
+        }
       } else if (newlines === 1) {
         parts.push('<break time="250ms"/>');
       }
-      // Pure spaces/tabs: skip — nothing to pronounce, no pause either.
       continue;
     }
 
     parts.push(xmlEscape(r && r.length > 0 ? r : s));
   }
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="${VOICE}">${parts.join("")}</voice></speak>`;
+
+  const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="${VOICE}">${parts.join("")}</voice></speak>`;
+  return { ssml, paragraphStarts };
 }
 
 interface SynthesisOutput {
@@ -174,12 +192,17 @@ Deno.serve(async (req) => {
       return json(200, { audio: story.audio });
     }
 
-    const ssml = buildSsml(tokens as AudioToken[]);
+    const { ssml, paragraphStarts } = buildSsml(tokens as AudioToken[]);
     const { audio, durationMs, bookmarks } = await synthesize(ssml);
 
-    const timedTokens = (tokens as AudioToken[]).map((t, i) => ({
-      ...t,
-      t: bookmarks.get(`t${i}`) ?? 0,
+    const paragraphs = paragraphStarts.map((tokenStart, i) => ({
+      start: tokenStart,
+      t: bookmarks.get(`p${i}`) ?? 0,
+    }));
+
+    const plainTokens = (tokens as AudioToken[]).map((t) => ({
+      s: t.s,
+      ...(t.r ? { r: t.r } : {}),
     }));
 
     const path = `${user.id}/${story_id}.mp3`;
@@ -197,7 +220,8 @@ Deno.serve(async (req) => {
       duration_ms: durationMs,
       voice: VOICE,
       version: AUDIO_VERSION,
-      tokens: timedTokens,
+      tokens: plainTokens,
+      paragraphs,
     };
 
     const { error: updateErr } = await supabaseAdmin

@@ -27,7 +27,11 @@ export interface DifficultyEstimate {
 export interface StoryAudioToken {
   s: string;
   r?: string;
-  t: number;
+}
+
+export interface StoryAudioParagraph {
+  start: number; // token index where this paragraph begins
+  t: number;     // offset in ms
 }
 
 export interface StoryAudio {
@@ -36,6 +40,7 @@ export interface StoryAudio {
   voice: string;
   version: number;
   tokens: StoryAudioToken[];
+  paragraphs: StoryAudioParagraph[];
 }
 
 export interface Story {
