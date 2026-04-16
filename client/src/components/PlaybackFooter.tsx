@@ -44,7 +44,7 @@ export default function PlaybackFooter(props: AudioPlayerState) {
               const idx = SPEEDS.indexOf(playbackRate);
               setPlaybackRate(SPEEDS[(idx + 1) % SPEEDS.length]);
             }}
-            disabled={!audio}
+            disabled={busy || !audio}
             aria-label={`Playback speed: ${playbackRate}×`}
             title={`Speed: ${playbackRate}×`}
           >

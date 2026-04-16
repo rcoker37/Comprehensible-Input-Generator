@@ -40,6 +40,12 @@ function json(status: number, body: unknown): Response {
   });
 }
 
+function hiraganaToKatakana(str: string): string {
+  return str.replace(/[\u3041-\u3096]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) + 0x60)
+  );
+}
+
 function xmlEscape(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -90,7 +96,7 @@ function buildSsml(tokens: AudioToken[]): SsmlResult {
     }
 
     if (r && r.length > 0) {
-      parts.push(`<sub alias="${xmlEscape(r)}">${xmlEscape(s)}</sub>`);
+      parts.push(`<sub alias="${xmlEscape(hiraganaToKatakana(r))}">${xmlEscape(s)}</sub>`);
     } else {
       parts.push(xmlEscape(s));
     }

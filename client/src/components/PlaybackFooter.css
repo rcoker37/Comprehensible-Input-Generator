@@ -93,7 +93,11 @@
 
 .playback-play-btn:disabled {
   cursor: default;
-  opacity: 0.8;
+  opacity: 0.4;
+}
+
+.playback-play-btn:disabled:has(.playback-spinner) {
+  opacity: 1;
 }
 
 .playback-play-btn.playing {
@@ -129,6 +133,10 @@
 .playback-regen-btn:disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+
+.playback-regen-btn:disabled:has(.playback-spinner) {
+  opacity: 1;
 }
 
 .playback-spinner {
