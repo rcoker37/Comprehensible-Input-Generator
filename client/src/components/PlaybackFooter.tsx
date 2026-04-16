@@ -35,19 +35,18 @@ export default function PlaybackFooter(props: AudioPlayerState) {
     <div className="playback-footer" role="region" aria-label="Audio playback">
       <div className="playback-footer-inner">
         <div className="playback-left">
-          <label className="playback-speed">
-            <select
-              value={playbackRate}
-              onChange={(e) => setPlaybackRate(Number(e.target.value))}
-              aria-label="Playback speed"
-            >
-              {SPEEDS.map((s) => (
-                <option key={s} value={s}>
-                  {s}×
-                </option>
-              ))}
-            </select>
-          </label>
+          <button
+            type="button"
+            className="playback-speed-btn"
+            onClick={() => {
+              const idx = SPEEDS.indexOf(playbackRate);
+              setPlaybackRate(SPEEDS[(idx + 1) % SPEEDS.length]);
+            }}
+            aria-label={`Playback speed: ${playbackRate}×`}
+            title={`Speed: ${playbackRate}×`}
+          >
+            {playbackRate === 1 ? "1" : ".75"}×
+          </button>
         </div>
         <div className="playback-center">
           <button
