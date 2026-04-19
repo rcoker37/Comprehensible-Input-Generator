@@ -65,6 +65,32 @@ describe("parseAnnotatedText", () => {
       { start: 3, end: 5, reading: "ときどき" },
     ]);
   });
+
+  it("absorbs trailing okurigana when the reading ends with it (word-level form)", () => {
+    // LLM sometimes emits 多く《おおく》 instead of 多《おお》く. The reading
+    // おおく ends with く (matching the trailing okurigana), so the ruby base
+    // widens to include it.
+    const { cleanText, annotations } = parseAnnotatedText(
+      "長い《ながい》歴史《れきし》の中《なか》で多く《おおく》の名馬《めいば》"
+    );
+    expect(cleanText).toBe("長い歴史の中で多くの名馬");
+    expect(annotations).toEqual([
+      { start: 0, end: 2, reading: "ながい" },
+      { start: 2, end: 4, reading: "れきし" },
+      { start: 5, end: 6, reading: "なか" },
+      { start: 7, end: 9, reading: "おおく" },
+      { start: 10, end: 12, reading: "めいば" },
+    ]);
+  });
+
+  it("does not absorb trailing hiragana when the reading doesn't end with them", () => {
+    // Safety: 私は《わたし》 — は is a particle, not okurigana of 私. The
+    // reading わたし doesn't end with は, so は is preserved in cleanText and
+    // the annotation covers only 私.
+    const { cleanText, annotations } = parseAnnotatedText("私は《わたし》元気");
+    expect(cleanText).toBe("私は元気");
+    expect(annotations).toEqual([{ start: 0, end: 1, reading: "わたし" }]);
+  });
 });
 
 describe("stripAnnotations", () => {

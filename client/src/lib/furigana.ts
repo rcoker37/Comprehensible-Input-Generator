@@ -29,14 +29,22 @@ export interface ParsedFurigana {
   annotations: FuriganaAnnotation[];
 }
 
-// Kanji run followed by 《reading》. The reading may contain hiragana,
-// katakana, or the long-vowel mark — never another 《 or 》.
+// Kanji run (optionally followed by trailing hiragana okurigana) + 《reading》.
+// The reading may contain hiragana, katakana, or the long-vowel mark — never
+// another 《 or 》.
 //
-// The base allows CJK Unified Ideographs plus 々 (U+3005, the kanji
+// The kanji class allows CJK Unified Ideographs plus 々 (U+3005, the kanji
 // iteration mark): 人々, 時々, 日々 read as a single word and are annotated
 // as one ruby block. 々 is not itself a kanji in Unicode (CJK Symbols &
 // Punctuation block) so it must be whitelisted explicitly.
-const RUBY_RE = /([\u4e00-\u9faf\u3400-\u4dbf\u3005]+)《([^《》]+)》/g;
+//
+// The trailing-hiragana group handles word-level annotations the LLM
+// sometimes emits despite being told to use strict kanji-only form (e.g.
+// 多く《おおく》 instead of 多《おお》く). We absorb those hiragana into the
+// ruby base only when the reading's tail matches them — otherwise the
+// trailing hiragana are preserved verbatim in the clean text (see
+// parseAnnotatedText below).
+const RUBY_RE = /([\u4e00-\u9faf\u3400-\u4dbf\u3005]+)([\u3040-\u309f]*)《([^《》]+)》/g;
 
 /**
  * Strip Aozora ruby annotations from `raw` and return both the clean text and
@@ -54,15 +62,29 @@ export function parseAnnotatedText(raw: string): ParsedFurigana {
   let match: RegExpExecArray | null;
   while ((match = RUBY_RE.exec(raw)) !== null) {
     const matchStart = match.index;
-    const base = match[1];
-    const reading = match[2];
+    const kanjiRun = match[1];
+    const okurigana = match[2];
+    const reading = match[3];
 
     // Append text between the last match and this one.
     clean += raw.slice(cursor, matchStart);
+
+    // Word-level annotation: if the LLM put hiragana between the kanji and
+    // the reading block (e.g. 多く《おおく》), absorb those hiragana into the
+    // ruby base — but only when the reading actually ends with them, so we
+    // don't over-capture particles like 私は《わたし》.
+    const absorb = okurigana.length > 0 && reading.endsWith(okurigana);
+    const base = absorb ? kanjiRun + okurigana : kanjiRun;
+
     const annStart = clean.length;
     clean += base;
     const annEnd = clean.length;
     annotations.push({ start: annStart, end: annEnd, reading });
+
+    if (!absorb && okurigana.length > 0) {
+      clean += okurigana;
+    }
+
     cursor = matchStart + match[0].length;
   }
   // Tail after the final match.
