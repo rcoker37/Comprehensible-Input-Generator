@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "client",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "{ [ -f client/.env.local ] || cp ../../../client/.env.local client/.env.local; } && { [ -f client/public/dict/base.dat ] || { mkdir -p client/public/dict && cp ../../../client/public/dict/* client/public/dict/; }; } && npm run dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "supabase",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["supabase", "start"],
+      "port": 54321
+    },
+    {
+      "name": "edge-functions",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["supabase", "functions", "serve"],
+      "port": 54321
+    }
+  ]
+}
