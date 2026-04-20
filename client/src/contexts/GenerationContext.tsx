@@ -7,7 +7,7 @@ interface GenerationContextType {
   error: string | null;
   story: Story | null;
   genProgress: GenerationProgress | null;
-  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; formality: Formality; grammarLevel: number; model: string }) => void;
+  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string }) => void;
   clear: () => void;
 }
 
@@ -39,7 +39,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setGenProgress(null);
   }, []);
 
-  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; formality: Formality; grammarLevel: number; model: string }) => {
+  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string }) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;

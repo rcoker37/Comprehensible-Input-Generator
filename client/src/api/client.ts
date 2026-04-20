@@ -147,6 +147,7 @@ export async function generateStoryStream(
     contentType: ContentType;
     paragraphs: number;
     topic?: string;
+    style?: string;
     formality: Formality;
     grammarLevel: number;
     model: string;
@@ -173,7 +174,8 @@ export async function generateStoryStream(
     allowedKanji,
     params.formality,
     params.grammarLevel,
-    params.topic
+    params.topic,
+    params.style
   );
 
   // Get auth token for the edge function
@@ -222,6 +224,16 @@ export async function generateStoryStream(
 
       try {
         const parsed = JSON.parse(data);
+        if (parsed.error) {
+          const msg = parsed.error.message || parsed.error.code || "Model error";
+          throw new Error(`Model error: ${msg}`);
+        }
+        const finishReason = parsed.choices?.[0]?.finish_reason;
+        if (finishReason === "length" && !fullText.trim()) {
+          throw new Error(
+            "The model hit its token limit while thinking and produced no output. Try a lower thinking effort."
+          );
+        }
         const delta = parsed.choices?.[0]?.delta;
         const reasoning = delta?.reasoning;
         const content = delta?.content;
@@ -234,6 +246,8 @@ export async function generateStoryStream(
           onProgress({ phase: "generating", reasoning: fullReasoning, content: fullText });
         }
       } catch (e) {
+        if (e instanceof Error && e.message.startsWith("Model error:")) throw e;
+        if (e instanceof Error && e.message.startsWith("The model hit")) throw e;
         if (import.meta.env.DEV) {
           console.debug("Skipped malformed SSE chunk:", data, e);
         }

@@ -20,10 +20,7 @@ function AnimatedDots() {
   </span>;
 }
 
-const VALID_MODELS = [
-  "anthropic/claude-sonnet-4.6",
-  "google/gemini-3.1-pro-preview",
-];
+const MODEL = "google/gemini-3.1-pro-preview";
 
 export default function Generator() {
   const { user, profile } = useAuth();
@@ -31,10 +28,9 @@ export default function Generator() {
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
+  const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
   const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
-  const savedModel = profile?.preferred_model;
-  const [model, setModel] = useState(savedModel && VALID_MODELS.includes(savedModel) ? savedModel : "anthropic/claude-sonnet-4.6");
 
   const handleGenerate = () => {
     if (!profile?.has_openrouter_api_key) return;
@@ -42,12 +38,12 @@ export default function Generator() {
       contentType,
       paragraphs,
       topic: topic.trim() || undefined,
+      style: style.trim() || undefined,
       formality,
       grammarLevel,
-      model,
+      model: MODEL,
     });
     updateProfile(user!.id, {
-      preferred_model: model,
       preferred_content_type: contentType,
       preferred_formality: formality,
       preferred_grammar_level: grammarLevel,
@@ -107,6 +103,15 @@ export default function Generator() {
               onChange={(e) => setTopic(e.target.value)}
             />
           </label>
+          <label>
+            <span>Style <span className="optional">(optional)</span></span>
+            <input
+              type="text"
+              placeholder="e.g., noir, slice of life, Haruki Murakami..."
+              value={style}
+              onChange={(e) => setStyle(e.target.value)}
+            />
+          </label>
         </div>
 
         <div className="form-group">
@@ -141,25 +146,6 @@ export default function Generator() {
           </div>
         </div>
 
-        <div className="form-group">
-          <label>Model</label>
-          <div className="chip-group" role="radiogroup" aria-label="Model">
-            {([
-              { id: "anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6", price: "$" },
-              { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", price: "$$" },
-            ] as const).map((m) => (
-              <button
-                key={m.id}
-                className={`chip ${model === m.id ? "active" : ""}`}
-                onClick={() => setModel(m.id)}
-                aria-pressed={model === m.id}
-              >
-                {m.label} <span className="chip-price">{m.price}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         <button
           className="generate-btn"
           onClick={handleGenerate}
@@ -177,6 +163,12 @@ export default function Generator() {
       </div>
 
       {error && <div className="error">{error}</div>}
+      {genProgress?.reasoning && (
+        <details className="reasoning-display" open>
+          <summary>Thinking</summary>
+          <pre>{genProgress.reasoning}</pre>
+        </details>
+      )}
       {genProgress?.content && (
         <div className="story-display">
           <div className="story-content">
