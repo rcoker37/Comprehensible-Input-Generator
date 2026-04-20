@@ -7,6 +7,7 @@ interface GenerationContextType {
   error: string | null;
   story: Story | null;
   genProgress: GenerationProgress | null;
+  startedAt: number | null;
   generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string }) => void;
   clear: () => void;
 }
@@ -24,6 +25,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [story, setStory] = useState<Story | null>(null);
   const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Abort any in-flight generation on unmount
@@ -37,6 +39,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setError(null);
     setStory(null);
     setGenProgress(null);
+    setStartedAt(null);
   }, []);
 
   const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string }) => {
@@ -48,6 +51,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setError(null);
     setStory(null);
     setGenProgress(null);
+    setStartedAt(Date.now());
 
     generateStoryStream(userId, params, (progress) => setGenProgress(progress), controller.signal)
       .then((result) => {
@@ -60,11 +64,12 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => {
         setLoading(false);
+        setStartedAt(null);
       });
   }, []);
 
   return (
-    <GenerationContext.Provider value={{ loading, error, story, genProgress, generate, clear }}>
+    <GenerationContext.Provider value={{ loading, error, story, genProgress, startedAt, generate, clear }}>
       {children}
     </GenerationContext.Provider>
   );

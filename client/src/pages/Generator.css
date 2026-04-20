@@ -100,6 +100,14 @@ label:has(input[type="checkbox"]) {
   color: var(--text);
 }
 
+.generate-status {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .reasoning-display pre {
   margin: 0.75rem 0 0;
   white-space: pre-wrap;
