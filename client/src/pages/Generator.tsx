@@ -166,7 +166,7 @@ export default function Generator() {
           title={!hasKey ? "Add an OpenRouter API key in Settings first" : undefined}
         >
           {!loading
-            ? "Generate Story"
+            ? `Generate ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`
             : genProgress?.phase === "thinking"
               ? <>Thinking<AnimatedDots /></>
               : genProgress?.phase === "generating"
