@@ -11,10 +11,10 @@ export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
 };
 
 export const GRAMMAR_GUIDANCE: Record<number, string> = {
-  5: "Use only basic grammar: て-form, ます-form, basic particles (は, が, を, に, で, へ), です/だ, simple adjectives.",
-  4: "Use up to JLPT N4 grammar: conditionals (たら/ば), passive basics, てある/ている, たい-form, ～ことができる.",
-  3: "Use up to JLPT N3 grammar: causative, passive, compound sentences, ようにする, ～ために, ～ことにする.",
-  2: "Use up to JLPT N2 grammar: ～わけではない, ～に対して, ～ことから, ～一方で, ～とは限らない, formal conjunctions (したがって, それにもかかわらず).",
+  5: "Limit grammar to JLPT N5 level.",
+  4: "Limit grammar to JLPT N4 level or below.",
+  3: "Limit grammar to JLPT N3 level or below.",
+  2: "Limit grammar to JLPT N2 level or below.",
   1: "You may use any grammar freely, including literary and classical forms.",
 };
 
@@ -36,7 +36,7 @@ const CONTENT_TYPE_TOPIC_LABEL: Record<ContentType, string> = {
   essay: "The essay should be about",
 };
 
-function sanitizeTopic(raw: string): string {
+function sanitizeUserText(raw: string): string {
   return raw.replace(/[\n\r#`]/g, "").trim();
 }
 
@@ -46,7 +46,8 @@ export function buildPrompt(
   kanjiList: string,
   formality: Formality,
   grammarLevel: number,
-  topic?: string
+  topic?: string,
+  style?: string
 ): string {
   const parts = [
     CONTENT_TYPE_PREAMBLE[contentType],
@@ -64,14 +65,18 @@ export function buildPrompt(
   ];
 
   if (topic) {
-    parts.push("", `${CONTENT_TYPE_TOPIC_LABEL[contentType]}: ${sanitizeTopic(topic)}`);
+    parts.push("", `${CONTENT_TYPE_TOPIC_LABEL[contentType]}: ${sanitizeUserText(topic)}`);
+  }
+
+  if (style) {
+    parts.push("", `Writing style: ${sanitizeUserText(style)}`);
   }
 
   parts.push(
     "",
     CONTENT_TYPE_LENGTH[contentType](paragraphs),
     "",
-    "Output ONLY the content in Japanese. Start with a short title on the first line — plain text, no leading # or other markdown headings. Do not use markdown formatting of any kind (no #, **, _, -, >, backticks). Do not include any English text, explanations, or translations."
+    "Output ONLY the final content in Japanese. Start with a short title on the first line — plain text, no leading # or other markdown headings. Do not use markdown formatting of any kind (no #, **, _, -, >, backticks). Absolutely no English in the output: no explanations, no translations, no self-corrections, no meta-commentary. If you realize a kanji is not in the allowed list, silently rewrite with simpler vocabulary — do NOT narrate the correction. Any English sentence in the output is a failure."
   );
 
   return parts.join("\n");

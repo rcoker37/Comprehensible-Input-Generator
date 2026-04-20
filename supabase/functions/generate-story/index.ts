@@ -7,9 +7,10 @@ const corsHeaders = {
 };
 
 const ALLOWED_MODELS = new Set([
-  "anthropic/claude-sonnet-4.6",
   "google/gemini-3.1-pro-preview",
 ]);
+
+const THINKING_BUDGET = 10000;
 
 // Module-level admin client (reused across requests in per_worker mode)
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -61,7 +62,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Parse request — client sends the prompt and model directly
+    // Parse request — client sends the prompt and model
     const { prompt, model, stream = true } = await req.json();
 
     if (!prompt || !model) {
@@ -91,6 +92,8 @@ Deno.serve(async (req) => {
           model,
           messages: [{ role: "user", content: prompt }],
           stream,
+          reasoning: { max_tokens: THINKING_BUDGET },
+          max_tokens: 16000,
         }),
         signal: AbortSignal.timeout(120_000),
       }
@@ -98,12 +101,14 @@ Deno.serve(async (req) => {
 
     if (!openRouterRes.ok) {
       const status = openRouterRes.status;
-      console.error("OpenRouter error:", status, await openRouterRes.text());
+      const errorBody = await openRouterRes.text();
+      console.error("OpenRouter error:", status, errorBody);
 
       const userMessage =
         status === 401 ? "Invalid OpenRouter API key. Please check your key in Settings." :
         status === 402 ? "Insufficient OpenRouter credits." :
         status === 429 ? "Rate limited by OpenRouter. Please wait and try again." :
+        `OpenRouter ${status}: ${errorBody.slice(0, 300)}` ||
         "Story generation failed. Please try again.";
 
       return new Response(

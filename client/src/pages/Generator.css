@@ -14,6 +14,7 @@
 
 .form-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 
@@ -21,8 +22,9 @@
   flex-shrink: 0;
 }
 
-.form-row label:last-child {
-  flex: 1;
+.form-row label:not(:first-child) {
+  flex: 1 1 220px;
+  min-width: 220px;
 }
 
 .form-group {
@@ -80,5 +82,28 @@ label:has(input[type="checkbox"]) {
 .generate-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.reasoning-display {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.reasoning-display summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.reasoning-display pre {
+  margin: 0.75rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
 }
 
