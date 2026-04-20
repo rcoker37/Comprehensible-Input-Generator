@@ -10,7 +10,7 @@ const ALLOWED_MODELS = new Set([
   "google/gemini-3.1-pro-preview",
 ]);
 
-const THINKING_BUDGET = 10000;
+const THINKING_BUDGET = 6000;
 
 // Module-level admin client (reused across requests in per_worker mode)
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
