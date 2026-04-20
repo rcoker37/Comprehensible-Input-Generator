@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_MODELS = new Set([
-  "google/gemini-3.1-pro-preview",
+  "anthropic/claude-opus-4.7",
 ]);
 
 const THINKING_BUDGET = 6000;

@@ -20,11 +20,24 @@ function AnimatedDots() {
   </span>;
 }
 
-const MODEL = "google/gemini-3.1-pro-preview";
+function ElapsedTimer({ startedAt }: { startedAt: number }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = Math.max(0, now - startedAt);
+  const totalSec = Math.floor(elapsed / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return <>{m > 0 ? `${m}m ${s.toString().padStart(2, "0")}s` : `${s}s`}</>;
+}
+
+const MODEL = "anthropic/claude-opus-4.7";
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, generate } = useGeneration();
+  const { loading, error, story, genProgress, startedAt, generate } = useGeneration();
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
@@ -153,13 +166,18 @@ export default function Generator() {
           title={!hasKey ? "Add an OpenRouter API key in Settings first" : undefined}
         >
           {!loading
-            ? "Generate Story"
+            ? `Generate ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`
             : genProgress?.phase === "thinking"
               ? <>Thinking<AnimatedDots /></>
               : genProgress?.phase === "generating"
                 ? <>Generating<AnimatedDots /></>
                 : <>Waiting<AnimatedDots /></>}
         </button>
+        {loading && startedAt !== null && (
+          <div className="generate-status">
+            Elapsed: <ElapsedTimer startedAt={startedAt} />
+          </div>
+        )}
       </div>
 
       {error && <div className="error">{error}</div>}
