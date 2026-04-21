@@ -39,7 +39,7 @@ export default function AppLayout() {
           <span className="nav-user">
             {usage && (
               <span className="nav-usage">
-                ${usage.used.toFixed(3)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
+                ${usage.used.toFixed(2)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
               </span>
             )}
             <span>{user.email}</span>
