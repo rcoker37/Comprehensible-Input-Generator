@@ -26,7 +26,7 @@ describe("buildPrompt", () => {
 
   it("includes essay preamble for essay type", () => {
     const result = buildPrompt("essay", 3, "日", "polite", 3);
-    expect(result).toContain("writing a short essay");
+    expect(result).toContain("non-fiction, factual, educational essay");
   });
 
   it("includes the correct formality instruction", () => {

@@ -21,7 +21,7 @@ export const GRAMMAR_GUIDANCE: Record<number, string> = {
 const CONTENT_TYPE_PREAMBLE: Record<ContentType, string> = {
   story: "You are a Japanese language teacher writing a short story for a student learning Japanese.",
   dialogue: "You are a Japanese language teacher writing a dialogue between two characters for a student learning Japanese.",
-  essay: "You are a Japanese language teacher writing a short essay for a student learning Japanese.",
+  essay: "You are a Japanese language teacher writing a short non-fiction, factual, educational essay for a student learning Japanese. The essay should present accurate information on a real-world topic in an informative, expository style — not a personal narrative or fictional piece.",
 };
 
 const CONTENT_TYPE_LENGTH: Record<ContentType, (n: number) => string> = {
