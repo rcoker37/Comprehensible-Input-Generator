@@ -15,42 +15,47 @@ import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { explainWord } from "../api/client";
 import { KANJI_REGEX } from "../lib/constants";
+import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
-import type { AnnotationToken, StoryAnnotations } from "../types";
+import type { AnnotationExplanation, StoryExplanations } from "../types";
 import "./WordPopover.css";
 
 interface WordPopoverProps {
-  token: AnnotationToken;
   storyId: number;
-  annotations: StoryAnnotations;
+  cleanText: string;
+  offset: number | null;
+  explanations: StoryExplanations;
   referenceEl: HTMLElement | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onExplanationCached: (tokenIdx: number, text: string) => void;
+  onExplanationCached: (key: string, explanation: AnnotationExplanation) => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
 
+function explanationKey(hit: LookupHit): string {
+  return `${hit.start}-${hit.end}`;
+}
+
 export default function WordPopover({
-  token,
   storyId,
-  annotations,
+  cleanText,
+  offset: cursorOffset,
+  explanations,
   referenceEl,
   open,
   onOpenChange,
   onExplanationCached,
 }: WordPopoverProps) {
-  const { state: dictState, lookupWord } = useDictionary();
-  const [results, setResults] = useState<WordResult[] | null>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
+  const { state: dictState } = useDictionary();
+  const [hit, setHit] = useState<LookupHit | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
   const [showAllSenses, setShowAllSenses] = useState(false);
   const [activeKanji, setActiveKanji] = useState<string | null>(null);
   const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
-  const [explanation, setExplanation] = useState<string | null>(
-    () => annotations.explanations[String(token.idx)]?.text ?? null
-  );
+  const [explanation, setExplanation] = useState<string | null>(null);
   const [explaining, setExplaining] = useState(false);
   const [explainError, setExplainError] = useState<string | null>(null);
 
@@ -67,7 +72,7 @@ export default function WordPopover({
   const role = useRole(context, { role: "dialog" });
   const { getFloatingProps } = useInteractions([dismiss, role]);
 
-  // Reset transient state whenever we open against a different token.
+  // Reset transient UI state when we open against a different tap point.
   useEffect(() => {
     if (!open) return;
     setShowAllSenses(false);
@@ -75,42 +80,36 @@ export default function WordPopover({
     setActiveKanjiRow(null);
     setLoadingKanji(null);
     setExplainError(null);
-    const cached = annotations.explanations[String(token.idx)];
-    setExplanation(cached?.text ?? null);
-  }, [open, token.idx, annotations.explanations]);
+    setHit(null);
+    setExplanation(null);
+  }, [open, cursorOffset]);
 
+  // Run the cursor lookup whenever we open against a new offset.
   useEffect(() => {
-    if (!open) return;
-    if (dictState !== "ready") {
-      setResults(null);
-      return;
-    }
+    if (!open || cursorOffset === null) return;
+    if (dictState !== "ready") return;
     let cancelled = false;
-    setLookupError(null);
-    (async () => {
-      try {
-        // Try the surface first. If nothing matches (inflected verb/adj),
-        // fall back to the kuromoji base form — that matches JMdict's lemma.
-        let primary = await lookupWord(token.s);
-        if (primary.length === 0 && token.b) {
-          primary = await lookupWord(token.b);
+    setLookingUp(true);
+    lookupAtCursor(cleanText, cursorOffset)
+      .then((result) => {
+        if (cancelled) return;
+        setHit(result);
+        if (result) {
+          const cached = explanations[explanationKey(result)];
+          setExplanation(cached?.text ?? null);
         }
-        if (!cancelled) setResults(primary);
-      } catch (err) {
-        if (!cancelled) {
-          setLookupError(err instanceof Error ? err.message : "Lookup failed");
-          setResults([]);
-        }
-      }
-    })();
+      })
+      .finally(() => {
+        if (!cancelled) setLookingUp(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [open, dictState, token.s, token.b, lookupWord]);
+  }, [open, cursorOffset, cleanText, dictState, explanations]);
 
   const kanjiChars = useMemo(
-    () => [...token.s].filter((ch) => KANJI_REGEX.test(ch)),
-    [token.s]
+    () => (hit ? [...hit.surface].filter((ch) => KANJI_REGEX.test(ch)) : []),
+    [hit]
   );
 
   const handleKanjiClick = async (ch: string) => {
@@ -136,13 +135,15 @@ export default function WordPopover({
   };
 
   const handleExplain = async (opts: { force?: boolean } = {}) => {
-    if (explaining) return;
+    if (!hit || explaining) return;
     setExplaining(true);
     setExplainError(null);
     try {
-      const result = await explainWord(storyId, token.idx, { force: opts.force });
+      const result = await explainWord(storyId, hit.start, hit.end, {
+        force: opts.force,
+      });
       setExplanation(result.text);
-      onExplanationCached(token.idx, result.text);
+      onExplanationCached(explanationKey(hit), result);
     } catch (e) {
       setExplainError(e instanceof Error ? e.message : "Explain failed");
     } finally {
@@ -151,6 +152,10 @@ export default function WordPopover({
   };
 
   if (!open || !referenceEl) return null;
+
+  const primary = hit?.results[0];
+  const headerSurface = hit?.surface ?? "";
+  const headerReading = primary?.r?.[0]?.ent;
 
   return (
     <FloatingPortal>
@@ -173,29 +178,29 @@ export default function WordPopover({
           ) : (
             <>
               <header className="word-popover__header">
-                {token.r ? (
+                {headerReading && headerSurface !== headerReading ? (
                   <ruby className="word-popover__surface">
-                    {token.s}
-                    <rt>{token.r}</rt>
+                    {headerSurface}
+                    <rt>{headerReading}</rt>
                   </ruby>
                 ) : (
-                  <span className="word-popover__surface">{token.s}</span>
+                  <span className="word-popover__surface">{headerSurface}</span>
                 )}
-                {token.pos && <span className="word-popover__pos">{token.pos}</span>}
               </header>
 
-              {token.gloss && (
-                <section className="word-popover__gloss">
-                  <div className="word-popover__gloss-text">{token.gloss}</div>
-                  {token.note && <div className="word-popover__note">{token.note}</div>}
-                </section>
+              {hit?.base && hit.derivations && hit.derivations.length > 0 && (
+                <div className="word-popover__inflection">
+                  from <span className="word-popover__inflection-base">{hit.base}</span>
+                  {" · "}
+                  {hit.derivations.join(" → ")}
+                </div>
               )}
 
               <section className="word-popover__senses">
                 <SenseSection
                   state={dictState}
-                  results={results}
-                  error={lookupError}
+                  hit={hit}
+                  lookingUp={lookingUp}
                   showAll={showAllSenses}
                   onToggleShowAll={() => setShowAllSenses((s) => !s)}
                 />
@@ -227,7 +232,7 @@ export default function WordPopover({
                       type="button"
                       className="word-popover__regenerate-btn"
                       onClick={() => handleExplain({ force: true })}
-                      disabled={explaining}
+                      disabled={explaining || !hit}
                     >
                       {explaining ? "Regenerating…" : "Regenerate explanation"}
                     </button>
@@ -237,7 +242,7 @@ export default function WordPopover({
                     type="button"
                     className="word-popover__explain-btn"
                     onClick={() => handleExplain()}
-                    disabled={explaining}
+                    disabled={explaining || !hit}
                   >
                     {explaining ? "Explaining…" : "Explain here"}
                   </button>
@@ -256,14 +261,14 @@ export default function WordPopover({
 
 function SenseSection({
   state,
-  results,
-  error,
+  hit,
+  lookingUp,
   showAll,
   onToggleShowAll,
 }: {
   state: ReturnType<typeof useDictionary>["state"];
-  results: WordResult[] | null;
-  error: string | null;
+  hit: LookupHit | null;
+  lookingUp: boolean;
   showAll: boolean;
   onToggleShowAll: () => void;
 }) {
@@ -273,18 +278,15 @@ function SenseSection({
   if (state === "error") {
     return <div className="word-popover__error">Dictionary unavailable</div>;
   }
-  if (results === null) {
+  if (lookingUp || !hit) {
     return <div className="word-popover__status">Looking up…</div>;
   }
-  if (error) {
-    return <div className="word-popover__error">{error}</div>;
-  }
-  if (results.length === 0) {
+  if (hit.results.length === 0) {
     return <div className="word-popover__status">No dictionary entry.</div>;
   }
 
   // Flatten senses across the top word result — simplest useful render for v1.
-  const primary = results[0];
+  const primary: WordResult = hit.results[0];
   const senses = primary.s;
   const visible = showAll ? senses : senses.slice(0, MAX_SENSES_COLLAPSED);
 

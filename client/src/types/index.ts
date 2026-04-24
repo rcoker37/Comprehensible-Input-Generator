@@ -43,35 +43,13 @@ export interface StoryAudio {
   paragraphs: StoryAudioParagraph[];
 }
 
-export interface AnnotationToken {
-  idx: number;
-  s: string;
-  r?: string;
-  b?: string;
-  pos?: string;
-  gloss?: string;
-  note?: string;
-  isContent: boolean;
-}
-
-export interface AnnotationSentence {
-  start_token: number;
-  end_token: number;
-}
-
 export interface AnnotationExplanation {
   text: string;
   generated_at: string;
 }
 
-export interface StoryAnnotations {
-  version: number;
-  model: string;
-  generated_at: string;
-  tokens: AnnotationToken[];
-  sentences: AnnotationSentence[];
-  explanations: Record<string, AnnotationExplanation>;
-}
+/** Keyed by `${start_offset}-${end_offset}` (char offsets in the story content). */
+export type StoryExplanations = Record<string, AnnotationExplanation>;
 
 export interface Story {
   id: number;
@@ -85,7 +63,7 @@ export interface Story {
   filters: StoryFilters;
   difficulty: DifficultyEstimate;
   audio: StoryAudio | null;
-  annotations: StoryAnnotations | null;
+  explanations: StoryExplanations | null;
   created_at: string;
 }
 

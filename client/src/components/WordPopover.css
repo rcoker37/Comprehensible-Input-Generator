@@ -31,28 +31,16 @@
   color: var(--text-dim);
 }
 
-.word-popover__pos {
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.word-popover__gloss {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.word-popover__gloss-text {
-  font-size: 1rem;
-  color: var(--accent);
-}
-
-.word-popover__note {
+.word-popover__inflection {
   font-size: 0.78rem;
   color: var(--text-dim);
   line-height: 1.35;
+  margin-top: -0.35rem;
+}
+
+.word-popover__inflection-base {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .word-popover__senses {

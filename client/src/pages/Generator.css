@@ -114,15 +114,3 @@ label:has(input[type="checkbox"]) {
   word-break: break-word;
   font-family: inherit;
 }
-
-.annotating-chip {
-  margin: 1rem 0 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text-dim);
-  font-size: 0.82rem;
-  text-align: center;
-}
-

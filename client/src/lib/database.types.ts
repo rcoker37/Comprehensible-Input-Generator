@@ -100,12 +100,12 @@ export type Database = {
       stories: {
         Row: {
           allowed_kanji: string
-          annotations: Json | null
           audio: Json | null
           content: string
           content_type: string
           created_at: string
           difficulty: Json
+          explanations: Json | null
           filters: Json
           formality: string
           id: number
@@ -116,12 +116,12 @@ export type Database = {
         }
         Insert: {
           allowed_kanji: string
-          annotations?: Json | null
           audio?: Json | null
           content: string
           content_type?: string
           created_at?: string
           difficulty: Json
+          explanations?: Json | null
           filters: Json
           formality: string
           id?: never
@@ -132,12 +132,12 @@ export type Database = {
         }
         Update: {
           allowed_kanji?: string
-          annotations?: Json | null
           audio?: Json | null
           content?: string
           content_type?: string
           created_at?: string
           difficulty?: Json
+          explanations?: Json | null
           filters?: Json
           formality?: string
           id?: never

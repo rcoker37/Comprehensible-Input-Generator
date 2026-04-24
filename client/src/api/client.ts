@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { cleanGeneratedText } from "../lib/text";
 import { buildPrompt, computeDifficulty } from "../lib/generation";
-import type { AnnotationInputToken, AudioToken } from "../lib/tokenizer";
+import type { AudioToken } from "../lib/tokenizer";
 import type {
   AnnotationExplanation,
   ContentType,
@@ -11,7 +11,6 @@ import type {
   Kanji,
   KanjiStats,
   Story,
-  StoryAnnotations,
   StoryAudio,
 } from "../types";
 
@@ -371,45 +370,12 @@ export async function getStoryAudioUrl(path: string): Promise<string> {
   return data.signedUrl;
 }
 
-// Stories — annotations
-
-export async function annotateStory(
-  storyId: number,
-  content: string,
-  tokens: AnnotationInputToken[],
-  opts: { force?: boolean } = {}
-): Promise<StoryAnnotations> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error("Not authenticated");
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/annotate-story`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      story_id: storyId,
-      content,
-      tokens,
-      force: opts.force ?? false,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: "Annotation failed" }));
-    throw new Error(body.error || `HTTP ${response.status}`);
-  }
-
-  const { annotations } = await response.json();
-  return annotations as StoryAnnotations;
-}
+// Stories — explanations
 
 export async function explainWord(
   storyId: number,
-  tokenIdx: number,
+  startOffset: number,
+  endOffset: number,
   opts: { force?: boolean } = {}
 ): Promise<AnnotationExplanation> {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -417,7 +383,7 @@ export async function explainWord(
   if (!accessToken) throw new Error("Not authenticated");
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/annotate-story`, {
+  const response = await fetch(`${supabaseUrl}/functions/v1/explain-word`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -425,8 +391,8 @@ export async function explainWord(
     },
     body: JSON.stringify({
       story_id: storyId,
-      action: "explain",
-      token_idx: tokenIdx,
+      start_offset: startOffset,
+      end_offset: endOffset,
       force: opts.force ?? false,
     }),
   });
