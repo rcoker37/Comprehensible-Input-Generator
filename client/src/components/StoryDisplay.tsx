@@ -1,11 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { useKnownKanji } from "../contexts/KanjiContext";
-import { getFurigana, type FuriganaSegment } from "../lib/tokenizer";
+import { tokenizeForAudio, type AudioToken } from "../lib/tokenizer";
 import { parseAnnotatedText, stripAnnotations } from "../lib/furigana";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { KANJI_REGEX } from "../lib/constants";
 import WordPopover from "./WordPopover";
-import type { AnnotationToken, Story, StoryAnnotations, StoryAudio } from "../types";
+import type {
+  AnnotationExplanation,
+  Story,
+  StoryAudio,
+  StoryExplanations,
+} from "../types";
 import "./StoryDisplay.css";
 
 interface Props {
@@ -16,16 +21,56 @@ interface Props {
   onParagraphClick?: (i: number) => void;
 }
 
-function groupTokensByParagraph(tokens: AnnotationToken[]): AnnotationToken[][] {
-  const paragraphs: AnnotationToken[][] = [[]];
+interface DisplayToken extends AudioToken {
+  offset: number;
+}
+
+interface DisplayParagraph {
+  tokens: DisplayToken[];
+}
+
+/**
+ * Walk the token stream, stamping char offsets and splitting into paragraphs
+ * at any pure-whitespace token containing ≥2 newlines. The offsets line up
+ * with the cleanText we tokenized, which is exactly what lookupAtCursor
+ * expects when the user taps a span.
+ *
+ * When `dropTitleParagraph` is set, the first paragraph is dropped (it's the
+ * title, which renders separately as an <h2>) and subsequent offsets are
+ * rebased so they still match the content-only cleanText passed to
+ * lookupAtCursor. This is the shape audio.tokens comes in — the TTS side
+ * needs the title prefix to narrate it, but the display does not.
+ */
+function groupTokens(
+  tokens: AudioToken[],
+  dropTitleParagraph: boolean
+): DisplayParagraph[] {
+  const paragraphs: DisplayParagraph[] = [];
+  let current: DisplayToken[] = [];
+  let offset = 0;
+  let base = 0;
+  let dropped = !dropTitleParagraph;
   for (const tok of tokens) {
-    if (/^\s+$/.test(tok.s) && (tok.s.match(/\n/g)?.length ?? 0) >= 2) {
-      paragraphs.push([]);
+    const isSep =
+      /^\s+$/.test(tok.s) && (tok.s.match(/\n/g)?.length ?? 0) >= 2;
+    if (isSep) {
+      if (!dropped) {
+        current = [];
+        offset += tok.s.length;
+        base = offset;
+        dropped = true;
+        continue;
+      }
+      if (current.length > 0) paragraphs.push({ tokens: current });
+      current = [];
+      offset += tok.s.length;
       continue;
     }
-    paragraphs[paragraphs.length - 1].push(tok);
+    current.push({ ...tok, offset: offset - base });
+    offset += tok.s.length;
   }
-  return paragraphs.filter((p) => p.length > 0);
+  if (current.length > 0) paragraphs.push({ tokens: current });
+  return paragraphs;
 }
 
 export default function StoryDisplay({
@@ -36,20 +81,18 @@ export default function StoryDisplay({
   onParagraphClick,
 }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
-  const [paragraphs, setParagraphs] = useState<FuriganaSegment[][] | null>(null);
-  const [liveAnnotations, setLiveAnnotations] = useState<StoryAnnotations | null>(
-    story.annotations
+  const [paragraphs, setParagraphs] = useState<DisplayParagraph[] | null>(null);
+  const [explanations, setExplanations] = useState<StoryExplanations>(
+    story.explanations ?? {}
   );
-  const [activeToken, setActiveToken] = useState<{
-    token: AnnotationToken;
+  const [activeTap, setActiveTap] = useState<{
+    offset: number;
     el: HTMLElement;
   } | null>(null);
 
   useEffect(() => {
-    setLiveAnnotations(story.annotations);
-  }, [story.annotations]);
-
-  const useAnnotations = liveAnnotations !== null;
+    setExplanations(story.explanations ?? {});
+  }, [story.explanations]);
 
   const { cleanContent, rubyAnnotations } = useMemo(() => {
     const raw = stripBold(story.content);
@@ -62,59 +105,36 @@ export default function StoryDisplay({
     return getUnknownKanji(cleanContent, knownKanji);
   }, [cleanContent, knownKanji, knownKanjiLoaded]);
 
-  const annotationParagraphs = useMemo(
-    () => (liveAnnotations ? groupTokensByParagraph(liveAnnotations.tokens) : null),
-    [liveAnnotations]
-  );
-
+  // Prefer server-tokenized audio tokens when we have them — they're
+  // guaranteed to align with the audio timing. Otherwise tokenize locally
+  // from the clean text + ruby annotations.
   useEffect(() => {
-    if (useAnnotations || audio?.paragraphs || unknownKanji.size === 0) {
-      setParagraphs(null);
+    let cancelled = false;
+    if (audio?.tokens && audio.tokens.length > 0) {
+      setParagraphs(groupTokens(audio.tokens, true));
       return;
     }
-    let cancelled = false;
-    const parts = cleanContent.split("\n\n");
-
-    let offset = 0;
-    const perParagraph = parts.map((p) => {
-      const start = offset;
-      const end = offset + p.length;
-      offset = end + 2;
-      return rubyAnnotations
-        .filter((a) => a.start >= start && a.end <= end)
-        .map((a) => ({ ...a, start: a.start - start, end: a.end - start }));
-    });
-
-    Promise.all(
-      parts.map((p, i) => getFurigana(p, unknownKanji, perParagraph[i]))
-    ).then((results) => {
-      if (!cancelled) setParagraphs(results);
+    tokenizeForAudio(cleanContent, rubyAnnotations).then((tokens) => {
+      if (!cancelled) setParagraphs(groupTokens(tokens, false));
     });
     return () => {
       cancelled = true;
     };
-  }, [useAnnotations, cleanContent, rubyAnnotations, unknownKanji, audio]);
+  }, [audio, cleanContent, rubyAnnotations]);
 
   const handleTokenClick = (
     e: React.MouseEvent<HTMLButtonElement>,
-    token: AnnotationToken
+    offset: number
   ) => {
     e.stopPropagation();
-    setActiveToken({ token, el: e.currentTarget });
+    setActiveTap({ offset, el: e.currentTarget });
   };
 
-  const handleExplanationCached = (tokenIdx: number, text: string) => {
-    setLiveAnnotations((prev) =>
-      prev
-        ? {
-            ...prev,
-            explanations: {
-              ...prev.explanations,
-              [String(tokenIdx)]: { text, generated_at: new Date().toISOString() },
-            },
-          }
-        : prev
-    );
+  const handleExplanationCached = (
+    key: string,
+    explanation: AnnotationExplanation
+  ) => {
+    setExplanations((prev) => ({ ...prev, [key]: explanation }));
   };
 
   return (
@@ -128,15 +148,22 @@ export default function StoryDisplay({
         {story.topic && <span className="topic-tag">{story.topic}</span>}
       </div>
       <div className="story-content">
-        {useAnnotations && annotationParagraphs && liveAnnotations ? (
+        {paragraphs ? (
           <div className="story-paragraphs">
-            {annotationParagraphs.map((paraTokens, pIdx) => (
+            {paragraphs.map((para, pIdx) => {
+              // When we render from audio tokens we drop the title paragraph,
+              // so paragraph N in the display is paragraph N+1 in audio.paragraphs.
+              const audioIdx =
+                audio?.tokens && audio.tokens.length > 0 ? pIdx + 1 : pIdx;
+              return (
               <p
                 key={pIdx}
-                className={`story-paragraph${activeParagraphIdx === pIdx ? " active" : ""}`}
-                onClick={() => onParagraphClick?.(pIdx)}
+                className={`story-paragraph${
+                  activeParagraphIdx === audioIdx ? " active" : ""
+                }`}
+                onClick={() => onParagraphClick?.(audioIdx)}
               >
-                {paraTokens.map((tok) => {
+                {para.tokens.map((tok) => {
                   const hasUnknown = [...tok.s].some(
                     (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
                   );
@@ -149,83 +176,38 @@ export default function StoryDisplay({
                   ) : (
                     tok.s
                   );
-                  if (tok.isContent) {
-                    return (
-                      <button
-                        key={tok.idx}
-                        type="button"
-                        className="word-token"
-                        onClick={(e) => handleTokenClick(e, tok)}
-                      >
-                        {inner}
-                      </button>
-                    );
-                  }
-                  return <span key={tok.idx}>{inner}</span>;
+                  return (
+                    <button
+                      key={tok.offset}
+                      type="button"
+                      className="word-token"
+                      data-offset={tok.offset}
+                      onClick={(e) => handleTokenClick(e, tok.offset)}
+                    >
+                      {inner}
+                    </button>
+                  );
                 })}
               </p>
-            ))}
-          </div>
-        ) : audio?.paragraphs ? (
-          <div className="story-paragraphs">
-            {audio.paragraphs.map((para, pIdx) => {
-              const nextStart = audio.paragraphs[pIdx + 1]?.start ?? audio.tokens.length;
-              const paraTokens = audio.tokens.slice(para.start, nextStart);
-              return (
-                <p
-                  key={pIdx}
-                  className={`story-paragraph${activeParagraphIdx === pIdx ? " active" : ""}`}
-                  onClick={() => onParagraphClick?.(pIdx)}
-                >
-                  {paraTokens.map((tok, i) => {
-                    const hasUnknown = [...tok.s].some(
-                      (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
-                    );
-                    return hasUnknown && tok.r ? (
-                      <ruby key={i}>
-                        {tok.s}
-                        <rt>{tok.r}</rt>
-                      </ruby>
-                    ) : (
-                      <span key={i}>{tok.s}</span>
-                    );
-                  })}
-                </p>
               );
             })}
           </div>
-        ) : paragraphs ? (
-          paragraphs.map((segs, i) => (
-            <p key={i}>
-              {segs.map((seg, j) =>
-                seg.reading ? (
-                  <ruby key={j}>
-                    {seg.text}
-                    <rt>{seg.reading}</rt>
-                  </ruby>
-                ) : (
-                  <span key={j}>{seg.text}</span>
-                )
-              )}
-            </p>
-          ))
         ) : (
           cleanContent.split("\n\n").map((p, i) => <p key={i}>{p}</p>)
         )}
       </div>
-      {activeToken && liveAnnotations && (
-        <WordPopover
-          token={activeToken.token}
-          storyId={story.id}
-          annotations={liveAnnotations}
-          referenceEl={activeToken.el}
-          open={true}
-          onOpenChange={(open) => {
-            if (!open) setActiveToken(null);
-          }}
-          onExplanationCached={handleExplanationCached}
-        />
-      )}
+      <WordPopover
+        storyId={story.id}
+        cleanText={cleanContent}
+        offset={activeTap?.offset ?? null}
+        explanations={explanations}
+        referenceEl={activeTap?.el ?? null}
+        open={activeTap !== null}
+        onOpenChange={(open) => {
+          if (!open) setActiveTap(null);
+        }}
+        onExplanationCached={handleExplanationCached}
+      />
       {unknownKanji.size > 0 && (
         <div className="violations">
           {unknownKanji.size} unknown kanji marked with readings:{" "}

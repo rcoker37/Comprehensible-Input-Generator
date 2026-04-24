@@ -27,7 +27,7 @@ const MODEL = "anthropic/claude-opus-4.7";
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, startedAt, annotating, generate } = useGeneration();
+  const { loading, error, story, genProgress, startedAt, generate } = useGeneration();
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
@@ -189,16 +189,7 @@ export default function Generator() {
           </div>
         </div>
       )}
-      {story && (
-        <>
-          {annotating && (
-            <div className="annotating-chip">
-              Generating lookup data<AnimatedDots />
-            </div>
-          )}
-          <StoryDisplay story={story} />
-        </>
-      )}
+      {story && <StoryDisplay story={story} />}
     </div>
   );
 }
