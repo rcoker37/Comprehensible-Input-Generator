@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@aiktb/kuromoji": "^1.0.2",
+    "@birchill/jpdict-idb": "^3.3.0",
+    "@birchill/normal-jp": "^1.6.0",
+    "@floating-ui/react": "^0.27.19",
     "@supabase/supabase-js": "^2.101.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

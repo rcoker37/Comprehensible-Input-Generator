@@ -100,6 +100,7 @@ export type Database = {
       stories: {
         Row: {
           allowed_kanji: string
+          annotations: Json | null
           audio: Json | null
           content: string
           content_type: string
@@ -115,6 +116,7 @@ export type Database = {
         }
         Insert: {
           allowed_kanji: string
+          annotations?: Json | null
           audio?: Json | null
           content: string
           content_type?: string
@@ -130,6 +132,7 @@ export type Database = {
         }
         Update: {
           allowed_kanji?: string
+          annotations?: Json | null
           audio?: Json | null
           content?: string
           content_type?: string

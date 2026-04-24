@@ -1,0 +1,26 @@
+-- Per-story learner-facing annotations, produced by a cheap LLM pass after
+-- generation completes. Powers the tap-to-lookup reading experience.
+--
+-- `annotations` JSONB shape (see client/src/types/index.ts StoryAnnotations):
+--   {
+--     version: 1,
+--     model: string,              -- e.g. "anthropic/claude-haiku-4-5-20251001"
+--     generated_at: string,       -- ISO timestamp
+--     tokens: [                   -- one entry per kuromoji token, in order
+--       {
+--         idx: number,            -- stable index (matches position in array)
+--         s: string,              -- surface form
+--         r?: string,             -- hiragana reading when surface has kanji
+--         pos?: string,           -- simplified POS tag
+--         gloss?: string,         -- contextual English gloss (content words)
+--         note?: string,          -- optional brief nuance note
+--         isContent: boolean      -- false for particles/aux/punct
+--       }
+--     ],
+--     sentences: [{ start_token, end_token }],
+--     explanations: {             -- keyed on stringified token idx
+--       "<idx>": { text: string, generated_at: string }
+--     }
+--   }
+
+ALTER TABLE stories ADD COLUMN annotations JSONB;

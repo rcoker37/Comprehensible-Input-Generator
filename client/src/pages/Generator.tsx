@@ -7,18 +7,8 @@ import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
+import AnimatedDots from "../components/AnimatedDots";
 import "./Generator.css";
-
-function AnimatedDots() {
-  const [count, setCount] = useState(1);
-  useEffect(() => {
-    const id = setInterval(() => setCount((c) => (c % 3) + 1), 400);
-    return () => clearInterval(id);
-  }, []);
-  return <span className="animated-dots">
-    {".".repeat(count)}<span style={{ visibility: "hidden" }}>{".".repeat(3 - count)}</span>
-  </span>;
-}
 
 function ElapsedTimer({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(() => Date.now());
@@ -37,7 +27,7 @@ const MODEL = "anthropic/claude-opus-4.7";
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, startedAt, generate } = useGeneration();
+  const { loading, error, story, genProgress, startedAt, annotating, generate } = useGeneration();
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
@@ -199,7 +189,16 @@ export default function Generator() {
           </div>
         </div>
       )}
-      {story && <StoryDisplay story={story} />}
+      {story && (
+        <>
+          {annotating && (
+            <div className="annotating-chip">
+              Generating lookup data<AnimatedDots />
+            </div>
+          )}
+          <StoryDisplay story={story} />
+        </>
+      )}
     </div>
   );
 }

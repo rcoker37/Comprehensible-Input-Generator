@@ -1,0 +1,168 @@
+.word-popover {
+  z-index: 1000;
+  max-width: min(22rem, calc(100vw - 1rem));
+  padding: 0.9rem 1rem;
+  background: var(--bg-card, var(--bg, #1e1e22));
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.word-popover__header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+}
+
+.word-popover__surface {
+  font-size: 1.6rem;
+  line-height: 1.2;
+}
+
+.word-popover__surface rt {
+  font-size: 0.55em;
+  color: var(--text-dim);
+}
+
+.word-popover__pos {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.word-popover__gloss {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.word-popover__gloss-text {
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.word-popover__note {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+}
+
+.word-popover__senses {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.word-popover__sense-list {
+  list-style: decimal;
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.word-popover__sense {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.word-popover__sense-pos {
+  display: inline;
+  margin-right: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.word-popover__sense-text {
+  color: var(--text);
+}
+
+.word-popover__more-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+
+.word-popover__kanji {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+.word-popover__kanji-chip {
+  font-size: 1.2rem;
+  background: var(--bg-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.2rem 0.55rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.word-popover__kanji-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.word-popover__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+.word-popover__explain-btn {
+  align-self: flex-start;
+  background: var(--accent);
+  color: var(--bg, #111);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.word-popover__explain-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.word-popover__explain-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.word-popover__explanation {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.word-popover__status {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.word-popover__error {
+  font-size: 0.78rem;
+  color: var(--error, #d66);
+}
