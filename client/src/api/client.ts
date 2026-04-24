@@ -2,8 +2,18 @@ import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { cleanGeneratedText } from "../lib/text";
 import { buildPrompt, computeDifficulty } from "../lib/generation";
-import type { AudioToken } from "../lib/tokenizer";
-import type { Kanji, KanjiStats, Story, StoryAudio, Formality, ContentType, GenerationProgress } from "../types";
+import type { AnnotationInputToken, AudioToken } from "../lib/tokenizer";
+import type {
+  AnnotationExplanation,
+  ContentType,
+  Formality,
+  GenerationProgress,
+  Kanji,
+  KanjiStats,
+  Story,
+  StoryAnnotations,
+  StoryAudio,
+} from "../types";
 
 // Kanji
 
@@ -359,6 +369,69 @@ export async function getStoryAudioUrl(path: string): Promise<string> {
     throw new Error(error?.message || "Failed to sign audio URL");
   }
   return data.signedUrl;
+}
+
+// Stories — annotations
+
+export async function annotateStory(
+  storyId: number,
+  content: string,
+  tokens: AnnotationInputToken[],
+  opts: { force?: boolean } = {}
+): Promise<StoryAnnotations> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/annotate-story`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      story_id: storyId,
+      content,
+      tokens,
+      force: opts.force ?? false,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Annotation failed" }));
+    throw new Error(body.error || `HTTP ${response.status}`);
+  }
+
+  const { annotations } = await response.json();
+  return annotations as StoryAnnotations;
+}
+
+export async function explainWord(
+  storyId: number,
+  tokenIdx: number
+): Promise<AnnotationExplanation> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/annotate-story`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ story_id: storyId, action: "explain", token_idx: tokenIdx }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Explanation failed" }));
+    throw new Error(body.error || `HTTP ${response.status}`);
+  }
+
+  const { explanation } = await response.json();
+  return explanation as AnnotationExplanation;
 }
 
 // Profiles

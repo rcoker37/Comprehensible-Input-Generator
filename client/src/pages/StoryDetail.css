@@ -24,3 +24,14 @@
 .story-detail-back:hover {
   color: var(--text);
 }
+
+.story-detail-annotating {
+  margin: 0 0 0.75rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  background: var(--bg-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-align: center;
+}

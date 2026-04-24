@@ -139,6 +139,142 @@ export async function tokenizeForAudio(
 }
 
 /**
+ * Annotation-shaped token matching the IncomingToken contract of the
+ * annotate-story edge function. Same surface/reading as AudioToken, plus a
+ * coarse POS tag and an isContent flag used by the reader to decide which
+ * spans are tappable. `b` holds the kuromoji base form when it differs from
+ * the surface (for inflected verbs/adjectives) so dictionary lookup can fall
+ * back to the lemma and actually find JMdict entries.
+ */
+export interface AnnotationInputToken {
+  s: string;
+  r?: string;
+  b?: string;
+  pos?: string;
+  isContent: boolean;
+}
+
+function classifyPos(pos: string, posDetail1: string): { tag: string; isContent: boolean } {
+  switch (pos) {
+    case "名詞":
+      // 名詞 covers proper nouns, numbers, and non-content sub-types like 非自立 / 接尾.
+      if (posDetail1 === "数") return { tag: "num", isContent: true };
+      if (posDetail1 === "非自立" || posDetail1 === "接尾") {
+        return { tag: "noun", isContent: false };
+      }
+      return { tag: "noun", isContent: true };
+    case "動詞":
+      // Auxiliary-like verbs (する, ある used grammatically) are still content for lookup.
+      return { tag: "verb", isContent: true };
+    case "形容詞":
+      return { tag: "adj", isContent: true };
+    case "副詞":
+      return { tag: "adv", isContent: true };
+    case "連体詞":
+      return { tag: "adn", isContent: true };
+    case "感動詞":
+      return { tag: "interj", isContent: true };
+    case "接続詞":
+      return { tag: "conj", isContent: true };
+    case "助詞":
+      return { tag: "particle", isContent: false };
+    case "助動詞":
+      return { tag: "aux", isContent: false };
+    case "記号":
+      return { tag: "punct", isContent: false };
+    case "フィラー":
+      return { tag: "filler", isContent: false };
+    default:
+      return { tag: "other", isContent: false };
+  }
+}
+
+/**
+ * Tokenize a story for the annotate-story edge function. Mirrors
+ * tokenizeForAudio's merging of kuromoji splits when an annotation straddles
+ * them, and tags each token with a simplified POS + isContent flag.
+ */
+export async function tokenizeForAnnotations(
+  text: string,
+  annotations: FuriganaAnnotation[] = []
+): Promise<AnnotationInputToken[]> {
+  const t = await getTokenizer();
+  const tokens = t.tokenize(text);
+  const out: AnnotationInputToken[] = [];
+
+  let charPos = 0;
+  let i = 0;
+  while (i < tokens.length) {
+    const token = tokens[i];
+    const tokenStart = charPos;
+    const tokenEnd = tokenStart + token.surface_form.length;
+
+    const straddling = annotations.find(
+      (a) => a.start >= tokenStart && a.start < tokenEnd && a.end > tokenEnd
+    );
+
+    if (straddling) {
+      let mergedSurface = token.surface_form;
+      let mergedEnd = tokenEnd;
+      let j = i + 1;
+      while (mergedEnd < straddling.end && j < tokens.length) {
+        mergedSurface += tokens[j].surface_form;
+        mergedEnd += tokens[j].surface_form.length;
+        j++;
+      }
+      const reading = tokenReadingFromAnnotations(
+        mergedSurface,
+        tokenStart,
+        annotations,
+        undefined
+      );
+      const classified = classifyPos(token.pos, token.pos_detail_1);
+      const base =
+        token.basic_form && token.basic_form !== "*" && token.basic_form !== mergedSurface
+          ? token.basic_form
+          : undefined;
+      out.push({
+        s: mergedSurface,
+        ...(reading ? { r: reading } : {}),
+        ...(base ? { b: base } : {}),
+        pos: classified.tag,
+        isContent: classified.isContent,
+      });
+      charPos = mergedEnd;
+      i = j;
+      continue;
+    }
+
+    const kuromojiReading =
+      token.reading && token.reading !== "*"
+        ? katakanaToHiragana(token.reading)
+        : undefined;
+    const reading = tokenReadingFromAnnotations(
+      token.surface_form,
+      tokenStart,
+      annotations,
+      kuromojiReading
+    );
+    const classified = classifyPos(token.pos, token.pos_detail_1);
+    const base =
+      token.basic_form && token.basic_form !== "*" && token.basic_form !== token.surface_form
+        ? token.basic_form
+        : undefined;
+    out.push({
+      s: token.surface_form,
+      ...(reading ? { r: reading } : {}),
+      ...(base ? { b: base } : {}),
+      pos: classified.tag,
+      isContent: classified.isContent,
+    });
+    charPos = tokenEnd;
+    i++;
+  }
+
+  return out;
+}
+
+/**
  * Tokenize Japanese text and produce furigana segments, only attaching
  * readings to kanji the user doesn't know. When `annotations` are supplied
  * (LLM-provided ruby), they override kuromoji's dictionary readings. Merges

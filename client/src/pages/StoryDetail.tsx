@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getStory, deleteStory } from "../api/client";
-import type { Story, StoryAudio } from "../types";
+import { annotateStory, getStory, deleteStory } from "../api/client";
+import { tokenizeForAnnotations } from "../lib/tokenizer";
+import { stripBold } from "../lib/text";
+import { parseAnnotatedText } from "../lib/furigana";
+import type { Story, StoryAnnotations, StoryAudio } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
+import AnimatedDots from "../components/AnimatedDots";
 import PlaybackFooter from "../components/PlaybackFooter";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import "./StoryDetail.css";
@@ -13,6 +17,8 @@ export default function StoryDetail() {
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [annotating, setAnnotating] = useState(false);
+  const annotateTriggeredRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -22,6 +28,34 @@ export default function StoryDetail() {
         .finally(() => setLoading(false));
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!story || story.annotations) return;
+    if (annotateTriggeredRef.current === story.id) return;
+    annotateTriggeredRef.current = story.id;
+
+    const storyId = story.id;
+    const storyContent = story.content;
+    (async () => {
+      setAnnotating(true);
+      try {
+        const { cleanText, annotations: rubyAnnotations } = parseAnnotatedText(
+          stripBold(storyContent)
+        );
+        const tokens = await tokenizeForAnnotations(cleanText, rubyAnnotations);
+        const annotations: StoryAnnotations = await annotateStory(
+          storyId,
+          cleanText,
+          tokens
+        );
+        setStory((s) => (s && s.id === storyId ? { ...s, annotations } : s));
+      } catch (err) {
+        console.warn("annotate-story failed:", err);
+      } finally {
+        setAnnotating(false);
+      }
+    })();
+  }, [story]);
 
   const handleAudioGenerated = useCallback((audio: StoryAudio) => {
     setStory((s) => (s ? { ...s, audio } : s));
@@ -78,6 +112,11 @@ export default function StoryDetail() {
           </svg>
         </button>
       </div>
+      {annotating && (
+        <div className="story-detail-annotating">
+          Generating lookup data<AnimatedDots />
+        </div>
+      )}
       <StoryDisplay
         story={story}
         audio={player.audio}

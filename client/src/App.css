@@ -69,6 +69,23 @@ body {
   color: var(--accent);
 }
 
+.nav-dict-status {
+  padding: 0.25rem 0.55rem;
+  border-radius: var(--radius);
+  font-size: 0.72rem;
+  border: 1px solid var(--border);
+  background: var(--bg-dim);
+}
+
+.nav-dict-status--loading {
+  color: var(--text-dim);
+}
+
+.nav-dict-status--error {
+  color: var(--error, #d66);
+  border-color: var(--error, #d66);
+}
+
 .nav-links a {
   color: var(--text-dim);
   text-decoration: none;

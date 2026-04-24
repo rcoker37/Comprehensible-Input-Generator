@@ -43,6 +43,36 @@ export interface StoryAudio {
   paragraphs: StoryAudioParagraph[];
 }
 
+export interface AnnotationToken {
+  idx: number;
+  s: string;
+  r?: string;
+  b?: string;
+  pos?: string;
+  gloss?: string;
+  note?: string;
+  isContent: boolean;
+}
+
+export interface AnnotationSentence {
+  start_token: number;
+  end_token: number;
+}
+
+export interface AnnotationExplanation {
+  text: string;
+  generated_at: string;
+}
+
+export interface StoryAnnotations {
+  version: 1;
+  model: string;
+  generated_at: string;
+  tokens: AnnotationToken[];
+  sentences: AnnotationSentence[];
+  explanations: Record<string, AnnotationExplanation>;
+}
+
 export interface Story {
   id: number;
   user_id?: string;
@@ -55,6 +85,7 @@ export interface Story {
   filters: StoryFilters;
   difficulty: DifficultyEstimate;
   audio: StoryAudio | null;
+  annotations: StoryAnnotations | null;
   created_at: string;
 }
 
