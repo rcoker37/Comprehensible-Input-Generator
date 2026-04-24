@@ -154,6 +154,8 @@ function buildExplainPrompt(
 ): string {
   return `A Japanese learner tapped a word in the sentence below and wants to understand it in context. Explain in 1-3 short sentences (≤ 70 words total) why this specific word or form is used here.
 
+The tapped word is wrapped in 【…】 in the sentence — the same surface may appear elsewhere in the sentence, so focus ONLY on the bracketed instance.
+
 Cover whichever of these is most useful:
 - which dictionary sense applies here (if the word is ambiguous)
 - nuance, register, or connotation
@@ -286,6 +288,12 @@ async function runFullAnnotation(
   return { tokens, sentences };
 }
 
+// Build the sentence text with the tapped token wrapped in 【…】 so the LLM
+// can identify *which* instance the learner tapped when the same surface
+// appears more than once (particles especially — は, が, に, で — often repeat).
+// The prompt explains the marker; without it the model has no way to
+// disambiguate and will either pick a random instance or give a generic
+// non-positional explanation.
 function findSentenceText(
   ann: StoredAnnotations,
   tokenIdx: number
@@ -293,12 +301,11 @@ function findSentenceText(
   const sentence = ann.sentences.find(
     (s) => s.start_token <= tokenIdx && tokenIdx <= s.end_token
   );
-  if (!sentence) {
-    return ann.tokens.map((t) => t.s).join("");
-  }
+  const start = sentence ? sentence.start_token : 0;
+  const end = sentence ? sentence.end_token : ann.tokens.length - 1;
   return ann.tokens
-    .slice(sentence.start_token, sentence.end_token + 1)
-    .map((t) => t.s)
+    .slice(start, end + 1)
+    .map((t) => (t.idx === tokenIdx ? `【${t.s}】` : t.s))
     .join("");
 }
 
@@ -340,10 +347,13 @@ Deno.serve(async (req) => {
         return json(400, { error: "Invalid token_idx" });
       }
 
-      // Return cached explanation if present.
-      const cached = story.annotations.explanations?.[String(tokenIdx)];
-      if (cached) {
-        return json(200, { explanation: cached });
+      // Return cached explanation if present, unless the caller asks for a fresh
+      // one via `force` (e.g. Regenerate button in the reader).
+      if (!body?.force) {
+        const cached = story.annotations.explanations?.[String(tokenIdx)];
+        if (cached) {
+          return json(200, { explanation: cached });
+        }
       }
 
       const apiKey = await getApiKey(user.id);

@@ -172,6 +172,27 @@
   white-space: pre-wrap;
 }
 
+.word-popover__regenerate-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 0.1rem 0;
+  text-decoration: underline;
+}
+
+.word-popover__regenerate-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.word-popover__regenerate-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+  text-decoration: none;
+}
+
 .word-popover__status {
   font-size: 0.8rem;
   color: var(--text-dim);

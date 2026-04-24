@@ -409,7 +409,8 @@ export async function annotateStory(
 
 export async function explainWord(
   storyId: number,
-  tokenIdx: number
+  tokenIdx: number,
+  opts: { force?: boolean } = {}
 ): Promise<AnnotationExplanation> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -422,7 +423,12 @@ export async function explainWord(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ story_id: storyId, action: "explain", token_idx: tokenIdx }),
+    body: JSON.stringify({
+      story_id: storyId,
+      action: "explain",
+      token_idx: tokenIdx,
+      force: opts.force ?? false,
+    }),
   });
 
   if (!response.ok) {
