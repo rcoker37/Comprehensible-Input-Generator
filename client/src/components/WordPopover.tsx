@@ -135,12 +135,12 @@ export default function WordPopover({
     }
   };
 
-  const handleExplain = async () => {
+  const handleExplain = async (opts: { force?: boolean } = {}) => {
     if (explaining) return;
     setExplaining(true);
     setExplainError(null);
     try {
-      const result = await explainWord(storyId, token.idx);
+      const result = await explainWord(storyId, token.idx, { force: opts.force });
       setExplanation(result.text);
       onExplanationCached(token.idx, result.text);
     } catch (e) {
@@ -221,12 +221,22 @@ export default function WordPopover({
 
               <footer className="word-popover__footer">
                 {explanation ? (
-                  <div className="word-popover__explanation">{explanation}</div>
+                  <>
+                    <div className="word-popover__explanation">{explanation}</div>
+                    <button
+                      type="button"
+                      className="word-popover__regenerate-btn"
+                      onClick={() => handleExplain({ force: true })}
+                      disabled={explaining}
+                    >
+                      {explaining ? "Regenerating…" : "Regenerate explanation"}
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="button"
                     className="word-popover__explain-btn"
-                    onClick={handleExplain}
+                    onClick={() => handleExplain()}
                     disabled={explaining}
                   >
                     {explaining ? "Explaining…" : "Explain here"}

@@ -25,6 +25,33 @@
   color: var(--text);
 }
 
+.story-detail-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.story-detail-regenerate {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.story-detail-regenerate:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.story-detail-regenerate:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .story-detail-annotating {
   margin: 0 0 0.75rem;
   padding: 0.4rem 0.6rem;
