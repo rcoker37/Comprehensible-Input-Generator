@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 import { toggleKanji } from "../api/client";
 import "./KanjiInlineDetail.css";
 
-interface KanjiRow {
+export interface KanjiRow {
   character: string;
   grade: number;
   jlpt: number | null;
@@ -16,19 +16,31 @@ interface KanjiRow {
 
 export default function KanjiInlineDetail({
   char,
+  initialRow,
   onBack,
 }: {
   char: string;
+  initialRow?: KanjiRow;
   onBack: () => void;
 }) {
   const { user } = useAuth();
   const { knownKanji, refreshKnownKanji } = useKnownKanji();
-  const [row, setRow] = useState<KanjiRow | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [row, setRow] = useState<KanjiRow | null>(
+    initialRow && initialRow.character === char ? initialRow : null
+  );
+  const [loading, setLoading] = useState(
+    !(initialRow && initialRow.character === char)
+  );
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialRow && initialRow.character === char) {
+      setRow(initialRow);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -46,7 +58,7 @@ export default function KanjiInlineDetail({
     return () => {
       cancelled = true;
     };
-  }, [char]);
+  }, [char, initialRow]);
 
   const known = knownKanji.has(char);
 

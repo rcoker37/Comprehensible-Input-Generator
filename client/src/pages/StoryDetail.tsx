@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { annotateStory, getStory, deleteStory } from "../api/client";
 import { tokenizeForAnnotations } from "../lib/tokenizer";
 import { stripBold } from "../lib/text";
+import { CURRENT_ANNOTATION_VERSION } from "../lib/constants";
 import { parseAnnotatedText } from "../lib/furigana";
 import type { Story, StoryAnnotations, StoryAudio } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
@@ -30,7 +31,10 @@ export default function StoryDetail() {
   }, [id]);
 
   useEffect(() => {
-    if (!story || story.annotations) return;
+    if (!story) return;
+    const fresh =
+      story.annotations?.version === CURRENT_ANNOTATION_VERSION;
+    if (fresh) return;
     if (annotateTriggeredRef.current === story.id) return;
     annotateTriggeredRef.current = story.id;
 

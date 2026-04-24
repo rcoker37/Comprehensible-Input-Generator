@@ -154,6 +154,23 @@ export interface AnnotationInputToken {
   isContent: boolean;
 }
 
+// Kuromoji tags that should fuse onto a preceding content verb/adjective so
+// that inflected forms (見られる, 食べました, 行きたい, 言わない, …) surface as
+// a single tappable token whose `b` still points at the JMdict lemma. Compound
+// verbs across 助詞,接続助詞 (〜てしまう, 〜てみる) are intentionally not
+// handled here — they need a peek-through rule that's easier to justify once
+// we have logs on what's still splitting.
+function isInflectionTail(pos: string, posDetail1: string): boolean {
+  if (pos === "助動詞") return true;
+  if (pos === "動詞" && (posDetail1 === "接尾" || posDetail1 === "非自立")) return true;
+  if (pos === "形容詞" && posDetail1 === "非自立") return true;
+  return false;
+}
+
+function isInflectableHead(pos: string): boolean {
+  return pos === "動詞" || pos === "形容詞";
+}
+
 function classifyPos(pos: string, posDetail1: string): { tag: string; isContent: boolean } {
   switch (pos) {
     case "名詞":
@@ -177,7 +194,11 @@ function classifyPos(pos: string, posDetail1: string): { tag: string; isContent:
     case "接続詞":
       return { tag: "conj", isContent: true };
     case "助詞":
-      return { tag: "particle", isContent: false };
+      // Tappable so learners can request an on-demand explanation for は/が/で
+      // usage in context. The annotate-story prompt still excludes particles
+      // from the gloss pass — there's no useful 1-5 word gloss for a particle,
+      // but the per-token "Explain here" affordance benefits from reaching them.
+      return { tag: "particle", isContent: true };
     case "助動詞":
       return { tag: "aux", isContent: false };
     case "記号":
@@ -192,7 +213,11 @@ function classifyPos(pos: string, posDetail1: string): { tag: string; isContent:
 /**
  * Tokenize a story for the annotate-story edge function. Mirrors
  * tokenizeForAudio's merging of kuromoji splits when an annotation straddles
- * them, and tags each token with a simplified POS + isContent flag.
+ * them, and tags each token with a simplified POS + isContent flag. Productive
+ * inflection tails (助動詞 chains, 〜られる/〜させる, negation 〜ない) are fused
+ * onto the preceding content verb/adjective so that tap-to-lookup sees a full
+ * word rather than a bare stem; the head's `b` (basic_form) remains the
+ * JMdict lemma so the existing base-form fallback still hits.
  */
 export async function tokenizeForAnnotations(
   text: string,
@@ -201,6 +226,43 @@ export async function tokenizeForAnnotations(
   const t = await getTokenizer();
   const tokens = t.tokenize(text);
   const out: AnnotationInputToken[] = [];
+  // Parallel track of the head kuromoji POS for each output entry, used to
+  // decide whether the next raw token is an inflection tail that should
+  // absorb into the previous output rather than produce its own.
+  const headPos: Array<string | null> = [];
+
+  const pushOrFuse = (
+    next: AnnotationInputToken,
+    rawPos: string,
+    rawPosDetail1: string
+  ) => {
+    const lastPos = headPos[headPos.length - 1];
+    const last = out[out.length - 1];
+    if (
+      last &&
+      lastPos &&
+      isInflectableHead(lastPos) &&
+      isInflectionTail(rawPos, rawPosDetail1)
+    ) {
+      last.s = last.s + next.s;
+      // Tails are overwhelmingly kana (ます, た, ない, られる, …), and
+      // tokenReadingFromAnnotations returns undefined for kana-only spans
+      // (caller treats surface as the reading). Synthesize that here so the
+      // merged reading covers the tail rather than being dropped entirely.
+      const nextReading =
+        next.r ?? ([...next.s].some((ch) => KANJI_REGEX.test(ch)) ? undefined : next.s);
+      if (last.r && nextReading) {
+        last.r = last.r + nextReading;
+      } else {
+        // Incomplete reading across the merged span would produce misleading
+        // ruby — drop it rather than render partial furigana.
+        delete last.r;
+      }
+      return;
+    }
+    out.push(next);
+    headPos.push(rawPos);
+  };
 
   let charPos = 0;
   let i = 0;
@@ -233,13 +295,17 @@ export async function tokenizeForAnnotations(
         token.basic_form && token.basic_form !== "*" && token.basic_form !== mergedSurface
           ? token.basic_form
           : undefined;
-      out.push({
-        s: mergedSurface,
-        ...(reading ? { r: reading } : {}),
-        ...(base ? { b: base } : {}),
-        pos: classified.tag,
-        isContent: classified.isContent,
-      });
+      pushOrFuse(
+        {
+          s: mergedSurface,
+          ...(reading ? { r: reading } : {}),
+          ...(base ? { b: base } : {}),
+          pos: classified.tag,
+          isContent: classified.isContent,
+        },
+        token.pos,
+        token.pos_detail_1
+      );
       charPos = mergedEnd;
       i = j;
       continue;
@@ -260,13 +326,17 @@ export async function tokenizeForAnnotations(
       token.basic_form && token.basic_form !== "*" && token.basic_form !== token.surface_form
         ? token.basic_form
         : undefined;
-    out.push({
-      s: token.surface_form,
-      ...(reading ? { r: reading } : {}),
-      ...(base ? { b: base } : {}),
-      pos: classified.tag,
-      isContent: classified.isContent,
-    });
+    pushOrFuse(
+      {
+        s: token.surface_form,
+        ...(reading ? { r: reading } : {}),
+        ...(base ? { b: base } : {}),
+        pos: classified.tag,
+        isContent: classified.isContent,
+      },
+      token.pos,
+      token.pos_detail_1
+    );
     charPos = tokenEnd;
     i++;
   }

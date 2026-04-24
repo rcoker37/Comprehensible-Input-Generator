@@ -26,7 +26,7 @@ const corsHeaders = {
 };
 
 const ANNOTATION_MODEL = "anthropic/claude-haiku-4.5";
-const ANNOTATION_VERSION = 1;
+const ANNOTATION_VERSION = 4;
 const MAX_TOKENS_FULL = 8000;
 const MAX_TOKENS_EXPLAIN = 400;
 const MAX_INPUT_CHARS = 6000;
