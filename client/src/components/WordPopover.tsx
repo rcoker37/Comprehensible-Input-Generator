@@ -15,7 +15,8 @@ import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { explainWord } from "../api/client";
 import { KANJI_REGEX } from "../lib/constants";
-import KanjiInlineDetail from "./KanjiInlineDetail";
+import { supabase } from "../lib/supabase";
+import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
 import type { AnnotationToken, StoryAnnotations } from "../types";
 import "./WordPopover.css";
 
@@ -45,6 +46,8 @@ export default function WordPopover({
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [showAllSenses, setShowAllSenses] = useState(false);
   const [activeKanji, setActiveKanji] = useState<string | null>(null);
+  const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
+  const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
   const [explanation, setExplanation] = useState<string | null>(
     () => annotations.explanations[String(token.idx)]?.text ?? null
   );
@@ -69,6 +72,8 @@ export default function WordPopover({
     if (!open) return;
     setShowAllSenses(false);
     setActiveKanji(null);
+    setActiveKanjiRow(null);
+    setLoadingKanji(null);
     setExplainError(null);
     const cached = annotations.explanations[String(token.idx)];
     setExplanation(cached?.text ?? null);
@@ -108,6 +113,28 @@ export default function WordPopover({
     [token.s]
   );
 
+  const handleKanjiClick = async (ch: string) => {
+    if (loadingKanji) return;
+    setLoadingKanji(ch);
+    try {
+      const { data, error } = await supabase
+        .from("kanji")
+        .select("character, grade, jlpt, meanings, readings_on, readings_kun")
+        .eq("character", ch)
+        .single();
+      if (error) throw new Error(error.message);
+      setActiveKanjiRow(data as KanjiRow);
+      setActiveKanji(ch);
+    } catch {
+      // Fall through to the inline detail view; it will re-fetch and surface
+      // whatever error the DB returns there.
+      setActiveKanjiRow(null);
+      setActiveKanji(ch);
+    } finally {
+      setLoadingKanji(null);
+    }
+  };
+
   const handleExplain = async () => {
     if (explaining) return;
     setExplaining(true);
@@ -135,7 +162,14 @@ export default function WordPopover({
           {...getFloatingProps()}
         >
           {activeKanji ? (
-            <KanjiInlineDetail char={activeKanji} onBack={() => setActiveKanji(null)} />
+            <KanjiInlineDetail
+              char={activeKanji}
+              initialRow={activeKanjiRow ?? undefined}
+              onBack={() => {
+                setActiveKanji(null);
+                setActiveKanjiRow(null);
+              }}
+            />
           ) : (
             <>
               <header className="word-popover__header">
@@ -173,8 +207,11 @@ export default function WordPopover({
                     <button
                       key={ch}
                       type="button"
-                      className="word-popover__kanji-chip"
-                      onClick={() => setActiveKanji(ch)}
+                      className={`word-popover__kanji-chip${
+                        loadingKanji === ch ? " is-loading" : ""
+                      }`}
+                      onClick={() => handleKanjiClick(ch)}
+                      disabled={loadingKanji !== null}
                     >
                       {ch}
                     </button>

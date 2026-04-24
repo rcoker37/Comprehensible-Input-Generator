@@ -116,9 +116,24 @@
   transition: border-color 0.15s, color 0.15s;
 }
 
-.word-popover__kanji-chip:hover {
+.word-popover__kanji-chip:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.word-popover__kanji-chip:disabled {
+  cursor: default;
+}
+
+.word-popover__kanji-chip.is-loading {
+  animation: word-popover-chip-pulse 0.9s ease-in-out infinite;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+@keyframes word-popover-chip-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .word-popover__footer {

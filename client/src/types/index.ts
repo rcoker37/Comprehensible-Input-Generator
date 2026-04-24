@@ -65,7 +65,7 @@ export interface AnnotationExplanation {
 }
 
 export interface StoryAnnotations {
-  version: 1;
+  version: number;
   model: string;
   generated_at: string;
   tokens: AnnotationToken[];
