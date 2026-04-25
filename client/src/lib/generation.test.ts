@@ -75,7 +75,7 @@ describe("buildPrompt", () => {
 
   it("includes output-only instruction", () => {
     const result = buildPrompt("story", 3, "日", "polite", 3);
-    expect(result).toContain("Output ONLY the content in Japanese");
+    expect(result).toContain("Output ONLY the final content in Japanese");
   });
 });
 

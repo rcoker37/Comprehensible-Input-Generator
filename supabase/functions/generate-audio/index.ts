@@ -19,7 +19,7 @@ const corsHeaders = {
 
 const BUCKET = "story-audio";
 const VOICE = "ja-JP-NanamiNeural";
-const AUDIO_VERSION = 2;
+const AUDIO_VERSION = 3;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -59,6 +59,24 @@ interface SsmlResult {
   ssml: string;
   /** Token indices where each paragraph starts (for bookmark alignment). */
   paragraphStarts: number[];
+  /** Token indices where each sentence starts (for bookmark alignment). */
+  sentenceStarts: number[];
+}
+
+const SENTENCE_TERMINATORS = ["。", "！", "？"];
+// Closing brackets/quotes that follow a sentence terminator stay with the
+// terminating sentence — they should not start a new sentence on their own.
+const SENTENCE_CLOSERS = new Set(["」", "』", "）", ")", "”", "’"]);
+
+function containsTerminator(s: string): boolean {
+  for (const t of SENTENCE_TERMINATORS) if (s.includes(t)) return true;
+  return false;
+}
+
+function isPureClosers(s: string): boolean {
+  if (s.length === 0) return false;
+  for (const ch of s) if (!SENTENCE_CLOSERS.has(ch)) return false;
+  return true;
 }
 
 function buildSsml(tokens: AudioToken[]): SsmlResult {
@@ -70,11 +88,16 @@ function buildSsml(tokens: AudioToken[]): SsmlResult {
   // Whitespace-only tokens (newlines between title/paragraphs) become <break>
   // elements so the audio has audible pauses at paragraph boundaries.
   //
-  // We only emit one <bookmark> per paragraph (at each double-newline break)
-  // to keep SSML character count low — Azure bills for the full SSML string.
+  // We emit two streams of bookmarks: one per paragraph (pN) and one per
+  // sentence (sN). The sentence stream drives in-paragraph highlight sync;
+  // the paragraph stream is kept for fallback rendering of older audio rows.
   const parts: string[] = [];
   const paragraphStarts: number[] = [0]; // first paragraph starts at token 0
+  const sentenceStarts: number[] = [];
   parts.push('<bookmark mark="p0"/>');
+  // `armed` means "the next content-bearing token starts a new sentence".
+  // Starts true so the first non-whitespace token gets s0.
+  let armed = true;
 
   for (let i = 0; i < tokens.length; i++) {
     const { s, r } = tokens[i];
@@ -89,10 +112,18 @@ function buildSsml(tokens: AudioToken[]): SsmlResult {
           paragraphStarts.push(next);
           parts.push(`<bookmark mark="p${paragraphStarts.length - 1}"/>`);
         }
+        armed = true;
       } else if (newlines === 1) {
         parts.push('<break time="250ms"/>');
+        armed = true;
       }
       continue;
+    }
+
+    if (armed && !isPureClosers(s)) {
+      sentenceStarts.push(i);
+      parts.push(`<bookmark mark="s${sentenceStarts.length - 1}"/>`);
+      armed = false;
     }
 
     if (r && r.length > 0) {
@@ -100,10 +131,12 @@ function buildSsml(tokens: AudioToken[]): SsmlResult {
     } else {
       parts.push(xmlEscape(s));
     }
+
+    if (containsTerminator(s)) armed = true;
   }
 
   const ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="ja-JP"><voice name="${VOICE}">${parts.join("")}</voice></speak>`;
-  return { ssml, paragraphStarts };
+  return { ssml, paragraphStarts, sentenceStarts };
 }
 
 interface SynthesisOutput {
@@ -201,12 +234,17 @@ Deno.serve(async (req) => {
       return json(200, { audio: story.audio });
     }
 
-    const { ssml, paragraphStarts } = buildSsml(tokens as AudioToken[]);
+    const { ssml, paragraphStarts, sentenceStarts } = buildSsml(tokens as AudioToken[]);
     const { audio, durationMs, bookmarks } = await synthesize(ssml);
 
     const paragraphs = paragraphStarts.map((tokenStart, i) => ({
       start: tokenStart,
       t: bookmarks.get(`p${i}`) ?? 0,
+    }));
+
+    const sentences = sentenceStarts.map((tokenStart, i) => ({
+      start: tokenStart,
+      t: bookmarks.get(`s${i}`) ?? 0,
     }));
 
     const plainTokens = (tokens as AudioToken[]).map((t) => ({
@@ -231,6 +269,7 @@ Deno.serve(async (req) => {
       version: AUDIO_VERSION,
       tokens: plainTokens,
       paragraphs,
+      sentences,
     };
 
     const { error: updateErr } = await supabaseAdmin

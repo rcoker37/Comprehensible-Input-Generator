@@ -81,8 +81,8 @@ export default function StoryDetail() {
       <StoryDisplay
         story={story}
         audio={player.audio}
-        activeParagraphIdx={player.activeParagraphIdx}
-        onParagraphClick={player.seekToParagraph}
+        activeSegmentIdx={player.activeSegmentIdx}
+        onSentenceClick={player.seekToSegment}
       />
       <PlaybackFooter {...player} />
     </div>
