@@ -155,7 +155,12 @@ export default function WordPopover({
 
   const primary = hit?.results[0];
   const headerSurface = hit?.surface ?? "";
-  const headerReading = primary?.r?.[0]?.ent;
+  // The JMdict reading is for the dictionary form; rendering it as ruby over
+  // the surface is misleading whenever the surface is an inflection (e.g.
+  // つかう over 使われる). Only show ruby when the lookup didn't deinflect; if
+  // it did, the chain below carries the base + its reading.
+  const headerReading = hit?.base ? undefined : primary?.r?.[0]?.ent;
+  const baseReading = hit?.base ? primary?.r?.[0]?.ent : undefined;
 
   return (
     <FloatingPortal>
@@ -190,7 +195,17 @@ export default function WordPopover({
 
               {hit?.base && hit.derivations && hit.derivations.length > 0 && (
                 <div className="word-popover__inflection">
-                  from <span className="word-popover__inflection-base">{hit.base}</span>
+                  from{" "}
+                  <span className="word-popover__inflection-base">
+                    {baseReading && baseReading !== hit.base ? (
+                      <ruby>
+                        {hit.base}
+                        <rt>{baseReading}</rt>
+                      </ruby>
+                    ) : (
+                      hit.base
+                    )}
+                  </span>
                   {" · "}
                   {hit.derivations.join(" → ")}
                 </div>

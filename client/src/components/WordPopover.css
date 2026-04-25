@@ -43,6 +43,12 @@
   font-weight: 600;
 }
 
+.word-popover__inflection-base rt {
+  font-size: 0.75em;
+  font-weight: 400;
+  color: var(--text-dim);
+}
+
 .word-popover__senses {
   display: flex;
   flex-direction: column;
