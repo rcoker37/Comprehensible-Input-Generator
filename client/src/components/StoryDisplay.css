@@ -64,19 +64,22 @@
 }
 
 .story-paragraph {
+  margin-bottom: 1rem;
+}
+
+.story-sentence {
   cursor: pointer;
   border-radius: var(--radius);
-  padding: 0.25rem 0.4rem;
-  margin: -0.25rem -0.4rem;
-  margin-bottom: 1rem;
+  padding: 0.05rem 0.15rem;
+  margin: 0 -0.05rem;
   transition: background 0.15s;
 }
 
-.story-paragraph:hover {
+.story-sentence:hover {
   background: var(--surface);
 }
 
-.story-paragraph.active {
+.story-sentence.active {
   background: var(--surface-2);
 }
 

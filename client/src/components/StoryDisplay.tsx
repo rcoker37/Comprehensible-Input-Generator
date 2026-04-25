@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { tokenizeForAudio, type AudioToken } from "../lib/tokenizer";
 import { parseAnnotatedText, stripAnnotations } from "../lib/furigana";
@@ -17,59 +17,119 @@ interface Props {
   story: Story;
   showLink?: boolean;
   audio?: StoryAudio | null;
-  activeParagraphIdx?: number;
-  onParagraphClick?: (i: number) => void;
+  activeSegmentIdx?: number;
+  onSentenceClick?: (i: number) => void;
 }
 
 interface DisplayToken extends AudioToken {
   offset: number;
 }
 
-interface DisplayParagraph {
+interface DisplaySentence {
+  /** Index into audio.sentences (or audio.paragraphs for v2 audio). */
+  audioIdx: number;
   tokens: DisplayToken[];
+}
+
+interface DisplayParagraph {
+  sentences: DisplaySentence[];
+}
+
+// Mirror the sentence-boundary rule used by generate-audio so display sentences
+// align 1:1 with the bookmarks Azure embedded in the audio stream.
+const SENTENCE_TERMINATORS = ["。", "！", "？"];
+const SENTENCE_CLOSERS = new Set(["」", "』", "）", ")", "”", "’"]);
+
+function containsTerminator(s: string): boolean {
+  return SENTENCE_TERMINATORS.some((t) => s.includes(t));
+}
+
+function isPureClosers(s: string): boolean {
+  if (s.length === 0) return false;
+  for (const ch of s) if (!SENTENCE_CLOSERS.has(ch)) return false;
+  return true;
 }
 
 /**
  * Walk the token stream, stamping char offsets and splitting into paragraphs
- * at any pure-whitespace token containing ≥2 newlines. The offsets line up
- * with the cleanText we tokenized, which is exactly what lookupAtCursor
- * expects when the user taps a span.
+ * (on `\n\n`) and sentences (on `。`/`！`/`？` terminators or single `\n`).
+ * Each rendered sentence carries the audio.sentences index it corresponds to,
+ * so the player can highlight the active sentence directly.
  *
  * When `dropTitleParagraph` is set, the first paragraph is dropped (it's the
- * title, which renders separately as an <h2>) and subsequent offsets are
- * rebased so they still match the content-only cleanText passed to
- * lookupAtCursor. This is the shape audio.tokens comes in — the TTS side
- * needs the title prefix to narrate it, but the display does not.
+ * title, rendered separately as an <h2>) and offsets are rebased so they
+ * still match the content-only cleanText that lookupAtCursor expects. The
+ * sentence counter keeps incrementing through the dropped title so the
+ * surviving sentences inherit the same numbering the server used.
  */
 function groupTokens(
   tokens: AudioToken[],
   dropTitleParagraph: boolean
 ): DisplayParagraph[] {
   const paragraphs: DisplayParagraph[] = [];
-  let current: DisplayToken[] = [];
+  let currentPara: DisplaySentence[] = [];
+  let currentSentTokens: DisplayToken[] = [];
+  let currentSentAudioIdx = -1;
   let offset = 0;
   let base = 0;
   let dropped = !dropTitleParagraph;
+  let armed = true;
+  let sentenceCounter = 0;
+
+  const flushSentence = () => {
+    if (currentSentTokens.length === 0) return;
+    if (dropped) {
+      currentPara.push({
+        audioIdx: currentSentAudioIdx,
+        tokens: currentSentTokens,
+      });
+    }
+    currentSentTokens = [];
+    currentSentAudioIdx = -1;
+  };
+
+  // separatorLen lets the title-drop branch rebase past the trailing
+  // whitespace, so content offsets start at 0 rather than skipping into
+  // the separator's character count.
+  const flushParagraph = (separatorLen: number) => {
+    flushSentence();
+    if (!dropped) {
+      dropped = true;
+      currentPara = [];
+      base = offset + separatorLen;
+      return;
+    }
+    if (currentPara.length > 0) paragraphs.push({ sentences: currentPara });
+    currentPara = [];
+  };
+
   for (const tok of tokens) {
-    const isSep =
-      /^\s+$/.test(tok.s) && (tok.s.match(/\n/g)?.length ?? 0) >= 2;
-    if (isSep) {
-      if (!dropped) {
-        current = [];
-        offset += tok.s.length;
-        base = offset;
-        dropped = true;
-        continue;
+    if (/^\s+$/.test(tok.s)) {
+      const newlines = (tok.s.match(/\n/g) || []).length;
+      if (newlines >= 2) {
+        flushParagraph(tok.s.length);
+        armed = true;
+      } else if (newlines === 1) {
+        flushSentence();
+        armed = true;
       }
-      if (current.length > 0) paragraphs.push({ tokens: current });
-      current = [];
       offset += tok.s.length;
       continue;
     }
-    current.push({ ...tok, offset: offset - base });
+
+    if (armed && !isPureClosers(tok.s)) {
+      flushSentence();
+      currentSentAudioIdx = sentenceCounter++;
+      armed = false;
+    }
+
+    currentSentTokens.push({ ...tok, offset: offset - base });
     offset += tok.s.length;
+
+    if (containsTerminator(tok.s)) armed = true;
   }
-  if (current.length > 0) paragraphs.push({ tokens: current });
+
+  flushParagraph(0);
   return paragraphs;
 }
 
@@ -77,8 +137,8 @@ export default function StoryDisplay({
   story,
   showLink,
   audio,
-  activeParagraphIdx = -1,
-  onParagraphClick,
+  activeSegmentIdx = -1,
+  onSentenceClick,
 }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
   const [paragraphs, setParagraphs] = useState<DisplayParagraph[] | null>(null);
@@ -122,11 +182,46 @@ export default function StoryDisplay({
     };
   }, [audio, cleanContent, rubyAnnotations]);
 
-  const handleTokenClick = (
+  // Single-click on a word seeks the enclosing sentence; double-click opens
+  // the word popover. We delay the single-click seek so a fast double-click
+  // can cancel it. Clicks on whitespace inside the sentence skip this path
+  // entirely and seek immediately via the sentence span's onClick.
+  const clickTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current !== null) {
+        window.clearTimeout(clickTimerRef.current);
+      }
+    };
+  }, []);
+
+  const cancelPendingSeek = () => {
+    if (clickTimerRef.current !== null) {
+      window.clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+  };
+
+  const handleWordClick = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    sentenceAudioIdx: number
+  ) => {
+    e.stopPropagation();
+    cancelPendingSeek();
+    if (e.detail >= 2) return; // second click of a double — let dblclick handle it
+    clickTimerRef.current = window.setTimeout(() => {
+      clickTimerRef.current = null;
+      onSentenceClick?.(sentenceAudioIdx);
+    }, 280);
+  };
+
+  const handleWordDoubleClick = (
     e: React.MouseEvent<HTMLButtonElement>,
     offset: number
   ) => {
     e.stopPropagation();
+    cancelPendingSeek();
     setActiveTap({ offset, el: e.currentTarget });
   };
 
@@ -150,47 +245,51 @@ export default function StoryDisplay({
       <div className="story-content">
         {paragraphs ? (
           <div className="story-paragraphs">
-            {paragraphs.map((para, pIdx) => {
-              // When we render from audio tokens we drop the title paragraph,
-              // so paragraph N in the display is paragraph N+1 in audio.paragraphs.
-              const audioIdx =
-                audio?.tokens && audio.tokens.length > 0 ? pIdx + 1 : pIdx;
-              return (
-              <p
-                key={pIdx}
-                className={`story-paragraph${
-                  activeParagraphIdx === audioIdx ? " active" : ""
-                }`}
-                onClick={() => onParagraphClick?.(audioIdx)}
-              >
-                {para.tokens.map((tok) => {
-                  const hasUnknown = [...tok.s].some(
-                    (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
-                  );
-                  const showRuby = hasUnknown && tok.r;
-                  const inner = showRuby ? (
-                    <ruby>
-                      {tok.s}
-                      <rt>{tok.r}</rt>
-                    </ruby>
-                  ) : (
-                    tok.s
-                  );
-                  return (
-                    <button
-                      key={tok.offset}
-                      type="button"
-                      className="word-token"
-                      data-offset={tok.offset}
-                      onClick={(e) => handleTokenClick(e, tok.offset)}
-                    >
-                      {inner}
-                    </button>
-                  );
-                })}
+            {paragraphs.map((para, pIdx) => (
+              <p key={pIdx} className="story-paragraph">
+                {para.sentences.map((sent) => (
+                  <span
+                    key={sent.audioIdx}
+                    className={`story-sentence${
+                      activeSegmentIdx === sent.audioIdx ? " active" : ""
+                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSentenceClick?.(sent.audioIdx);
+                    }}
+                  >
+                    {sent.tokens.map((tok) => {
+                      const hasUnknown = [...tok.s].some(
+                        (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
+                      );
+                      const showRuby = hasUnknown && tok.r;
+                      const inner = showRuby ? (
+                        <ruby>
+                          {tok.s}
+                          <rt>{tok.r}</rt>
+                        </ruby>
+                      ) : (
+                        tok.s
+                      );
+                      return (
+                        <button
+                          key={tok.offset}
+                          type="button"
+                          className="word-token"
+                          data-offset={tok.offset}
+                          onClick={(e) => handleWordClick(e, sent.audioIdx)}
+                          onDoubleClick={(e) =>
+                            handleWordDoubleClick(e, tok.offset)
+                          }
+                        >
+                          {inner}
+                        </button>
+                      );
+                    })}
+                  </span>
+                ))}
               </p>
-              );
-            })}
+            ))}
           </div>
         ) : (
           cleanContent.split("\n\n").map((p, i) => <p key={i}>{p}</p>)

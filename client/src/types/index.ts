@@ -34,6 +34,11 @@ export interface StoryAudioParagraph {
   t: number;     // offset in ms
 }
 
+export interface StoryAudioSentence {
+  start: number; // token index where this sentence begins
+  t: number;     // offset in ms
+}
+
 export interface StoryAudio {
   path: string;
   duration_ms: number;
@@ -41,6 +46,7 @@ export interface StoryAudio {
   version: number;
   tokens: StoryAudioToken[];
   paragraphs: StoryAudioParagraph[];
+  sentences?: StoryAudioSentence[];
 }
 
 export interface AnnotationExplanation {

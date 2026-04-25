@@ -14,22 +14,33 @@ export interface AudioPlayerState {
   loading: boolean;
   regenerating: boolean;
   error: string | null;
-  activeParagraphIdx: number;
+  activeSegmentIdx: number;
   playbackRate: number;
   setPlaybackRate: (n: number) => void;
   handlePlayPause: () => Promise<void>;
   handleRegenerate: () => Promise<void>;
-  seekToParagraph: (i: number) => void;
+  seekToSegment: (i: number) => void;
   audioElement: ReactNode;
 }
 
-function findActiveParagraph(paragraphs: { t: number }[], ms: number): number {
+// Mirror generate-audio's AUDIO_VERSION. Bumping this on the server tells
+// the edge function to regenerate; the client mirror routes any version-
+// mismatched audio row through the generate path so the UI shows the
+// "generate" icon and the next play triggers a regeneration.
+const EXPECTED_AUDIO_VERSION = 3;
+
+function getSegments(audio: StoryAudio | null): { t: number }[] {
+  if (!audio) return [];
+  return audio.sentences ?? audio.paragraphs;
+}
+
+function findActiveSegment(segments: { t: number }[], ms: number): number {
   let lo = 0;
-  let hi = paragraphs.length - 1;
+  let hi = segments.length - 1;
   let active = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (paragraphs[mid].t <= ms) {
+    if (segments[mid].t <= ms) {
       active = mid;
       lo = mid + 1;
     } else {
@@ -49,7 +60,7 @@ export function useAudioPlayer(
   const [regenerating, setRegenerating] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeParagraphIdx, setActiveParagraphIdx] = useState(-1);
+  const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -57,7 +68,11 @@ export function useAudioPlayer(
   const pendingPlay = useRef(false);
 
   const storyId = story?.id ?? null;
-  const storyAudio = story?.audio?.paragraphs ? story.audio : null;
+  const storyAudio =
+    story?.audio?.paragraphs &&
+    story.audio.version === EXPECTED_AUDIO_VERSION
+      ? story.audio
+      : null;
 
   useEffect(() => {
     setAudio(storyAudio);
@@ -65,7 +80,7 @@ export function useAudioPlayer(
     setPlaying(false);
     setLoading(false);
     setError(null);
-    setActiveParagraphIdx(-1);
+    setActiveSegmentIdx(-1);
     lastActive.current = -1;
     pendingPlay.current = false;
   }, [storyId, storyAudio]);
@@ -104,14 +119,14 @@ export function useAudioPlayer(
   useEffect(() => {
     if (!playing || !audio || !audioRef.current) return;
     const el = audioRef.current;
-    const paragraphs = audio.paragraphs;
+    const segments = getSegments(audio);
 
     const tick = () => {
       const ms = el.currentTime * 1000;
-      const active = findActiveParagraph(paragraphs, ms);
+      const active = findActiveSegment(segments, ms);
       if (active !== lastActive.current) {
         lastActive.current = active;
-        setActiveParagraphIdx(active);
+        setActiveSegmentIdx(active);
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -176,7 +191,7 @@ export function useAudioPlayer(
     if (el && !el.paused) el.pause();
     setRegenerating(true);
     lastActive.current = -1;
-    setActiveParagraphIdx(-1);
+    setActiveSegmentIdx(-1);
     try {
       await runGenerate(true);
       pendingPlay.current = true;
@@ -187,15 +202,16 @@ export function useAudioPlayer(
     }
   }, [regenerating, loading, audio, runGenerate]);
 
-  const seekToParagraph = useCallback(
+  const seekToSegment = useCallback(
     (i: number) => {
       if (!audio || !audioRef.current) return;
-      const t = audio.paragraphs[i]?.t;
+      const segments = getSegments(audio);
+      const t = segments[i]?.t;
       if (t === undefined) return;
       const wasPlaying = !audioRef.current.paused;
       audioRef.current.currentTime = t / 1000;
       lastActive.current = i;
-      setActiveParagraphIdx(i);
+      setActiveSegmentIdx(i);
       if (wasPlaying) {
         audioRef.current.play().catch(() => {});
       }
@@ -213,7 +229,7 @@ export function useAudioPlayer(
         onEnded: () => {
           setPlaying(false);
           lastActive.current = -1;
-          setActiveParagraphIdx(-1);
+          setActiveSegmentIdx(-1);
         },
         onError: () => setError("Audio playback failed"),
       })
@@ -226,12 +242,12 @@ export function useAudioPlayer(
     loading,
     regenerating,
     error,
-    activeParagraphIdx,
+    activeSegmentIdx,
     playbackRate,
     setPlaybackRate,
     handlePlayPause,
     handleRegenerate,
-    seekToParagraph,
+    seekToSegment,
     audioElement,
   };
 }
