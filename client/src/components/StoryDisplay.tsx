@@ -6,10 +6,10 @@ import { stripBold, getUnknownKanji } from "../lib/text";
 import { KANJI_REGEX } from "../lib/constants";
 import WordPopover from "./WordPopover";
 import type {
-  AnnotationExplanation,
   Story,
   StoryAudio,
-  StoryExplanations,
+  StoryWordThreads,
+  WordThread,
 } from "../types";
 import "./StoryDisplay.css";
 
@@ -142,7 +142,7 @@ export default function StoryDisplay({
 }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
   const [paragraphs, setParagraphs] = useState<DisplayParagraph[] | null>(null);
-  const [explanations, setExplanations] = useState<StoryExplanations>(
+  const [wordThreads, setWordThreads] = useState<StoryWordThreads>(
     story.explanations ?? {}
   );
   const [activeTap, setActiveTap] = useState<{
@@ -151,7 +151,7 @@ export default function StoryDisplay({
   } | null>(null);
 
   useEffect(() => {
-    setExplanations(story.explanations ?? {});
+    setWordThreads(story.explanations ?? {});
   }, [story.explanations]);
 
   const { cleanContent, rubyAnnotations } = useMemo(() => {
@@ -225,11 +225,8 @@ export default function StoryDisplay({
     setActiveTap({ offset, el: e.currentTarget });
   };
 
-  const handleExplanationCached = (
-    key: string,
-    explanation: AnnotationExplanation
-  ) => {
-    setExplanations((prev) => ({ ...prev, [key]: explanation }));
+  const handleThreadUpdated = (key: string, thread: WordThread) => {
+    setWordThreads((prev) => ({ ...prev, [key]: thread }));
   };
 
   return (
@@ -299,13 +296,13 @@ export default function StoryDisplay({
         storyId={story.id}
         cleanText={cleanContent}
         offset={activeTap?.offset ?? null}
-        explanations={explanations}
+        wordThreads={wordThreads}
         referenceEl={activeTap?.el ?? null}
         open={activeTap !== null}
         onOpenChange={(open) => {
           if (!open) setActiveTap(null);
         }}
-        onExplanationCached={handleExplanationCached}
+        onThreadUpdated={handleThreadUpdated}
       />
       {unknownKanji.size > 0 && (
         <div className="violations">

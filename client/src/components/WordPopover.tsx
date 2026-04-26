@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -13,40 +13,51 @@ import {
 } from "@floating-ui/react";
 import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
-import { explainWord } from "../api/client";
+import { askWord, explainWord } from "../api/client";
 import { KANJI_REGEX } from "../lib/constants";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
-import type { AnnotationExplanation, StoryExplanations } from "../types";
+import type { ChatMessage, StoryWordThreads, WordThread } from "../types";
 import "./WordPopover.css";
 
 interface WordPopoverProps {
   storyId: number;
   cleanText: string;
   offset: number | null;
-  explanations: StoryExplanations;
+  wordThreads: StoryWordThreads;
   referenceEl: HTMLElement | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onExplanationCached: (key: string, explanation: AnnotationExplanation) => void;
+  onThreadUpdated: (key: string, thread: WordThread) => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
 
-function explanationKey(hit: LookupHit): string {
+function threadKey(hit: LookupHit): string {
   return `${hit.start}-${hit.end}`;
+}
+
+function splitThread(thread: WordThread | null): {
+  overview: ChatMessage | null;
+  asks: ChatMessage[];
+} {
+  const messages = thread?.messages ?? [];
+  if (messages[0]?.role === "overview") {
+    return { overview: messages[0], asks: messages.slice(1) };
+  }
+  return { overview: null, asks: messages };
 }
 
 export default function WordPopover({
   storyId,
   cleanText,
   offset: cursorOffset,
-  explanations,
+  wordThreads,
   referenceEl,
   open,
   onOpenChange,
-  onExplanationCached,
+  onThreadUpdated,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
   const [hit, setHit] = useState<LookupHit | null>(null);
@@ -55,9 +66,11 @@ export default function WordPopover({
   const [activeKanji, setActiveKanji] = useState<string | null>(null);
   const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
-  const [explanation, setExplanation] = useState<string | null>(null);
-  const [explaining, setExplaining] = useState(false);
-  const [explainError, setExplainError] = useState<string | null>(null);
+  const [thread, setThread] = useState<WordThread | null>(null);
+  const [pending, setPending] = useState<"overview" | "ask" | null>(null);
+  const [question, setQuestion] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const threadScrollRef = useRef<HTMLDivElement | null>(null);
 
   const { refs, floatingStyles, context } = useFloating({
     open,
@@ -79,9 +92,11 @@ export default function WordPopover({
     setActiveKanji(null);
     setActiveKanjiRow(null);
     setLoadingKanji(null);
-    setExplainError(null);
+    setError(null);
     setHit(null);
-    setExplanation(null);
+    setThread(null);
+    setQuestion("");
+    setPending(null);
   }, [open, cursorOffset]);
 
   // Run the cursor lookup whenever we open against a new offset.
@@ -95,8 +110,7 @@ export default function WordPopover({
         if (cancelled) return;
         setHit(result);
         if (result) {
-          const cached = explanations[explanationKey(result)];
-          setExplanation(cached?.text ?? null);
+          setThread(wordThreads[threadKey(result)] ?? null);
         }
       })
       .finally(() => {
@@ -105,7 +119,17 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, cursorOffset, cleanText, dictState, explanations]);
+  }, [open, cursorOffset, cleanText, dictState, wordThreads]);
+
+  const { overview, asks } = useMemo(() => splitThread(thread), [thread]);
+
+  // Auto-scroll the thread region to the bottom whenever the message count
+  // grows (a new ask landed) so the latest answer is visible.
+  useEffect(() => {
+    const el = threadScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [thread?.messages.length]);
 
   const kanjiChars = useMemo(
     () => (hit ? [...hit.surface].filter((ch) => KANJI_REGEX.test(ch)) : []),
@@ -134,20 +158,38 @@ export default function WordPopover({
     }
   };
 
-  const handleExplain = async (opts: { force?: boolean } = {}) => {
-    if (!hit || explaining) return;
-    setExplaining(true);
-    setExplainError(null);
+  const handleGenerateOverview = async (opts: { force?: boolean } = {}) => {
+    if (!hit || pending) return;
+    setPending("overview");
+    setError(null);
     try {
-      const result = await explainWord(storyId, hit.start, hit.end, {
+      const updated = await explainWord(storyId, hit.start, hit.end, {
         force: opts.force,
       });
-      setExplanation(result.text);
-      onExplanationCached(explanationKey(hit), result);
+      setThread(updated);
+      onThreadUpdated(threadKey(hit), updated);
     } catch (e) {
-      setExplainError(e instanceof Error ? e.message : "Explain failed");
+      setError(e instanceof Error ? e.message : "Overview failed");
     } finally {
-      setExplaining(false);
+      setPending(null);
+    }
+  };
+
+  const handleAsk = async () => {
+    if (!hit || pending) return;
+    const trimmed = question.trim();
+    if (!trimmed) return;
+    setPending("ask");
+    setError(null);
+    try {
+      const updated = await askWord(storyId, hit.start, hit.end, trimmed);
+      setThread(updated);
+      onThreadUpdated(threadKey(hit), updated);
+      setQuestion("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ask failed");
+    } finally {
+      setPending(null);
     }
   };
 
@@ -161,6 +203,21 @@ export default function WordPopover({
   // it did, the chain below carries the base + its reading.
   const headerReading = hit?.base ? undefined : primary?.r?.[0]?.ent;
   const baseReading = hit?.base ? primary?.r?.[0]?.ent : undefined;
+
+  // Pair up asks into [user, assistant] tuples so we can render each Q&A as
+  // a unit. A trailing user turn without an assistant reply (shouldn't happen
+  // in practice — we only persist on success) renders alone.
+  const askPairs: Array<{ q: ChatMessage; a: ChatMessage | null }> = [];
+  for (let i = 0; i < asks.length; i++) {
+    if (asks[i].role === "user") {
+      const next = asks[i + 1];
+      const a = next && next.role === "assistant" ? next : null;
+      askPairs.push({ q: asks[i], a });
+      if (a) i++;
+    }
+  }
+
+  const askDisabled = pending !== null || question.trim().length === 0 || !hit;
 
   return (
     <FloatingPortal>
@@ -239,33 +296,90 @@ export default function WordPopover({
                 </section>
               )}
 
-              <footer className="word-popover__footer">
-                {explanation ? (
-                  <>
-                    <div className="word-popover__explanation">{explanation}</div>
-                    <button
-                      type="button"
-                      className="word-popover__regenerate-btn"
-                      onClick={() => handleExplain({ force: true })}
-                      disabled={explaining || !hit}
-                    >
-                      {explaining ? "Regenerating…" : "Regenerate explanation"}
-                    </button>
-                  </>
-                ) : (
+              <section className="word-popover__thread">
+                <div
+                  ref={threadScrollRef}
+                  className="word-popover__thread-scroll"
+                >
+                  <div className="word-popover__overview">
+                    <div className="word-popover__msg-label">AI Overview</div>
+                    {overview ? (
+                      <>
+                        <div className="word-popover__msg-overview">
+                          {overview.content}
+                        </div>
+                        <button
+                          type="button"
+                          className="word-popover__regenerate-btn"
+                          onClick={() =>
+                            handleGenerateOverview({ force: true })
+                          }
+                          disabled={pending !== null || !hit}
+                        >
+                          {pending === "overview"
+                            ? "Regenerating…"
+                            : "Regenerate overview"}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="word-popover__explain-btn"
+                        onClick={() => handleGenerateOverview()}
+                        disabled={pending !== null || !hit}
+                      >
+                        {pending === "overview"
+                          ? "Generating…"
+                          : "Generate AI Overview"}
+                      </button>
+                    )}
+                  </div>
+
+                  {askPairs.map((pair, i) => (
+                    <div key={i} className="word-popover__qa">
+                      <div className="word-popover__msg-user">
+                        {pair.q.content}
+                      </div>
+                      {pair.a && (
+                        <div className="word-popover__msg-assistant">
+                          {pair.a.content}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {pending === "ask" && (
+                    <div className="word-popover__msg-pending">Thinking…</div>
+                  )}
+                </div>
+
+                <div className="word-popover__compose">
+                  <textarea
+                    className="word-popover__ask-input"
+                    placeholder="Ask AI about this word…"
+                    value={question}
+                    rows={2}
+                    disabled={pending !== null || !hit}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && !askDisabled) {
+                        e.preventDefault();
+                        void handleAsk();
+                      }
+                    }}
+                  />
                   <button
                     type="button"
-                    className="word-popover__explain-btn"
-                    onClick={() => handleExplain()}
-                    disabled={explaining || !hit}
+                    className="word-popover__ask-btn"
+                    onClick={() => void handleAsk()}
+                    disabled={askDisabled}
                   >
-                    {explaining ? "Explaining…" : "Explain here"}
+                    {pending === "ask" ? "Sending…" : "Send Message"}
                   </button>
-                )}
-                {explainError && (
-                  <div className="word-popover__error">{explainError}</div>
-                )}
-              </footer>
+                </div>
+
+                {error && <div className="word-popover__error">{error}</div>}
+              </section>
             </>
           )}
         </div>

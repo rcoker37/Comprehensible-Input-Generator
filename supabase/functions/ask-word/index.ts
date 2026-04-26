@@ -1,13 +1,14 @@
-// Generates the "AI Overview" turn at the top of a per-word conversation
-// thread. The thread lives in stories.explanations JSONB keyed by
-// `${start_offset}-${end_offset}`. See _shared/word-thread.ts for the shape.
+// Adds a follow-up Q&A turn to a per-word conversation thread (the same
+// stories.explanations JSONB managed by explain-word). Asks see the prior
+// Overview (if any) and prior Q&A turns as context — the model is given a
+// real multi-turn messages array.
 //
-// POST { story_id, start_offset, end_offset, force? }
-//   force — bypass the cache and regenerate the Overview, replacing
-//           messages[0] in the stored thread. Asks (later messages) are
-//           untouched. Note: subsequent follow-up asks will see the new
-//           Overview as their assistant turn even though the prior asks were
-//           generated against the old one — accepted as a small fiction.
+// POST { story_id, start_offset, end_offset, question }
+//   question — non-empty trimmed string, ≤ 1000 chars
+//
+// On success, appends one user turn and one assistant turn to the stored
+// thread. On any failure (validation, OpenRouter, DB write) the thread is
+// not mutated, so the client can retry the same question with one click.
 //
 // Returns: { thread: WordThread }
 
@@ -38,14 +39,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const EXPLAIN_MODEL = "anthropic/claude-haiku-4.5";
-const MAX_TOKENS_OVERVIEW = 400;
+const ASK_MODEL = "anthropic/claude-haiku-4.5";
+const MAX_TOKENS_ASK = 600;
+const MAX_QUESTION_LEN = 1000;
 
 const SYSTEM_PROMPT =
   "You are helping a Japanese learner understand a specific word in context. " +
   "The word they tapped is wrapped in 【…】 in the sentence — focus only on " +
   "that bracketed instance even if the same surface appears elsewhere. " +
-  "Plain text only, no markdown.";
+  "Answer the user's questions concisely (≤ 100 words unless they ask for " +
+  "more). Plain text only, no markdown.";
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -54,7 +57,7 @@ function json(status: number, body: unknown): Response {
   });
 }
 
-function buildOverviewUserPrompt(
+function buildFramingUserPrompt(
   passageText: string,
   sentenceText: string,
   targetWord: string
@@ -63,24 +66,29 @@ function buildOverviewUserPrompt(
 Target word: ${targetWord}
 
 Full passage for context:
-${passageText}
-
-Give a 1-3 sentence overview (≤ 70 words) of why this specific word or form is used here. Cover whichever of these is most useful:
-- which dictionary sense applies here (if the word is ambiguous)
-- nuance, register, or connotation
-- why this conjugation/form was chosen (if applicable)
-- a simpler alternative the learner might have expected, and the difference
-
-Do not add filler.`;
+${passageText}`;
 }
 
-function withOverview(
+// Project a stored thread + new question into the OpenAI messages array.
+// The Overview, if present, is replayed as the model's first assistant turn.
+function buildAskMessages(
+  framing: string,
   thread: WordThread | null,
-  overview: ChatMessage
-): WordThread {
-  const existing = thread?.messages ?? [];
-  const tail = existing[0]?.role === "overview" ? existing.slice(1) : existing;
-  return { version: 1, messages: [overview, ...tail] };
+  newQuestion: string
+): OpenRouterMessage[] {
+  const messages: OpenRouterMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: framing },
+  ];
+  for (const m of thread?.messages ?? []) {
+    if (m.role === "overview") {
+      messages.push({ role: "assistant", content: m.content });
+    } else {
+      messages.push({ role: m.role, content: m.content });
+    }
+  }
+  messages.push({ role: "user", content: newQuestion });
+  return messages;
 }
 
 Deno.serve(async (req) => {
@@ -96,7 +104,7 @@ Deno.serve(async (req) => {
     const storyId = body?.story_id;
     const startOffset = body?.start_offset;
     const endOffset = body?.end_offset;
-    const force = Boolean(body?.force);
+    const rawQuestion = body?.question;
 
     if (typeof storyId !== "number") {
       return json(400, { error: "Missing story_id" });
@@ -109,6 +117,16 @@ Deno.serve(async (req) => {
     ) {
       return json(400, { error: "Invalid offsets" });
     }
+    if (typeof rawQuestion !== "string") {
+      return json(400, { error: "Missing question" });
+    }
+    const question = rawQuestion.trim();
+    if (question.length === 0) {
+      return json(400, { error: "Question is empty" });
+    }
+    if (question.length > MAX_QUESTION_LEN) {
+      return json(400, { error: "Question too long" });
+    }
 
     const story = await loadStoryForUser(auth.authHeader, storyId);
     const content = cleanContent(story.content);
@@ -118,9 +136,6 @@ Deno.serve(async (req) => {
 
     const cacheKey = `${startOffset}-${endOffset}`;
     const existingThread = story.explanations?.[cacheKey] ?? null;
-    if (!force && existingThread?.messages[0]?.role === "overview") {
-      return json(200, { thread: existingThread });
-    }
 
     const targetWord = content.slice(startOffset, endOffset);
     const { sentenceStart, sentenceEnd } = findSentenceBounds(
@@ -135,30 +150,37 @@ Deno.serve(async (req) => {
       startOffset,
       endOffset
     );
+    const framing = buildFramingUserPrompt(content, sentenceText, targetWord);
 
     const apiKey = await getApiKey(auth.userId);
-    const messages: OpenRouterMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: buildOverviewUserPrompt(content, sentenceText, targetWord),
-      },
-    ];
+    const messages = buildAskMessages(framing, existingThread, question);
     const raw = await callOpenRouter({
       apiKey,
-      model: EXPLAIN_MODEL,
+      model: ASK_MODEL,
       messages,
-      maxTokens: MAX_TOKENS_OVERVIEW,
+      maxTokens: MAX_TOKENS_ASK,
     });
 
-    const overview: ChatMessage = {
-      role: "overview",
+    const now = new Date().toISOString();
+    const userTurn: ChatMessage = {
+      role: "user",
+      content: question,
+      generated_at: now,
+    };
+    const assistantTurn: ChatMessage = {
+      role: "assistant",
       content: raw.trim(),
       generated_at: new Date().toISOString(),
     };
-    const thread = withOverview(existingThread, overview);
+    const thread: WordThread = {
+      version: 1,
+      messages: [
+        ...(existingThread?.messages ?? []),
+        userTurn,
+        assistantTurn,
+      ],
+    };
 
-    // Read-modify-write merge. Race window is small for UI taps; last-write-wins.
     const updatedExplanations: StoredWordThreads = {
       ...(story.explanations ?? {}),
       [cacheKey]: thread,
@@ -170,17 +192,17 @@ Deno.serve(async (req) => {
       .eq("id", storyId)
       .eq("user_id", auth.userId);
     if (updateErr) {
-      console.error("explanations update failed:", updateErr);
-      return json(500, { error: "Failed to save overview" });
+      console.error("ask-word update failed:", updateErr);
+      return json(500, { error: "Failed to save question" });
     }
 
     return json(200, { thread });
   } catch (err) {
     if (err instanceof DOMException && err.name === "TimeoutError") {
-      return json(504, { error: "Overview model took too long to respond." });
+      return json(504, { error: "Model took too long to respond." });
     }
-    const message = err instanceof Error ? err.message : "Overview failed";
-    console.error("explain-word error:", err);
+    const message = err instanceof Error ? err.message : "Ask failed";
+    console.error("ask-word error:", err);
     return json(500, { error: message });
   }
 });
