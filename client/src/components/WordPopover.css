@@ -146,22 +146,12 @@
   overflow-y: auto;
 }
 
-.word-popover__overview,
 .word-popover__qa {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 
-.word-popover__msg-label {
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.word-popover__msg-overview,
 .word-popover__msg-assistant {
   font-size: 0.85rem;
   line-height: 1.45;
@@ -186,48 +176,6 @@
   font-size: 0.78rem;
   color: var(--text-dim);
   font-style: italic;
-}
-
-.word-popover__explain-btn {
-  align-self: flex-start;
-  background: var(--accent);
-  color: var(--bg, #111);
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.4rem 0.75rem;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.word-popover__explain-btn:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.word-popover__explain-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.word-popover__regenerate-btn {
-  align-self: flex-start;
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-size: 0.72rem;
-  cursor: pointer;
-  padding: 0.1rem 0;
-  text-decoration: underline;
-}
-
-.word-popover__regenerate-btn:hover:not(:disabled) {
-  color: var(--accent);
-}
-
-.word-popover__regenerate-btn:disabled {
-  cursor: default;
-  opacity: 0.6;
-  text-decoration: none;
 }
 
 .word-popover__compose {
