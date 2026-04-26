@@ -52,12 +52,6 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.05s;
 }
 
-.playback-speed-btn:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
 .playback-speed-btn:active:not(:disabled) {
   transform: scale(0.95);
 }
@@ -82,9 +76,11 @@
   transition: background 0.15s, border-color 0.15s, transform 0.05s;
 }
 
-.playback-play-btn:hover:not(:disabled) {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+@media (hover: hover) {
+  .playback-play-btn:hover:not(:disabled) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
 }
 
 .playback-play-btn:active:not(:disabled) {
@@ -105,7 +101,7 @@
   border-color: var(--accent);
 }
 
-.playback-regen-btn {
+.playback-pause-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -120,23 +116,22 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.05s;
 }
 
-.playback-regen-btn:hover:not(:disabled) {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .playback-pause-toggle-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
 }
 
-.playback-regen-btn:active:not(:disabled) {
+.playback-pause-toggle-btn:active {
   transform: scale(0.95);
 }
 
-.playback-regen-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-.playback-regen-btn:disabled:has(.playback-spinner) {
-  opacity: 1;
+.playback-pause-toggle-btn.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .playback-spinner {

@@ -24,3 +24,38 @@
 .story-detail-back:hover {
   color: var(--text);
 }
+
+.story-detail-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.story-detail-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.story-detail-icon-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.story-detail-icon-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.story-detail-icon-btn:disabled:has(.playback-spinner) {
+  opacity: 1;
+}
