@@ -69,6 +69,28 @@ export default function Stories() {
                 <span className="type-tag">{story.content_type ?? "story"}</span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
+                {story.audio && (
+                  <span
+                    className="audio-tag"
+                    title="Audio available"
+                    aria-label="Audio available"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 6h2.5L9 3v10L5.5 10H3z" />
+                      <path d="M11.5 6a3 3 0 0 1 0 4" />
+                      <path d="M13 4.5a5.5 5.5 0 0 1 0 7" />
+                    </svg>
+                  </span>
+                )}
               </div>
             </div>
           ))}

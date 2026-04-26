@@ -37,3 +37,9 @@
   margin-top: 0.5rem;
 }
 
+.audio-tag {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-dim);
+}
+

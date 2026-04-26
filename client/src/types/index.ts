@@ -49,13 +49,22 @@ export interface StoryAudio {
   sentences?: StoryAudioSentence[];
 }
 
-export interface AnnotationExplanation {
-  text: string;
+export type ChatRole = "overview" | "user" | "assistant";
+
+export interface ChatMessage {
+  role: ChatRole;
+  content: string;
   generated_at: string;
 }
 
+/** Per-word conversation thread. If any element has role="overview", it is messages[0]. */
+export interface WordThread {
+  version: 1;
+  messages: ChatMessage[];
+}
+
 /** Keyed by `${start_offset}-${end_offset}` (char offsets in the story content). */
-export type StoryExplanations = Record<string, AnnotationExplanation>;
+export type StoryWordThreads = Record<string, WordThread>;
 
 export interface Story {
   id: number;
@@ -69,7 +78,7 @@ export interface Story {
   filters: StoryFilters;
   difficulty: DifficultyEstimate;
   audio: StoryAudio | null;
-  explanations: StoryExplanations | null;
+  explanations: StoryWordThreads | null;
   created_at: string;
 }
 

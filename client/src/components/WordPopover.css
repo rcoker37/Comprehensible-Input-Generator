@@ -130,12 +130,62 @@
   50% { opacity: 0.4; }
 }
 
-.word-popover__footer {
+.word-popover__thread {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.55rem;
   border-top: 1px solid var(--border);
   padding-top: 0.6rem;
+}
+
+.word-popover__thread-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.word-popover__overview,
+.word-popover__qa {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.word-popover__msg-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.word-popover__msg-overview,
+.word-popover__msg-assistant {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.word-popover__msg-user {
+  align-self: flex-end;
+  max-width: 90%;
+  background: var(--bg-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.word-popover__msg-pending {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .word-popover__explain-btn {
@@ -159,13 +209,6 @@
   cursor: default;
 }
 
-.word-popover__explanation {
-  font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--text);
-  white-space: pre-wrap;
-}
-
 .word-popover__regenerate-btn {
   align-self: flex-start;
   background: none;
@@ -185,6 +228,56 @@
   cursor: default;
   opacity: 0.6;
   text-decoration: none;
+}
+
+.word-popover__compose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.word-popover__ask-input {
+  flex: 1;
+  resize: none;
+  font: inherit;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  padding: 0.4rem 0.55rem;
+  background: var(--bg-dim);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.word-popover__ask-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.word-popover__ask-input:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.word-popover__ask-btn {
+  align-self: flex-start;
+  background: var(--accent);
+  color: var(--bg, #111);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.word-popover__ask-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.word-popover__ask-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .word-popover__status {
