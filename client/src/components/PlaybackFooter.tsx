@@ -12,8 +12,9 @@ export default function PlaybackFooter(props: AudioPlayerState) {
     error,
     playbackRate,
     setPlaybackRate,
+    pauseAtSentence,
+    setPauseAtSentence,
     handlePlayPause,
-    handleRegenerate,
     audioElement,
   } = props;
 
@@ -27,11 +28,9 @@ export default function PlaybackFooter(props: AudioPlayerState) {
         : playing
           ? "Pause"
           : "Play story";
-  const regenTitle = !audio
-    ? "Generate audio first"
-    : regenerating
-      ? "Regenerating…"
-      : "Regenerate audio";
+  const pauseToggleTitle = pauseAtSentence
+    ? "Auto-pause after each sentence: ON"
+    : "Auto-pause after each sentence: OFF";
 
   return (
     <div className="playback-footer" role="region" aria-label="Audio playback">
@@ -85,20 +84,17 @@ export default function PlaybackFooter(props: AudioPlayerState) {
         <div className="playback-right">
           <button
             type="button"
-            className="playback-regen-btn"
-            onClick={handleRegenerate}
-            disabled={busy || !audio}
-            title={regenTitle}
-            aria-label="Regenerate audio"
+            className={`playback-pause-toggle-btn ${pauseAtSentence ? "is-active" : ""}`}
+            onClick={() => setPauseAtSentence(!pauseAtSentence)}
+            title={pauseToggleTitle}
+            aria-pressed={pauseAtSentence}
+            aria-label="Toggle pause after each sentence"
           >
-            {regenerating ? (
-              <span className="playback-spinner" aria-hidden="true" />
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M13.5 2.5v3.5h-3.5" />
-                <path d="M13.5 6A5.5 5.5 0 1 0 14 9.5" />
-              </svg>
-            )}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <rect x="3" y="4" width="2" height="8" />
+              <rect x="6" y="4" width="2" height="8" />
+              <polygon points="10,4 14,8 10,12" />
+            </svg>
           </button>
         </div>
       </div>

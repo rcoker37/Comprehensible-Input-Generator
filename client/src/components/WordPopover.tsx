@@ -10,6 +10,7 @@ import {
   useInteractions,
   FloatingPortal,
   FloatingFocusManager,
+  FloatingOverlay,
 } from "@floating-ui/react";
 import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
@@ -17,6 +18,7 @@ import { askWord } from "../api/client";
 import { KANJI_REGEX } from "../lib/constants";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
+import { useIsMobile } from "../hooks/useIsMobile";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
 import type { ChatMessage, StoryWordThreads, WordThread } from "../types";
 import "./WordPopover.css";
@@ -59,18 +61,20 @@ export default function WordPopover({
   const [pending, setPending] = useState<boolean>(false);
   const [question, setQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const threadScrollRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useIsMobile();
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const userAskedRef = useRef(false);
 
   const { refs, floatingStyles, context } = useFloating({
     open,
     onOpenChange,
     placement: "bottom",
     middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
+    whileElementsMounted: isMobile ? undefined : autoUpdate,
     elements: { reference: referenceEl },
   });
 
-  const dismiss = useDismiss(context);
+  const dismiss = useDismiss(context, { outsidePress: false });
   const role = useRole(context, { role: "dialog" });
   const { getFloatingProps } = useInteractions([dismiss, role]);
 
@@ -86,6 +90,8 @@ export default function WordPopover({
     setThread(null);
     setQuestion("");
     setPending(false);
+    userAskedRef.current = false;
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [open, cursorOffset]);
 
   // Run the cursor lookup whenever we open against a new offset.
@@ -118,10 +124,11 @@ export default function WordPopover({
     [thread]
   );
 
-  // Auto-scroll the thread region to the bottom whenever the message count
-  // grows (a new ask landed) so the latest answer is visible.
+  // Auto-scroll the popover body to the bottom only when the user has just
+  // asked a question — initial cached-thread loads stay scrolled at the top.
   useEffect(() => {
-    const el = threadScrollRef.current;
+    if (!userAskedRef.current) return;
+    const el = bodyRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [thread?.messages.length]);
@@ -157,6 +164,7 @@ export default function WordPopover({
     if (!hit || pending) return;
     const trimmed = question.trim();
     if (!trimmed) return;
+    userAskedRef.current = true;
     setPending(true);
     setError(null);
     try {
@@ -199,13 +207,36 @@ export default function WordPopover({
 
   return (
     <FloatingPortal>
-      <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
-        <div
-          ref={refs.setFloating}
-          style={floatingStyles}
-          className="word-popover"
-          {...getFloatingProps()}
-        >
+      <FloatingOverlay className="word-popover__backdrop" lockScroll>
+        <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
+          <div
+            ref={refs.setFloating}
+            style={
+              isMobile
+                ? {
+                    position: "fixed",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                  }
+                : floatingStyles
+            }
+            className={`word-popover ${isMobile ? "word-popover--centered" : ""}`}
+            {...getFloatingProps()}
+          >
+            <button
+              type="button"
+              className="word-popover__close"
+              onClick={() => onOpenChange(false)}
+              title="Close"
+              aria-label="Close"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <path d="M3 3l10 10" />
+                <path d="M13 3L3 13" />
+              </svg>
+            </button>
+            <div ref={bodyRef} className="word-popover__body">
           {activeKanji ? (
             <KanjiInlineDetail
               char={activeKanji}
@@ -275,10 +306,7 @@ export default function WordPopover({
               )}
 
               <section className="word-popover__thread">
-                <div
-                  ref={threadScrollRef}
-                  className="word-popover__thread-scroll"
-                >
+                <div className="word-popover__thread-scroll">
                   {askPairs.map((pair, i) => (
                     <div key={i} className="word-popover__qa">
                       <div className="word-popover__msg-user">
@@ -291,10 +319,6 @@ export default function WordPopover({
                       )}
                     </div>
                   ))}
-
-                  {pending && (
-                    <div className="word-popover__msg-pending">Thinking…</div>
-                  )}
                 </div>
 
                 <div className="word-popover__compose">
@@ -326,8 +350,10 @@ export default function WordPopover({
               </section>
             </>
           )}
-        </div>
-      </FloatingFocusManager>
+            </div>
+          </div>
+        </FloatingFocusManager>
+      </FloatingOverlay>
     </FloatingPortal>
   );
 }

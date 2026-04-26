@@ -17,11 +17,15 @@ export interface AudioPlayerState {
   activeSegmentIdx: number;
   playbackRate: number;
   setPlaybackRate: (n: number) => void;
+  pauseAtSentence: boolean;
+  setPauseAtSentence: (b: boolean) => void;
   handlePlayPause: () => Promise<void>;
   handleRegenerate: () => Promise<void>;
   seekToSegment: (i: number) => void;
   audioElement: ReactNode;
 }
+
+const PAUSE_AT_SENTENCE_KEY = "valencia.pauseAtSentence";
 
 // Mirror generate-audio's AUDIO_VERSION. Bumping this on the server tells
 // the edge function to regenerate; the client mirror routes any version-
@@ -62,10 +66,25 @@ export function useAudioPlayer(
   const [error, setError] = useState<string | null>(null);
   const [activeSegmentIdx, setActiveSegmentIdx] = useState(-1);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [pauseAtSentence, setPauseAtSentence] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(PAUSE_AT_SENTENCE_KEY) === "1";
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastActive = useRef<number>(-1);
   const pendingPlay = useRef(false);
+  const pauseAtSentenceRef = useRef(pauseAtSentence);
+
+  useEffect(() => {
+    pauseAtSentenceRef.current = pauseAtSentence;
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(
+        PAUSE_AT_SENTENCE_KEY,
+        pauseAtSentence ? "1" : "0"
+      );
+    }
+  }, [pauseAtSentence]);
 
   const storyId = story?.id ?? null;
   const storyAudio =
@@ -125,8 +144,12 @@ export function useAudioPlayer(
       const ms = el.currentTime * 1000;
       const active = findActiveSegment(segments, ms);
       if (active !== lastActive.current) {
+        const prev = lastActive.current;
         lastActive.current = active;
         setActiveSegmentIdx(active);
+        if (pauseAtSentenceRef.current && prev >= 0 && active > prev) {
+          el.pause();
+        }
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -245,6 +268,8 @@ export function useAudioPlayer(
     activeSegmentIdx,
     playbackRate,
     setPlaybackRate,
+    pauseAtSentence,
+    setPauseAtSentence,
     handlePlayPause,
     handleRegenerate,
     seekToSegment,

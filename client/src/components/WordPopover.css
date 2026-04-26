@@ -1,16 +1,62 @@
+.word-popover__backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 999;
+}
+
 .word-popover {
   z-index: 1000;
-  max-width: min(22rem, calc(100vw - 1rem));
-  padding: 0.9rem 1rem;
+  max-width: min(22rem, 90vw);
+  max-height: 90vh;
   background: var(--bg-card, var(--bg, #1e1e22));
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
   color: var(--text);
   font-size: 0.9rem;
+}
+
+.word-popover--centered {
+  width: min(90vw, 22rem);
+}
+
+.word-popover__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.word-popover__close {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 2;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  border-radius: 50%;
+  cursor: pointer;
+  padding: 0;
+}
+
+@media (hover: hover) {
+  .word-popover__close:hover {
+    color: var(--text);
+    background: var(--bg-dim);
+  }
 }
 
 .word-popover__header {
@@ -142,8 +188,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  max-height: 18rem;
-  overflow-y: auto;
 }
 
 .word-popover__qa {
@@ -170,12 +214,6 @@
   line-height: 1.4;
   color: var(--text);
   white-space: pre-wrap;
-}
-
-.word-popover__msg-pending {
-  font-size: 0.78rem;
-  color: var(--text-dim);
-  font-style: italic;
 }
 
 .word-popover__compose {
