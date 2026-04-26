@@ -372,68 +372,38 @@ export async function getStoryAudioUrl(path: string): Promise<string> {
 
 // Stories — word conversation threads
 
-async function callWordThreadFn(
-  fnName: "explain-word" | "ask-word",
-  payload: Record<string, unknown>,
-  fallbackError: string
-): Promise<WordThread> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error("Not authenticated");
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/${fnName}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: fallbackError }));
-    throw new Error(body.error || `HTTP ${response.status}`);
-  }
-
-  const { thread } = await response.json();
-  return thread as WordThread;
-}
-
-export async function explainWord(
-  storyId: number,
-  startOffset: number,
-  endOffset: number,
-  opts: { force?: boolean } = {}
-): Promise<WordThread> {
-  return callWordThreadFn(
-    "explain-word",
-    {
-      story_id: storyId,
-      start_offset: startOffset,
-      end_offset: endOffset,
-      force: opts.force ?? false,
-    },
-    "Overview failed"
-  );
-}
-
 export async function askWord(
   storyId: number,
   startOffset: number,
   endOffset: number,
   question: string
 ): Promise<WordThread> {
-  return callWordThreadFn(
-    "ask-word",
-    {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/ask-word`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
       story_id: storyId,
       start_offset: startOffset,
       end_offset: endOffset,
       question,
-    },
-    "Ask failed"
-  );
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Ask failed" }));
+    throw new Error(body.error || `HTTP ${response.status}`);
+  }
+
+  const { thread } = await response.json();
+  return thread as WordThread;
 }
 
 // Profiles

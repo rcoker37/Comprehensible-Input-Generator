@@ -39,7 +39,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const ASK_MODEL = "anthropic/claude-haiku-4.5";
+const ASK_MODEL = "anthropic/claude-sonnet-4.5";
 const MAX_TOKENS_ASK = 600;
 const MAX_QUESTION_LEN = 1000;
 
@@ -70,7 +70,7 @@ ${passageText}`;
 }
 
 // Project a stored thread + new question into the OpenAI messages array.
-// The Overview, if present, is replayed as the model's first assistant turn.
+// Legacy `overview`-role messages from older stored threads are skipped.
 function buildAskMessages(
   framing: string,
   thread: WordThread | null,
@@ -81,9 +81,7 @@ function buildAskMessages(
     { role: "user", content: framing },
   ];
   for (const m of thread?.messages ?? []) {
-    if (m.role === "overview") {
-      messages.push({ role: "assistant", content: m.content });
-    } else {
+    if (m.role === "user" || m.role === "assistant") {
       messages.push({ role: m.role, content: m.content });
     }
   }

@@ -49,7 +49,7 @@ export interface StoryAudio {
   sentences?: StoryAudioSentence[];
 }
 
-export type ChatRole = "overview" | "user" | "assistant";
+export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
   role: ChatRole;
@@ -57,7 +57,7 @@ export interface ChatMessage {
   generated_at: string;
 }
 
-/** Per-word conversation thread. If any element has role="overview", it is messages[0]. */
+/** Per-word conversation thread. */
 export interface WordThread {
   version: 1;
   messages: ChatMessage[];

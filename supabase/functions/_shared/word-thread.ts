@@ -1,7 +1,7 @@
 // Shape of stories.explanations JSONB on the server side.
 // Keep in sync with client/src/types/index.ts (WordThread, ChatMessage).
 
-export type ChatRole = "overview" | "user" | "assistant";
+export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
   role: ChatRole;
@@ -11,7 +11,7 @@ export interface ChatMessage {
 
 export interface WordThread {
   version: 1;
-  messages: ChatMessage[]; // if any element has role="overview", it is messages[0].
+  messages: ChatMessage[];
 }
 
 // Keyed by `${start_offset}-${end_offset}`.

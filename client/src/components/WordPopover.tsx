@@ -13,7 +13,7 @@ import {
 } from "@floating-ui/react";
 import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
-import { askWord, explainWord } from "../api/client";
+import { askWord } from "../api/client";
 import { KANJI_REGEX } from "../lib/constants";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
@@ -38,17 +38,6 @@ function threadKey(hit: LookupHit): string {
   return `${hit.start}-${hit.end}`;
 }
 
-function splitThread(thread: WordThread | null): {
-  overview: ChatMessage | null;
-  asks: ChatMessage[];
-} {
-  const messages = thread?.messages ?? [];
-  if (messages[0]?.role === "overview") {
-    return { overview: messages[0], asks: messages.slice(1) };
-  }
-  return { overview: null, asks: messages };
-}
-
 export default function WordPopover({
   storyId,
   cleanText,
@@ -67,7 +56,7 @@ export default function WordPopover({
   const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
   const [thread, setThread] = useState<WordThread | null>(null);
-  const [pending, setPending] = useState<"overview" | "ask" | null>(null);
+  const [pending, setPending] = useState<boolean>(false);
   const [question, setQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const threadScrollRef = useRef<HTMLDivElement | null>(null);
@@ -96,7 +85,7 @@ export default function WordPopover({
     setHit(null);
     setThread(null);
     setQuestion("");
-    setPending(null);
+    setPending(false);
   }, [open, cursorOffset]);
 
   // Run the cursor lookup whenever we open against a new offset.
@@ -121,7 +110,13 @@ export default function WordPopover({
     };
   }, [open, cursorOffset, cleanText, dictState, wordThreads]);
 
-  const { overview, asks } = useMemo(() => splitThread(thread), [thread]);
+  const asks = useMemo<ChatMessage[]>(
+    () =>
+      (thread?.messages ?? []).filter(
+        (m) => m.role === "user" || m.role === "assistant"
+      ),
+    [thread]
+  );
 
   // Auto-scroll the thread region to the bottom whenever the message count
   // grows (a new ask landed) so the latest answer is visible.
@@ -158,28 +153,11 @@ export default function WordPopover({
     }
   };
 
-  const handleGenerateOverview = async (opts: { force?: boolean } = {}) => {
-    if (!hit || pending) return;
-    setPending("overview");
-    setError(null);
-    try {
-      const updated = await explainWord(storyId, hit.start, hit.end, {
-        force: opts.force,
-      });
-      setThread(updated);
-      onThreadUpdated(threadKey(hit), updated);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Overview failed");
-    } finally {
-      setPending(null);
-    }
-  };
-
   const handleAsk = async () => {
     if (!hit || pending) return;
     const trimmed = question.trim();
     if (!trimmed) return;
-    setPending("ask");
+    setPending(true);
     setError(null);
     try {
       const updated = await askWord(storyId, hit.start, hit.end, trimmed);
@@ -189,7 +167,7 @@ export default function WordPopover({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ask failed");
     } finally {
-      setPending(null);
+      setPending(false);
     }
   };
 
@@ -217,7 +195,7 @@ export default function WordPopover({
     }
   }
 
-  const askDisabled = pending !== null || question.trim().length === 0 || !hit;
+  const askDisabled = pending || question.trim().length === 0 || !hit;
 
   return (
     <FloatingPortal>
@@ -301,40 +279,6 @@ export default function WordPopover({
                   ref={threadScrollRef}
                   className="word-popover__thread-scroll"
                 >
-                  <div className="word-popover__overview">
-                    <div className="word-popover__msg-label">AI Overview</div>
-                    {overview ? (
-                      <>
-                        <div className="word-popover__msg-overview">
-                          {overview.content}
-                        </div>
-                        <button
-                          type="button"
-                          className="word-popover__regenerate-btn"
-                          onClick={() =>
-                            handleGenerateOverview({ force: true })
-                          }
-                          disabled={pending !== null || !hit}
-                        >
-                          {pending === "overview"
-                            ? "Regenerating…"
-                            : "Regenerate overview"}
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        className="word-popover__explain-btn"
-                        onClick={() => handleGenerateOverview()}
-                        disabled={pending !== null || !hit}
-                      >
-                        {pending === "overview"
-                          ? "Generating…"
-                          : "Generate AI Overview"}
-                      </button>
-                    )}
-                  </div>
-
                   {askPairs.map((pair, i) => (
                     <div key={i} className="word-popover__qa">
                       <div className="word-popover__msg-user">
@@ -348,7 +292,7 @@ export default function WordPopover({
                     </div>
                   ))}
 
-                  {pending === "ask" && (
+                  {pending && (
                     <div className="word-popover__msg-pending">Thinking…</div>
                   )}
                 </div>
@@ -359,7 +303,7 @@ export default function WordPopover({
                     placeholder="Ask AI about this word…"
                     value={question}
                     rows={2}
-                    disabled={pending !== null || !hit}
+                    disabled={pending || !hit}
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey && !askDisabled) {
@@ -374,7 +318,7 @@ export default function WordPopover({
                     onClick={() => void handleAsk()}
                     disabled={askDisabled}
                   >
-                    {pending === "ask" ? "Sending…" : "Send Message"}
+                    {pending ? "Sending…" : "Send Message"}
                   </button>
                 </div>
 
