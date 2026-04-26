@@ -240,13 +240,19 @@
   flex: 1;
   resize: none;
   font: inherit;
-  font-size: 0.82rem;
+  /* 16px keeps iOS Safari from auto-zooming the page on focus; the scale
+     below shrinks the box back to the popover's visual size. */
+  font-size: 16px;
   line-height: 1.4;
   padding: 0.4rem 0.55rem;
   background: var(--bg-dim);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  transform: scale(0.82);
+  transform-origin: top left;
+  width: calc(100% / 0.82);
+  margin-bottom: -0.7rem;
 }
 
 .word-popover__ask-input:focus {
