@@ -79,13 +79,45 @@ export default function Stories() {
                 <Link to={`/stories/${story.id}`} className="story-card-title">
                   {stripAnnotations(stripBold(story.title))}
                 </Link>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(story.id)}
-                  title="Delete story"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-                </button>
+                <div className="story-card-header-actions">
+                  {story.audio && (
+                    <span
+                      className="audio-tag"
+                      title="Audio available"
+                      aria-label="Audio available"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 6h2.5L9 3v10L5.5 10H3z" />
+                        <path d="M11.5 6a3 3 0 0 1 0 4" />
+                        <path d="M13 4.5a5.5 5.5 0 0 1 0 7" />
+                      </svg>
+                    </span>
+                  )}
+                  {story.read_at && (
+                    <span
+                      className="read-tag"
+                      title={`Read on ${new Date(story.read_at).toLocaleString()}`}
+                    >
+                      ✓ Read
+                    </span>
+                  )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(story.id)}
+                    title="Delete story"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+                  </button>
+                </div>
               </div>
               <div className="story-card-meta">
                 <span className="date">
@@ -95,38 +127,11 @@ export default function Stories() {
                   {unknownCount(story.content)} unknown kanji
                 </span>
                 <span className="type-tag">{story.content_type ?? "story"}</span>
+                <span className="paragraphs-tag">
+                  {story.paragraphs} {story.paragraphs === 1 ? "paragraph" : "paragraphs"}
+                </span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
-                {story.read_at && (
-                  <span
-                    className="read-tag"
-                    title={`Read on ${new Date(story.read_at).toLocaleString()}`}
-                  >
-                    ✓ Read
-                  </span>
-                )}
-                {story.audio && (
-                  <span
-                    className="audio-tag"
-                    title="Audio available"
-                    aria-label="Audio available"
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M3 6h2.5L9 3v10L5.5 10H3z" />
-                      <path d="M11.5 6a3 3 0 0 1 0 4" />
-                      <path d="M13 4.5a5.5 5.5 0 0 1 0 7" />
-                    </svg>
-                  </span>
-                )}
               </div>
             </div>
           ))}
