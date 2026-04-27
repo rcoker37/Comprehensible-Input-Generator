@@ -18,6 +18,13 @@
   gap: 1rem;
 }
 
+.story-card-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .story-card-title {
   font-size: 1.1rem;
   font-weight: 600;

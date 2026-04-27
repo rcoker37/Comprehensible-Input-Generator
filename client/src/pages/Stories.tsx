@@ -79,13 +79,23 @@ export default function Stories() {
                 <Link to={`/stories/${story.id}`} className="story-card-title">
                   {stripAnnotations(stripBold(story.title))}
                 </Link>
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(story.id)}
-                  title="Delete story"
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
-                </button>
+                <div className="story-card-header-actions">
+                  {story.read_at && (
+                    <span
+                      className="read-tag"
+                      title={`Read on ${new Date(story.read_at).toLocaleString()}`}
+                    >
+                      ✓ Read
+                    </span>
+                  )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(story.id)}
+                    title="Delete story"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="3" x2="11" y2="11"/><line x1="11" y1="3" x2="3" y2="11"/></svg>
+                  </button>
+                </div>
               </div>
               <div className="story-card-meta">
                 <span className="date">
@@ -95,16 +105,11 @@ export default function Stories() {
                   {unknownCount(story.content)} unknown kanji
                 </span>
                 <span className="type-tag">{story.content_type ?? "story"}</span>
+                <span className="paragraphs-tag">
+                  {story.paragraphs} {story.paragraphs === 1 ? "paragraph" : "paragraphs"}
+                </span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
-                {story.read_at && (
-                  <span
-                    className="read-tag"
-                    title={`Read on ${new Date(story.read_at).toLocaleString()}`}
-                  >
-                    ✓ Read
-                  </span>
-                )}
                 {story.audio && (
                   <span
                     className="audio-tag"

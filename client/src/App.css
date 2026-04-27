@@ -300,6 +300,7 @@ button {
 .type-tag,
 .formality-tag,
 .topic-tag,
+.paragraphs-tag,
 .unknown-tag {
   display: inline-block;
   padding: 0.2rem 0.6rem;
