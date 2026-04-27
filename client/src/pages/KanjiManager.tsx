@@ -5,9 +5,11 @@ import {
   getKanji,
   filterKanji,
   getKanjiStats,
+  getReadStoryContents,
   toggleKanji,
   bulkUpdateKanji,
 } from "../api/client";
+import { KANJI_REGEX_G } from "../lib/constants";
 import type { Kanji, KanjiStats } from "../types";
 import "./KanjiManager.css";
 
@@ -17,15 +19,25 @@ const GRADE_LABELS: Record<number, string> = {
   1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 8: "S",
 };
 
+type SortOption = "default" | "appearances-desc" | "appearances-asc";
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: "default", label: "Default" },
+  { value: "appearances-desc", label: "Appearances ↓" },
+  { value: "appearances-asc", label: "Appearances ↑" },
+];
+
 export default function KanjiManager() {
   const { user } = useAuth();
   const [allKanji, setAllKanji] = useState<Kanji[]>([]);
   const [stats, setStats] = useState<KanjiStats>({ total: 0, known: 0 });
+  const [appearances, setAppearances] = useState<Map<string, number>>(new Map());
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [jlptFilter, setJlptFilter] = useState<number[]>([]);
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
   const [knownFilter, setKnownFilter] = useState<"all" | "known" | "unknown">("all");
+  const [sortBy, setSortBy] = useState<SortOption>("default");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
@@ -39,9 +51,22 @@ export default function KanjiManager() {
   }, [search]);
 
   const fetchAll = useCallback(async () => {
-    const [data, s] = await Promise.all([getKanji(userId), getKanjiStats(userId)]);
+    const [data, s, contents] = await Promise.all([
+      getKanji(userId),
+      getKanjiStats(userId),
+      getReadStoryContents(),
+    ]);
     setAllKanji(data);
     setStats(s);
+    const counts = new Map<string, number>();
+    for (const content of contents) {
+      const matches = content.match(KANJI_REGEX_G);
+      if (!matches) continue;
+      for (const ch of matches) {
+        counts.set(ch, (counts.get(ch) || 0) + 1);
+      }
+    }
+    setAppearances(counts);
   }, [userId]);
 
   useEffect(() => {
@@ -57,10 +82,22 @@ export default function KanjiManager() {
       jlpt: jlptFilter.length > 0 ? jlptFilter : undefined,
       grade: gradeFilter.length > 0 ? gradeFilter : undefined,
     });
-    if (knownFilter === "known") return filtered.filter((k) => k.known);
-    if (knownFilter === "unknown") return filtered.filter((k) => !k.known);
-    return filtered;
-  }, [allKanji, debouncedSearch, jlptFilter, gradeFilter, knownFilter]);
+    const statusFiltered =
+      knownFilter === "known"
+        ? filtered.filter((k) => k.known)
+        : knownFilter === "unknown"
+          ? filtered.filter((k) => !k.known)
+          : filtered;
+    if (sortBy === "default") return statusFiltered;
+    const sorted = [...statusFiltered];
+    const dir = sortBy === "appearances-asc" ? 1 : -1;
+    sorted.sort((a, b) => {
+      const ca = appearances.get(a.character) || 0;
+      const cb = appearances.get(b.character) || 0;
+      return (ca - cb) * dir;
+    });
+    return sorted;
+  }, [allKanji, debouncedSearch, jlptFilter, gradeFilter, knownFilter, sortBy, appearances]);
 
   const handleToggle = async (character: string) => {
     const current = allKanji.find((k) => k.character === character);
@@ -181,6 +218,22 @@ export default function KanjiManager() {
           </div>
         </div>
 
+        <div className="filter-row">
+          <label>Sort</label>
+          <div className="chip-group" role="radiogroup" aria-label="Sort order">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`chip ${sortBy === opt.value ? "active" : ""}`}
+                onClick={() => setSortBy(opt.value)}
+                aria-pressed={sortBy === opt.value}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="bulk-actions">
           <button onClick={() => handleBulk("markKnown")}>
             Mark filtered as known
@@ -201,27 +254,31 @@ export default function KanjiManager() {
         <div className="empty">No kanji match your filters.</div>
       ) : (
         <div className="kanji-grid">
-          {kanji.map((k) => (
-            <button
-              key={k.character}
-              className={`kanji-cell ${k.known ? "known" : ""}${toggling.has(k.character) ? " toggling" : ""}`}
-              onClick={() => handleToggle(k.character)}
-              aria-label={`${k.character}: ${k.meanings}`}
-              aria-pressed={k.known}
-              title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}`}
-            >
-              <span className="kanji-char">{k.character}</span>
-              <span className="kanji-reading">
-                {k.readings_on ? k.readings_on.split(",")[0].trim() : ""}
-                {k.readings_on && k.readings_kun ? " " : ""}
-                {k.readings_kun ? k.readings_kun.split(",")[0].trim() : ""}
-              </span>
-              <span className="kanji-badges">
-                <span className="badge grade">G{GRADE_LABELS[k.grade] || k.grade}</span>
-                {k.jlpt && <span className="badge jlpt">N{k.jlpt}</span>}
-              </span>
-            </button>
-          ))}
+          {kanji.map((k) => {
+            const count = appearances.get(k.character) || 0;
+            return (
+              <button
+                key={k.character}
+                className={`kanji-cell ${k.known ? "known" : ""}${toggling.has(k.character) ? " toggling" : ""}`}
+                onClick={() => handleToggle(k.character)}
+                aria-label={`${k.character}: ${k.meanings}. Appears ${count} time${count === 1 ? "" : "s"} in read stories.`}
+                aria-pressed={k.known}
+                title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}\nAppears ${count} time${count === 1 ? "" : "s"} in read stories`}
+              >
+                <span className="kanji-count" aria-hidden="true">{count}</span>
+                <span className="kanji-char">{k.character}</span>
+                <span className="kanji-reading">
+                  {k.readings_on ? k.readings_on.split(",")[0].trim() : ""}
+                  {k.readings_on && k.readings_kun ? " " : ""}
+                  {k.readings_kun ? k.readings_kun.split(",")[0].trim() : ""}
+                </span>
+                <span className="kanji-badges">
+                  <span className="badge grade">G{GRADE_LABELS[k.grade] || k.grade}</span>
+                  {k.jlpt && <span className="badge jlpt">N{k.jlpt}</span>}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -77,6 +77,13 @@
   transition: all 0.15s;
 }
 
+.kanji-count {
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+  line-height: 1;
+}
+
 .kanji-cell:hover {
   transform: translateY(-1px);
 }
