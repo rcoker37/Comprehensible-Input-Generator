@@ -47,17 +47,28 @@ export function buildPrompt(
   formality: Formality,
   grammarLevel: number,
   topic?: string,
-  style?: string
+  style?: string,
+  underusedKanji?: string[]
 ): string {
-  const parts = [
-    CONTENT_TYPE_PREAMBLE[contentType],
-    "",
-    `Allowed kanji: ${kanjiList}`,
+  const rules = [
     "Rules:",
     "- Try to only use kanji from the list above, minimizing usage of kanji not in the list. Use hiragana and katakana freely.",
     "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
     "- If a word needs kanji not in the list, rephrase with simpler vocabulary rather than writing it in hiragana.",
     "- For EVERY run of kanji in the output, attach its reading in hiragana immediately after using full-width angle brackets 《…》. Use strict Aozora Bunko ruby notation: the reading covers ONLY the kanji run itself, not any okurigana or particles. Examples: 二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。先生《せんせい》は学生《がくせい》に話《はな》しました。新《あたら》しい本《ほん》を読《よ》みました。Annotate every kanji run, even common ones. Do NOT use the pipe character.",
+  ];
+
+  if (underusedKanji && underusedKanji.length > 0) {
+    rules.push(
+      `- Prioritize using these kanji that the student has seen rarely: ${underusedKanji.join("")}. Weave them in naturally where the story permits — do not force them or contort the narrative.`
+    );
+  }
+
+  const parts = [
+    CONTENT_TYPE_PREAMBLE[contentType],
+    "",
+    `Allowed kanji: ${kanjiList}`,
+    ...rules,
     "",
     GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
     "",

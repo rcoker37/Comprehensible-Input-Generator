@@ -4,7 +4,9 @@ import { getStory, deleteStory } from "../api/client";
 import type { Story, StoryAudio } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import PlaybackFooter from "../components/PlaybackFooter";
+import StoryReadButton from "../components/StoryReadButton";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
+import "../components/StoryActions.css";
 import "./StoryDetail.css";
 
 export default function StoryDetail() {
@@ -33,7 +35,7 @@ export default function StoryDetail() {
     if (!id) return;
     if (!window.confirm("Delete this story? This cannot be undone.")) return;
     try {
-      await deleteStory(Number(id));
+      await deleteStory(Number(id), story?.audio?.path);
       navigate("/stories");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete story");
@@ -57,7 +59,7 @@ export default function StoryDetail() {
         <div className="story-detail-actions-right">
           <button
             type="button"
-            className="story-detail-icon-btn"
+            className="story-action-btn"
             onClick={player.handleRegenerate}
             disabled={!player.audio || player.regenerating || player.loading}
             title={player.regenerating ? "Regenerating…" : "Regenerate audio"}
@@ -84,7 +86,7 @@ export default function StoryDetail() {
           </button>
           <button
             type="button"
-            className="story-detail-icon-btn"
+            className="story-action-btn"
             onClick={handleDelete}
             title="Delete story"
             aria-label="Delete story"
@@ -112,6 +114,10 @@ export default function StoryDetail() {
         audio={player.audio}
         activeSegmentIdx={player.activeSegmentIdx}
         onSentenceClick={player.seekToSegment}
+      />
+      <StoryReadButton
+        story={story}
+        onChange={(read_at) => setStory((s) => (s ? { ...s, read_at } : s))}
       />
       <PlaybackFooter {...player} />
     </div>

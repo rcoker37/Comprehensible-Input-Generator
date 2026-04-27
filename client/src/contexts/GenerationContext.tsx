@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { generateStoryStream } from "../api/client";
-import type { ContentType, Formality, Story, GenerationProgress } from "../types";
+import type { ContentType, Formality, Story, StoryAudio, GenerationProgress } from "../types";
 
 interface GenerationContextType {
   loading: boolean;
@@ -10,6 +10,8 @@ interface GenerationContextType {
   startedAt: number | null;
   generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string }) => void;
   clear: () => void;
+  setStoryAudio: (audio: StoryAudio) => void;
+  setStoryReadAt: (read_at: string | null) => void;
 }
 
 const GenerationContext = createContext<GenerationContextType | null>(null);
@@ -68,8 +70,16 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
+  const setStoryAudio = useCallback((audio: StoryAudio) => {
+    setStory((s) => (s ? { ...s, audio } : s));
+  }, []);
+
+  const setStoryReadAt = useCallback((read_at: string | null) => {
+    setStory((s) => (s ? { ...s, read_at } : s));
+  }, []);
+
   return (
-    <GenerationContext.Provider value={{ loading, error, story, genProgress, startedAt, generate, clear }}>
+    <GenerationContext.Provider value={{ loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt }}>
       {children}
     </GenerationContext.Provider>
   );

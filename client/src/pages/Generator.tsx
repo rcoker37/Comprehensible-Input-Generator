@@ -2,12 +2,16 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
-import { updateProfile } from "../api/client";
+import { updateProfile, deleteStory } from "../api/client";
 import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
+import PlaybackFooter from "../components/PlaybackFooter";
+import StoryReadButton from "../components/StoryReadButton";
 import AnimatedDots from "../components/AnimatedDots";
+import { useAudioPlayer } from "../hooks/useAudioPlayer";
+import "../components/StoryActions.css";
 import "./Generator.css";
 
 function ElapsedTimer({ startedAt }: { startedAt: number }) {
@@ -27,16 +31,19 @@ const MODEL = "anthropic/claude-opus-4.7";
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, startedAt, generate } = useGeneration();
+  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt } = useGeneration();
+  const player = useAudioPlayer(story, setStoryAudio);
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
   const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleGenerate = () => {
     if (!profile?.has_openrouter_api_key) return;
+    setDeleteError(null);
     generate(user!.id, {
       contentType,
       paragraphs,
@@ -52,6 +59,18 @@ export default function Generator() {
       preferred_grammar_level: grammarLevel,
       preferred_paragraphs: paragraphs,
     }).catch((err) => console.warn("Failed to save preferences:", err));
+  };
+
+  const handleDelete = async () => {
+    if (!story) return;
+    if (!window.confirm("Delete this story? This cannot be undone.")) return;
+    setDeleteError(null);
+    try {
+      await deleteStory(story.id, story.audio?.path);
+      clear();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete story");
+    }
   };
 
   const hasKey = profile?.has_openrouter_api_key ?? false;
@@ -177,7 +196,7 @@ export default function Generator() {
           <pre>{genProgress.reasoning}</pre>
         </details>
       )}
-      {genProgress?.content && (
+      {!story && genProgress?.content && (
         <div className="story-display">
           <div className="story-content">
             {stripAnnotations(stripBold(genProgress.content))
@@ -189,7 +208,71 @@ export default function Generator() {
           </div>
         </div>
       )}
-      {story && <StoryDisplay story={story} />}
+      {story && (
+        <div className="generator-story-view">
+          <div className="story-actions">
+            <button
+              type="button"
+              className="story-action-btn"
+              onClick={player.handleRegenerate}
+              disabled={!player.audio || player.regenerating || player.loading}
+              title={player.regenerating ? "Regenerating…" : "Regenerate audio"}
+              aria-label="Regenerate audio"
+            >
+              {player.regenerating ? (
+                <span className="playback-spinner" aria-hidden="true" />
+              ) : (
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13.5 2.5v3.5h-3.5" />
+                  <path d="M13.5 6A5.5 5.5 0 1 0 14 9.5" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              className="story-action-btn"
+              onClick={handleDelete}
+              title="Delete story"
+              aria-label="Delete story"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M2.5 4h11" />
+                <path d="M6 4V2.5h4V4" />
+                <path d="M3.5 4l.7 9a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L12.5 4" />
+              </svg>
+            </button>
+          </div>
+          {deleteError && <div className="error">{deleteError}</div>}
+          <StoryDisplay
+            story={story}
+            audio={player.audio}
+            activeSegmentIdx={player.activeSegmentIdx}
+            onSentenceClick={player.seekToSegment}
+          />
+          <StoryReadButton story={story} onChange={setStoryReadAt} />
+          <PlaybackFooter {...player} />
+        </div>
+      )}
     </div>
   );
 }
