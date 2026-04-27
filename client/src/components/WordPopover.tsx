@@ -15,6 +15,7 @@ import {
 import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { askWord } from "../api/client";
+import { ASK_CHIPS } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
@@ -64,6 +65,11 @@ export default function WordPopover({
   const isMobile = useIsMobile();
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const userAskedRef = useRef(false);
+  const chipsTrackRef = useRef<HTMLDivElement | null>(null);
+  const [chipScroll, setChipScroll] = useState({
+    canLeft: false,
+    canRight: false,
+  });
 
   const { refs, floatingStyles, context } = useFloating({
     open,
@@ -138,6 +144,41 @@ export default function WordPopover({
     [hit]
   );
 
+  const visibleChips = useMemo(() => {
+    const used = new Set(
+      (thread?.messages ?? [])
+        .filter((m) => m.role === "user")
+        .map((m) => m.content)
+    );
+    return ASK_CHIPS.filter((c) => !used.has(c.prompt));
+  }, [thread]);
+
+  // Track whether the chip carousel can scroll further in either direction so
+  // the arrow buttons hide at the edges. Re-evaluates when the popover opens,
+  // the lookup hit changes, or the visible chip count changes (after sending).
+  useEffect(() => {
+    const el = chipsTrackRef.current;
+    if (!el) {
+      setChipScroll({ canLeft: false, canRight: false });
+      return;
+    }
+    const update = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = el;
+      setChipScroll({
+        canLeft: scrollLeft > 2,
+        canRight: scrollLeft + clientWidth < scrollWidth - 2,
+      });
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, [open, hit, visibleChips.length]);
+
   const handleKanjiClick = async (ch: string) => {
     if (loadingKanji) return;
     setLoadingKanji(ch);
@@ -160,9 +201,9 @@ export default function WordPopover({
     }
   };
 
-  const handleAsk = async () => {
+  const handleAsk = async (promptOverride?: string) => {
     if (!hit || pending) return;
-    const trimmed = question.trim();
+    const trimmed = (promptOverride ?? question).trim();
     if (!trimmed) return;
     userAskedRef.current = true;
     setPending(true);
@@ -320,6 +361,59 @@ export default function WordPopover({
                     </div>
                   ))}
                 </div>
+
+                {visibleChips.length > 0 && (
+                  <div className="word-popover__chips">
+                    {chipScroll.canLeft && (
+                      <button
+                        type="button"
+                        className="word-popover__chips-arrow word-popover__chips-arrow--left"
+                        aria-label="Scroll questions left"
+                        onClick={() =>
+                          chipsTrackRef.current?.scrollBy({
+                            left: -200,
+                            behavior: "smooth",
+                          })
+                        }
+                      >
+                        <span aria-hidden="true">‹</span>
+                      </button>
+                    )}
+                    <div
+                      ref={chipsTrackRef}
+                      className="word-popover__chips-track"
+                      role="group"
+                      aria-label="Suggested questions"
+                    >
+                      {visibleChips.map((c) => (
+                        <button
+                          key={c.label}
+                          type="button"
+                          className="word-popover__chip"
+                          disabled={pending || !hit}
+                          onClick={() => void handleAsk(c.prompt)}
+                        >
+                          {c.label}
+                        </button>
+                      ))}
+                    </div>
+                    {chipScroll.canRight && (
+                      <button
+                        type="button"
+                        className="word-popover__chips-arrow word-popover__chips-arrow--right"
+                        aria-label="Scroll questions right"
+                        onClick={() =>
+                          chipsTrackRef.current?.scrollBy({
+                            left: 200,
+                            behavior: "smooth",
+                          })
+                        }
+                      >
+                        <span aria-hidden="true">›</span>
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 <div className="word-popover__compose">
                   <textarea
