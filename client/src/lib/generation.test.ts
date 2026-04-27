@@ -77,6 +77,21 @@ describe("buildPrompt", () => {
     const result = buildPrompt("story", 3, "日", "polite", 3);
     expect(result).toContain("Output ONLY the final content in Japanese");
   });
+
+  it("omits the underused-kanji directive when not provided", () => {
+    const result = buildPrompt("story", 3, "日", "polite", 3);
+    expect(result).not.toContain("seen rarely");
+  });
+
+  it("omits the underused-kanji directive when the list is empty", () => {
+    const result = buildPrompt("story", 3, "日", "polite", 3, undefined, undefined, []);
+    expect(result).not.toContain("seen rarely");
+  });
+
+  it("includes the underused-kanji directive when characters are provided", () => {
+    const result = buildPrompt("story", 3, "日", "polite", 3, undefined, undefined, ["漁", "傘", "磁"]);
+    expect(result).toContain("seen rarely: 漁傘磁");
+  });
 });
 
 describe("computeDifficulty", () => {

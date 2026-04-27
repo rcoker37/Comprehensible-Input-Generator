@@ -79,6 +79,7 @@ export interface Story {
   difficulty: DifficultyEstimate;
   audio: StoryAudio | null;
   explanations: StoryWordThreads | null;
+  read_at: string | null;
   created_at: string;
 }
 

@@ -34,3 +34,48 @@
 .story-action-btn:disabled:has(.playback-spinner) {
   opacity: 1;
 }
+
+.story-read-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.story-read-btn {
+  padding: 0.55rem 1.4rem;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: white;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.story-read-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.story-read-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.story-read-btn.is-read {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.story-read-btn.is-read:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+}
+
+.story-read-error {
+  color: var(--accent);
+  font-size: 0.85rem;
+}

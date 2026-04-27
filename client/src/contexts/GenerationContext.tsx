@@ -11,6 +11,7 @@ interface GenerationContextType {
   generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string }) => void;
   clear: () => void;
   setStoryAudio: (audio: StoryAudio) => void;
+  setStoryReadAt: (read_at: string | null) => void;
 }
 
 const GenerationContext = createContext<GenerationContextType | null>(null);
@@ -73,8 +74,12 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setStory((s) => (s ? { ...s, audio } : s));
   }, []);
 
+  const setStoryReadAt = useCallback((read_at: string | null) => {
+    setStory((s) => (s ? { ...s, read_at } : s));
+  }, []);
+
   return (
-    <GenerationContext.Provider value={{ loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio }}>
+    <GenerationContext.Provider value={{ loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt }}>
       {children}
     </GenerationContext.Provider>
   );

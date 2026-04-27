@@ -164,8 +164,14 @@ export async function generateStoryStream(
   onProgress: (progress: GenerationProgress) => void,
   signal?: AbortSignal
 ): Promise<Story> {
-  // Build allowed kanji list from known kanji
-  const allKanji = await getKanji(userId);
+  // Build allowed kanji list from known kanji + fetch underused kanji in parallel
+  const [allKanji, underusedKanji] = await Promise.all([
+    getKanji(userId),
+    getUnderusedKanji(20).catch((err) => {
+      console.warn("Failed to fetch underused kanji, proceeding without directive:", err);
+      return [] as string[];
+    }),
+  ]);
   const filtered = allKanji.filter((k) => k.known);
 
   if (filtered.length === 0) {
@@ -184,7 +190,8 @@ export async function generateStoryStream(
     params.formality,
     params.grammarLevel,
     params.topic,
-    params.style
+    params.style,
+    underusedKanji
   );
 
   // Get auth token for the edge function
@@ -307,7 +314,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, audio, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, audio, read_at, created_at"
     )
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -322,6 +329,24 @@ export async function getStory(id: number): Promise<Story> {
     .single();
   if (error) throw new Error(error.message);
   return data as Story;
+}
+
+export async function setStoryRead(id: number, read: boolean): Promise<string | null> {
+  const read_at = read ? new Date().toISOString() : null;
+  const { data, error } = await supabase
+    .from("stories")
+    .update({ read_at })
+    .eq("id", id)
+    .select("read_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return (data as { read_at: string | null }).read_at;
+}
+
+export async function getUnderusedKanji(limit = 20): Promise<string[]> {
+  const { data, error } = await supabase.rpc("user_underused_kanji", { p_limit: limit });
+  if (error) throw new Error(error.message);
+  return ((data as { kanji: string }[]) || []).map((r) => r.kanji);
 }
 
 export async function deleteStory(id: number, audioPath?: string | null): Promise<void> {

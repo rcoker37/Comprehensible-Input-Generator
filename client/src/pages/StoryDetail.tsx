@@ -4,6 +4,7 @@ import { getStory, deleteStory } from "../api/client";
 import type { Story, StoryAudio } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import PlaybackFooter from "../components/PlaybackFooter";
+import StoryReadButton from "../components/StoryReadButton";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import "../components/StoryActions.css";
 import "./StoryDetail.css";
@@ -113,6 +114,10 @@ export default function StoryDetail() {
         audio={player.audio}
         activeSegmentIdx={player.activeSegmentIdx}
         onSentenceClick={player.seekToSegment}
+      />
+      <StoryReadButton
+        story={story}
+        onChange={(read_at) => setStory((s) => (s ? { ...s, read_at } : s))}
       />
       <PlaybackFooter {...player} />
     </div>

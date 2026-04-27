@@ -8,6 +8,7 @@ import { stripAnnotations } from "../lib/furigana";
 import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import PlaybackFooter from "../components/PlaybackFooter";
+import StoryReadButton from "../components/StoryReadButton";
 import AnimatedDots from "../components/AnimatedDots";
 import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import "../components/StoryActions.css";
@@ -30,7 +31,7 @@ const MODEL = "anthropic/claude-opus-4.7";
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio } = useGeneration();
+  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt } = useGeneration();
   const player = useAudioPlayer(story, setStoryAudio);
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
@@ -38,9 +39,11 @@ export default function Generator() {
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
   const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleGenerate = () => {
     if (!profile?.has_openrouter_api_key) return;
+    setDeleteError(null);
     generate(user!.id, {
       contentType,
       paragraphs,
@@ -61,11 +64,12 @@ export default function Generator() {
   const handleDelete = async () => {
     if (!story) return;
     if (!window.confirm("Delete this story? This cannot be undone.")) return;
+    setDeleteError(null);
     try {
       await deleteStory(story.id, story.audio?.path);
       clear();
     } catch (err) {
-      console.warn("Failed to delete story:", err);
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete story");
     }
   };
 
@@ -258,12 +262,14 @@ export default function Generator() {
               </svg>
             </button>
           </div>
+          {deleteError && <div className="error">{deleteError}</div>}
           <StoryDisplay
             story={story}
             audio={player.audio}
             activeSegmentIdx={player.activeSegmentIdx}
             onSentenceClick={player.seekToSegment}
           />
+          <StoryReadButton story={story} onChange={setStoryReadAt} />
           <PlaybackFooter {...player} />
         </div>
       )}
