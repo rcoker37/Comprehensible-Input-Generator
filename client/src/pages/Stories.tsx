@@ -7,10 +7,13 @@ import { stripAnnotations } from "../lib/furigana";
 import type { Story } from "../types";
 import "./Stories.css";
 
+type ReadFilter = "all" | "unread" | "read";
+
 export default function Stories() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const { knownKanji } = useKnownKanji();
 
   const unknownCount = (text?: string | null) => {
@@ -37,15 +40,40 @@ export default function Stories() {
 
   if (loading) return <div className="loading">Loading stories...</div>;
 
+  const visibleStories = stories.filter((s) => {
+    if (readFilter === "unread") return s.read_at == null;
+    if (readFilter === "read") return s.read_at != null;
+    return true;
+  });
+
   return (
     <div className="stories-page">
       <h1>Story History</h1>
       {error && <div className="error">{error}</div>}
+      {stories.length > 0 && (
+        <div className="filter-row">
+          <label>Status</label>
+          <div className="chip-group" role="radiogroup" aria-label="Read status filter">
+            {(["all", "unread", "read"] as const).map((v) => (
+              <button
+                key={v}
+                className={`chip ${readFilter === v ? "active" : ""}`}
+                onClick={() => setReadFilter(v)}
+                aria-pressed={readFilter === v}
+              >
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {stories.length === 0 ? (
         <p className="empty">No stories yet. Generate one from the home page!</p>
+      ) : visibleStories.length === 0 ? (
+        <p className="empty">No stories match this filter.</p>
       ) : (
         <div className="story-list">
-          {stories.map((story) => (
+          {visibleStories.map((story) => (
             <div key={story.id} className="story-card">
               <div className="story-card-header">
                 <Link to={`/stories/${story.id}`} className="story-card-title">
@@ -69,6 +97,14 @@ export default function Stories() {
                 <span className="type-tag">{story.content_type ?? "story"}</span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
+                {story.read_at && (
+                  <span
+                    className="read-tag"
+                    title={`Read on ${new Date(story.read_at).toLocaleString()}`}
+                  >
+                    ✓ Read
+                  </span>
+                )}
                 {story.audio && (
                   <span
                     className="audio-tag"
