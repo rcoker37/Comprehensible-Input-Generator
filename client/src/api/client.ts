@@ -324,7 +324,13 @@ export async function getStory(id: number): Promise<Story> {
   return data as Story;
 }
 
-export async function deleteStory(id: number): Promise<void> {
+export async function deleteStory(id: number, audioPath?: string | null): Promise<void> {
+  if (audioPath) {
+    const { error: storageError } = await supabase.storage
+      .from("story-audio")
+      .remove([audioPath]);
+    if (storageError) throw new Error(storageError.message);
+  }
   const { error } = await supabase.from("stories").delete().eq("id", id);
   if (error) throw new Error(error.message);
 }
