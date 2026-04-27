@@ -33,9 +33,18 @@ const PAUSE_AT_SENTENCE_KEY = "valencia.pauseAtSentence";
 // "generate" icon and the next play triggers a regeneration.
 const EXPECTED_AUDIO_VERSION = 3;
 
+// Pull each segment back into the silence that precedes it. Azure's bookmark
+// fires at the first audio sample of the sentence, but the <audio> element's
+// seek snaps to the next MP3 frame and decoders typically resume a few samples
+// late — so seeking exactly on the bookmark clips the leading consonant. The
+// SSML inserts at least 250ms of silence between sentences/lines, so 150ms is
+// safely inside the pause and never crosses into the previous sentence.
+const SENTENCE_OFFSET_MS = 150;
+
 function getSegments(audio: StoryAudio | null): { t: number }[] {
   if (!audio) return [];
-  return audio.sentences ?? audio.paragraphs;
+  const raw = audio.sentences ?? audio.paragraphs;
+  return raw.map((seg) => ({ t: Math.max(0, seg.t - SENTENCE_OFFSET_MS) }));
 }
 
 function findActiveSegment(segments: { t: number }[], ms: number): number {
