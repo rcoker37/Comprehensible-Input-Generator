@@ -321,6 +321,15 @@ export async function getStories(): Promise<Story[]> {
   return (data as Story[]) || [];
 }
 
+export async function getReadStoryContents(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("stories")
+    .select("content")
+    .not("read_at", "is", null);
+  if (error) throw new Error(error.message);
+  return ((data as { content: string }[]) || []).map((s) => s.content);
+}
+
 export async function getStory(id: number): Promise<Story> {
   const { data, error } = await supabase
     .from("stories")
