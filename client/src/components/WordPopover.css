@@ -216,6 +216,89 @@
   white-space: pre-wrap;
 }
 
+.word-popover__chips {
+  position: relative;
+}
+
+.word-popover__chips-track {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  padding: 0.1rem 0.25rem;
+}
+
+.word-popover__chips-track::-webkit-scrollbar {
+  display: none;
+}
+
+.word-popover__chip {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  scroll-snap-align: start;
+  font-size: 0.78rem;
+  background: var(--bg-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.word-popover__chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.word-popover__chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.word-popover__chips-arrow {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 1;
+  padding: 0;
+}
+
+.word-popover__chips-arrow--left {
+  left: 0;
+  background: linear-gradient(
+    to right,
+    var(--bg-card, var(--bg, #1e1e22)) 60%,
+    transparent
+  );
+}
+
+.word-popover__chips-arrow--right {
+  right: 0;
+  background: linear-gradient(
+    to left,
+    var(--bg-card, var(--bg, #1e1e22)) 60%,
+    transparent
+  );
+}
+
+@media (hover: none) {
+  .word-popover__chips-arrow {
+    display: none;
+  }
+}
+
 .word-popover__compose {
   display: flex;
   flex-direction: column;
