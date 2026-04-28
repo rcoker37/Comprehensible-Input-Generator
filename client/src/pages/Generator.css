@@ -120,3 +120,21 @@ label:has(input[type="checkbox"]) {
   word-break: break-word;
   font-family: inherit;
 }
+
+.kanji-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  padding: 0.25rem 0;
+}
+
+.kanji-preview__char {
+  font-size: 1.6rem;
+  line-height: 1.1;
+  color: var(--text);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
