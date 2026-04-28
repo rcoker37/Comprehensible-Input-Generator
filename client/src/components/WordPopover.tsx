@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   useFloating,
   autoUpdate,
@@ -14,9 +14,10 @@ import {
 } from "@floating-ui/react";
 import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
-import { askWord } from "../api/client";
+import { askWord, clearWordThread } from "../api/client";
 import { ASK_CHIPS } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
+import { parseAnnotatedText } from "../lib/furigana";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
 import { useIsMobile } from "../hooks/useIsMobile";
@@ -33,12 +34,36 @@ interface WordPopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onThreadUpdated: (key: string, thread: WordThread) => void;
+  onThreadCleared: (key: string) => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
 
 function threadKey(hit: LookupHit): string {
   return `${hit.start}-${hit.end}`;
+}
+
+// Render the assistant's plain-text reply with Aozora ruby blocks
+// (`漢字《かんじ》`) converted to <ruby> elements. Old replies stored before
+// the prompt asked for furigana fall through unchanged.
+function renderAssistant(content: string): ReactNode {
+  const { cleanText, annotations } = parseAnnotatedText(content);
+  if (annotations.length === 0) return cleanText;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  for (let i = 0; i < annotations.length; i++) {
+    const a = annotations[i];
+    if (a.start > cursor) parts.push(cleanText.slice(cursor, a.start));
+    parts.push(
+      <ruby key={i}>
+        {cleanText.slice(a.start, a.end)}
+        <rt>{a.reading}</rt>
+      </ruby>
+    );
+    cursor = a.end;
+  }
+  if (cursor < cleanText.length) parts.push(cleanText.slice(cursor));
+  return parts;
 }
 
 export default function WordPopover({
@@ -50,6 +75,7 @@ export default function WordPopover({
   open,
   onOpenChange,
   onThreadUpdated,
+  onThreadCleared,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
   const [hit, setHit] = useState<LookupHit | null>(null);
@@ -220,6 +246,21 @@ export default function WordPopover({
     }
   };
 
+  const handleClear = async () => {
+    if (!hit || pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      await clearWordThread(storyId, hit.start, hit.end, wordThreads);
+      setThread(null);
+      onThreadCleared(threadKey(hit));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Clear failed");
+    } finally {
+      setPending(false);
+    }
+  };
+
   if (!open || !referenceEl) return null;
 
   const primary = hit?.results[0];
@@ -347,6 +388,18 @@ export default function WordPopover({
               )}
 
               <section className="word-popover__thread">
+                {askPairs.length > 0 && (
+                  <div className="word-popover__thread-header">
+                    <button
+                      type="button"
+                      className="word-popover__clear-btn"
+                      onClick={() => void handleClear()}
+                      disabled={pending}
+                    >
+                      Clear chat
+                    </button>
+                  </div>
+                )}
                 <div className="word-popover__thread-scroll">
                   {askPairs.map((pair, i) => (
                     <div key={i} className="word-popover__qa">
@@ -355,7 +408,7 @@ export default function WordPopover({
                       </div>
                       {pair.a && (
                         <div className="word-popover__msg-assistant">
-                          {pair.a.content}
+                          {renderAssistant(pair.a.content)}
                         </div>
                       )}
                     </div>

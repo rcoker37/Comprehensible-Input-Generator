@@ -229,6 +229,14 @@ export default function StoryDisplay({
     setWordThreads((prev) => ({ ...prev, [key]: thread }));
   };
 
+  const handleThreadCleared = (key: string) => {
+    setWordThreads((prev) => {
+      const { [key]: _omit, ...rest } = prev;
+      void _omit;
+      return rest;
+    });
+  };
+
   return (
     <div className="story-display">
       <div className="story-header">
@@ -303,6 +311,7 @@ export default function StoryDisplay({
           if (!open) setActiveTap(null);
         }}
         onThreadUpdated={handleThreadUpdated}
+        onThreadCleared={handleThreadCleared}
       />
       {unknownKanji.size > 0 && (
         <div className="violations">

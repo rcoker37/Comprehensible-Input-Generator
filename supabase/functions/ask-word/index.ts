@@ -16,6 +16,7 @@ import {
   buildSentenceWithMarker,
   cleanContent,
   findSentenceBounds,
+  stripBold,
 } from "../_shared/text.ts";
 import {
   getUserFromAuthHeader,
@@ -39,7 +40,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const ASK_MODEL = "anthropic/claude-sonnet-4.5";
+const ASK_MODEL = "anthropic/claude-sonnet-4.6";
 const MAX_TOKENS_ASK = 600;
 const MAX_QUESTION_LEN = 1000;
 
@@ -48,7 +49,16 @@ const SYSTEM_PROMPT =
   "The word they tapped is wrapped in 【…】 in the sentence — focus only on " +
   "that bracketed instance even if the same surface appears elsewhere. " +
   "Answer the user's questions concisely (≤ 100 words unless they ask for " +
-  "more). Plain text only, no markdown.";
+  "more).\n\n" +
+  "Output rules:\n" +
+  "- Plain text only. Do NOT use markdown — never wrap text in ** or * to " +
+  "bold or emphasize.\n" +
+  "- Furigana: for any kanji in your reply that does NOT appear in the " +
+  "passage above (e.g. example sentences, related vocabulary), append a " +
+  "hiragana reading using Aozora ruby notation immediately after the kanji " +
+  "run: 漢字《かんじ》. Annotate only the kanji portion (not trailing " +
+  "okurigana, e.g. 食《た》べる, not 食べる《たべる》). Kanji that already " +
+  "appear in the passage do not need readings.";
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -167,7 +177,7 @@ Deno.serve(async (req) => {
     };
     const assistantTurn: ChatMessage = {
       role: "assistant",
-      content: raw.trim(),
+      content: stripBold(raw).trim(),
       generated_at: new Date().toISOString(),
     };
     const thread: WordThread = {
