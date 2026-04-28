@@ -11,6 +11,16 @@ export const ASK_CHIPS: readonly AskChip[] = [
       "What are some alternatives that would work in this sentence without substantially changing the meaning? Explain the different nuances of each option.",
   },
   {
+    label: "Common Mistakes",
+    prompt:
+      "What are common mistakes learners make with this word? When would using it sound unnatural?",
+  },
+  {
+    label: "Examples",
+    prompt:
+      "Give me 3 more example sentences using this word in different contexts, with English translations.",
+  },
+  {
     label: "Grammar",
     prompt:
       "Break down the grammar here. What part of speech is this, and explain any conjugation, particle, or grammatical pattern at work.",
@@ -19,11 +29,6 @@ export const ASK_CHIPS: readonly AskChip[] = [
     label: "Nuance",
     prompt:
       "What's the nuance or register of this word in context? Formal vs casual, neutral vs emotionally loaded, common vs literary?",
-  },
-  {
-    label: "Examples",
-    prompt:
-      "Give me 3 more example sentences using this word in different contexts, with English translations.",
   },
   {
     label: "Kanji Breakdown",
@@ -39,11 +44,6 @@ export const ASK_CHIPS: readonly AskChip[] = [
     label: "Synonyms",
     prompt:
       "What are some near-synonyms for this word, and how do they differ in meaning, register, or usage?",
-  },
-  {
-    label: "Common Mistakes",
-    prompt:
-      "What are common mistakes learners make with this word? When would using it sound unnatural?",
   },
   {
     label: "Etymology",
