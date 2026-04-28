@@ -71,6 +71,7 @@ export type Database = {
           preferred_grammar_level: number | null
           preferred_model: string | null
           preferred_paragraphs: number | null
+          preferred_prioritized_kanji_count: number | null
           user_id: string
         }
         Insert: {
@@ -82,6 +83,7 @@ export type Database = {
           preferred_grammar_level?: number | null
           preferred_model?: string | null
           preferred_paragraphs?: number | null
+          preferred_prioritized_kanji_count?: number | null
           user_id: string
         }
         Update: {
@@ -93,6 +95,7 @@ export type Database = {
           preferred_grammar_level?: number | null
           preferred_model?: string | null
           preferred_paragraphs?: number | null
+          preferred_prioritized_kanji_count?: number | null
           user_id?: string
         }
         Relationships: []
@@ -110,6 +113,7 @@ export type Database = {
           formality: string
           id: number
           paragraphs: number
+          read_at: string | null
           title: string
           topic: string | null
           user_id: string
@@ -126,6 +130,7 @@ export type Database = {
           formality: string
           id?: never
           paragraphs: number
+          read_at?: string | null
           title: string
           topic?: string | null
           user_id: string
@@ -142,6 +147,7 @@ export type Database = {
           formality?: string
           id?: never
           paragraphs?: number
+          read_at?: string | null
           title?: string
           topic?: string | null
           user_id?: string
@@ -197,6 +203,14 @@ export type Database = {
         }[]
       }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
+      strip_ruby: { Args: { t: string }; Returns: string }
+      user_underused_kanji: {
+        Args: { p_limit?: number }
+        Returns: {
+          exposures: number
+          kanji: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
-import { updateProfile, deleteStory } from "../api/client";
+import { updateProfile, deleteStory, getUnderusedKanji } from "../api/client";
 import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import type { ContentType, Formality } from "../types";
@@ -39,7 +39,25 @@ export default function Generator() {
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
   const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
+  const [prioritizedCount, setPrioritizedCount] = useState(profile?.preferred_prioritized_kanji_count ?? 20);
+  const [underusedKanji, setUnderusedKanji] = useState<string[]>([]);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+    let cancelled = false;
+    getUnderusedKanji(20)
+      .then((kanji) => {
+        if (!cancelled) setUnderusedKanji(kanji);
+      })
+      .catch((err) => {
+        console.warn("Failed to fetch underused kanji:", err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleGenerate = () => {
     if (!profile?.has_openrouter_api_key) return;
@@ -52,12 +70,14 @@ export default function Generator() {
       formality,
       grammarLevel,
       model: MODEL,
+      prioritizedKanji: underusedKanji.slice(0, prioritizedCount),
     });
     updateProfile(user!.id, {
       preferred_content_type: contentType,
       preferred_formality: formality,
       preferred_grammar_level: grammarLevel,
       preferred_paragraphs: paragraphs,
+      preferred_prioritized_kanji_count: prioritizedCount,
     }).catch((err) => console.warn("Failed to save preferences:", err));
   };
 
@@ -166,6 +186,29 @@ export default function Generator() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="form-group">
+          <label>
+            <span>
+              Prioritized kanji <span className="optional">({prioritizedCount} / 20)</span>
+            </span>
+            <input
+              type="range"
+              min={0}
+              max={20}
+              step={1}
+              value={prioritizedCount}
+              onChange={(e) => setPrioritizedCount(Number(e.target.value))}
+            />
+          </label>
+          {prioritizedCount > 0 && underusedKanji.length > 0 && (
+            <div className="kanji-preview" aria-label="Prioritized kanji preview">
+              {underusedKanji.slice(0, prioritizedCount).map((k) => (
+                <span key={k} className="kanji-preview__char">{k}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         <button

@@ -160,18 +160,12 @@ export async function generateStoryStream(
     formality: Formality;
     grammarLevel: number;
     model: string;
+    prioritizedKanji: string[];
   },
   onProgress: (progress: GenerationProgress) => void,
   signal?: AbortSignal
 ): Promise<Story> {
-  // Build allowed kanji list from known kanji + fetch underused kanji in parallel
-  const [allKanji, underusedKanji] = await Promise.all([
-    getKanji(userId),
-    getUnderusedKanji(20).catch((err) => {
-      console.warn("Failed to fetch underused kanji, proceeding without directive:", err);
-      return [] as string[];
-    }),
-  ]);
+  const allKanji = await getKanji(userId);
   const filtered = allKanji.filter((k) => k.known);
 
   if (filtered.length === 0) {
@@ -191,7 +185,7 @@ export async function generateStoryStream(
     params.grammarLevel,
     params.topic,
     params.style,
-    underusedKanji
+    params.prioritizedKanji
   );
 
   // Get auth token for the edge function
@@ -456,6 +450,7 @@ export async function updateProfile(
     preferred_formality?: string;
     preferred_grammar_level?: number;
     preferred_paragraphs?: number;
+    preferred_prioritized_kanji_count?: number;
   }
 ): Promise<void> {
   const { error } = await supabase

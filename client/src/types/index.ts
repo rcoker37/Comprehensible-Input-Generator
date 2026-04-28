@@ -105,5 +105,6 @@ export interface Profile {
   preferred_grammar_level: number | null;
   preferred_paragraphs: number | null;
   preferred_content_type: string | null;
+  preferred_prioritized_kanji_count: number | null;
   created_at: string;
 }
