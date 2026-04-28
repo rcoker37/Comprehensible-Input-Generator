@@ -11,6 +11,7 @@ import type {
   KanjiStats,
   Story,
   StoryAudio,
+  StoryWordThreads,
   WordThread,
 } from "../types";
 
@@ -438,6 +439,23 @@ export async function askWord(
 
   const { thread } = await response.json();
   return thread as WordThread;
+}
+
+export async function clearWordThread(
+  storyId: number,
+  startOffset: number,
+  endOffset: number,
+  currentThreads: StoryWordThreads
+): Promise<StoryWordThreads> {
+  const cacheKey = `${startOffset}-${endOffset}`;
+  const { [cacheKey]: _omit, ...rest } = currentThreads;
+  void _omit;
+  const { error } = await supabase
+    .from("stories")
+    .update({ explanations: rest })
+    .eq("id", storyId);
+  if (error) throw new Error(error.message);
+  return rest as StoryWordThreads;
 }
 
 // Profiles

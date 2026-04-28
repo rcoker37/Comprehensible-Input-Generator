@@ -184,6 +184,32 @@
   padding-top: 0.6rem;
 }
 
+.word-popover__thread-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -0.35rem;
+}
+
+.word-popover__clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius);
+}
+
+.word-popover__clear-btn:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-dim);
+}
+
+.word-popover__clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .word-popover__thread-scroll {
   display: flex;
   flex-direction: column;
