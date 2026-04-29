@@ -96,7 +96,7 @@ Talks directly to Supabase (DB via SDK, Edge Functions via `functions.invoke`). 
 - `kanji` — reference data (read-only). `character` PK, `grade` (1-6, 8=secondary), `jlpt` (5=easiest, 1=hardest, NULL allowed), `meanings`, `readings_on`, `readings_kun`
 - `user_kanji` — per-user known state. Composite PK `(user_id, character)`. Missing row = unknown.
 - `stories` — per-user stories. Columns include `title`, `content`, `paragraphs`, `topic`, `formality` (`impolite`/`casual`/`polite`/`keigo`), `content_type` (`story`/`dialogue`/`essay`), `filters` JSONB, `allowed_kanji`, `difficulty` JSONB, `audio` JSONB (`{path, duration_ms, voice, version, tokens, paragraphs, sentences?}`), `explanations` JSONB (`{ "start-end": { version, messages } }`), `read_at`, `created_at`. RLS-scoped.
-- `profiles` — auto-created on signup. Stores `display_name`, `preferred_model`, `preferred_formality`, `preferred_grammar_level`, `preferred_paragraphs`, `preferred_content_type`, and `openrouter_api_key_secret_id` (UUID reference into Supabase Vault — the actual key is encrypted, never stored in plaintext on `profiles`).
+- `profiles` — auto-created on signup. Stores `display_name`, `preferred_model`, `preferred_formality`, `preferred_paragraphs`, `preferred_content_type`, and `openrouter_api_key_secret_id` (UUID reference into Supabase Vault — the actual key is encrypted, never stored in plaintext on `profiles`).
 
 RLS policies: `kanji` readable by authenticated users; `user_kanji`/`stories`/`profiles` scoped to `auth.uid()`.
 

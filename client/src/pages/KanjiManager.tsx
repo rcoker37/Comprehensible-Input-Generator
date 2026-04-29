@@ -19,13 +19,7 @@ const GRADE_LABELS: Record<number, string> = {
   1: "1", 2: "2", 3: "3", 4: "4", 5: "5", 6: "6", 8: "S",
 };
 
-type SortOption = "default" | "appearances-desc" | "appearances-asc";
-
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: "default", label: "Default" },
-  { value: "appearances-desc", label: "Appearances ↓" },
-  { value: "appearances-asc", label: "Appearances ↑" },
-];
+type SortDir = "desc" | "asc";
 
 export default function KanjiManager() {
   const { user } = useAuth();
@@ -37,7 +31,7 @@ export default function KanjiManager() {
   const [jlptFilter, setJlptFilter] = useState<number[]>([]);
   const [gradeFilter, setGradeFilter] = useState<number[]>([]);
   const [knownFilter, setKnownFilter] = useState<"all" | "known" | "unknown">("all");
-  const [sortBy, setSortBy] = useState<SortOption>("default");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toggling, setToggling] = useState<Set<string>>(new Set());
@@ -88,16 +82,15 @@ export default function KanjiManager() {
         : knownFilter === "unknown"
           ? filtered.filter((k) => !k.known)
           : filtered;
-    if (sortBy === "default") return statusFiltered;
     const sorted = [...statusFiltered];
-    const dir = sortBy === "appearances-asc" ? 1 : -1;
+    const dir = sortDir === "asc" ? 1 : -1;
     sorted.sort((a, b) => {
       const ca = appearances.get(a.character) || 0;
       const cb = appearances.get(b.character) || 0;
       return (ca - cb) * dir;
     });
     return sorted;
-  }, [allKanji, debouncedSearch, jlptFilter, gradeFilter, knownFilter, sortBy, appearances]);
+  }, [allKanji, debouncedSearch, jlptFilter, gradeFilter, knownFilter, sortDir, appearances]);
 
   const handleToggle = async (character: string) => {
     const current = allKanji.find((k) => k.character === character);
@@ -220,18 +213,13 @@ export default function KanjiManager() {
 
         <div className="filter-row">
           <label>Sort</label>
-          <div className="chip-group" role="radiogroup" aria-label="Sort order">
-            {SORT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                className={`chip ${sortBy === opt.value ? "active" : ""}`}
-                onClick={() => setSortBy(opt.value)}
-                aria-pressed={sortBy === opt.value}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          <button
+            className="chip active"
+            onClick={() => setSortDir((d) => (d === "desc" ? "asc" : "desc"))}
+            aria-label={`Sort by appearances ${sortDir === "desc" ? "descending" : "ascending"}; click to toggle`}
+          >
+            Appearances {sortDir === "desc" ? "↓" : "↑"}
+          </button>
         </div>
 
         <div className="bulk-actions">

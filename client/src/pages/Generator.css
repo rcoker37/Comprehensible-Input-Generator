@@ -1,5 +1,5 @@
 .generator {
-  max-width: 700px;
+  max-width: 750px;
 }
 
 .generator-story-view {
@@ -132,6 +132,26 @@ label:has(input[type="checkbox"]) {
   font-size: 1.6rem;
   line-height: 1.1;
   color: var(--text);
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+.kanji-preview__char:hover {
+  color: var(--accent);
+}
+
+.kanji-preview__char--excluded {
+  color: var(--text-dim);
+  opacity: 0.35;
+}
+
+.kanji-preview__char--excluded:hover {
+  color: var(--text-dim);
+  opacity: 0.6;
 }
 
 input[type="range"] {

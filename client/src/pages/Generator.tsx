@@ -38,9 +38,8 @@ export default function Generator() {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
-  const [grammarLevel, setGrammarLevel] = useState(profile?.preferred_grammar_level ?? 2);
-  const [prioritizedCount, setPrioritizedCount] = useState(profile?.preferred_prioritized_kanji_count ?? 20);
   const [underusedKanji, setUnderusedKanji] = useState<string[]>([]);
+  const [excludedKanji, setExcludedKanji] = useState<Set<string>>(() => new Set());
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,16 +67,13 @@ export default function Generator() {
       topic: topic.trim() || undefined,
       style: style.trim() || undefined,
       formality,
-      grammarLevel,
       model: MODEL,
-      prioritizedKanji: underusedKanji.slice(0, prioritizedCount),
+      prioritizedKanji: underusedKanji.filter((k) => !excludedKanji.has(k)),
     });
     updateProfile(user!.id, {
       preferred_content_type: contentType,
       preferred_formality: formality,
-      preferred_grammar_level: grammarLevel,
       preferred_paragraphs: paragraphs,
-      preferred_prioritized_kanji_count: prioritizedCount,
     }).catch((err) => console.warn("Failed to save preferences:", err));
   };
 
@@ -157,22 +153,6 @@ export default function Generator() {
         </div>
 
         <div className="form-group">
-          <label>Grammar Level</label>
-          <div className="chip-group" role="radiogroup" aria-label="Grammar level">
-            {[5, 4, 3, 2, 1].map((n) => (
-              <button
-                key={n}
-                className={`chip ${grammarLevel === n ? "active" : ""}`}
-                onClick={() => setGrammarLevel(n)}
-                aria-pressed={grammarLevel === n}
-              >
-                N{n}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="form-group">
           <label>Formality</label>
           <div className="chip-group" role="radiogroup" aria-label="Formality">
             {(["impolite", "casual", "polite", "keigo"] as Formality[]).map((f) => (
@@ -188,28 +168,39 @@ export default function Generator() {
           </div>
         </div>
 
-        <div className="form-group">
-          <label>
-            <span>
-              Prioritized kanji <span className="optional">({prioritizedCount} / 20)</span>
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={20}
-              step={1}
-              value={prioritizedCount}
-              onChange={(e) => setPrioritizedCount(Number(e.target.value))}
-            />
-          </label>
-          {prioritizedCount > 0 && underusedKanji.length > 0 && (
-            <div className="kanji-preview" aria-label="Prioritized kanji preview">
-              {underusedKanji.slice(0, prioritizedCount).map((k) => (
-                <span key={k} className="kanji-preview__char">{k}</span>
-              ))}
+        {underusedKanji.length > 0 && (
+          <div className="form-group">
+            <label>
+              Prioritized kanji{" "}
+              <span className="optional">
+                ({underusedKanji.length - excludedKanji.size} / {underusedKanji.length})
+              </span>
+            </label>
+            <div className="kanji-preview" aria-label="Prioritized kanji — tap to toggle">
+              {underusedKanji.map((k) => {
+                const isExcluded = excludedKanji.has(k);
+                return (
+                  <button
+                    type="button"
+                    key={k}
+                    className={`kanji-preview__char${isExcluded ? " kanji-preview__char--excluded" : ""}`}
+                    onClick={() =>
+                      setExcludedKanji((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(k)) next.delete(k);
+                        else next.add(k);
+                        return next;
+                      })
+                    }
+                    aria-pressed={!isExcluded}
+                  >
+                    {k}
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <button
           className="generate-btn"

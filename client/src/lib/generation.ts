@@ -10,14 +10,6 @@ export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
     "Use honorific/humble Japanese (敬語) — include 尊敬語 and 謙譲語 where natural.",
 };
 
-export const GRAMMAR_GUIDANCE: Record<number, string> = {
-  5: "Limit grammar to JLPT N5 level.",
-  4: "Limit grammar to JLPT N4 level or below.",
-  3: "Limit grammar to JLPT N3 level or below.",
-  2: "Limit grammar to JLPT N2 level or below.",
-  1: "You may use any grammar freely, including literary and classical forms.",
-};
-
 const CONTENT_TYPE_PREAMBLE: Record<ContentType, string> = {
   story: "You are a Japanese language teacher writing a short story for a student learning Japanese.",
   dialogue: "You are a Japanese language teacher writing a dialogue between two characters for a student learning Japanese.",
@@ -45,7 +37,6 @@ export function buildPrompt(
   paragraphs: number,
   kanjiList: string,
   formality: Formality,
-  grammarLevel: number,
   topic?: string,
   style?: string,
   underusedKanji?: string[]
@@ -69,8 +60,6 @@ export function buildPrompt(
     "",
     `Allowed kanji: ${kanjiList}`,
     ...rules,
-    "",
-    GRAMMAR_GUIDANCE[grammarLevel] || GRAMMAR_GUIDANCE[2],
     "",
     FORMALITY_INSTRUCTIONS[formality],
   ];

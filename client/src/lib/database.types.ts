@@ -68,10 +68,8 @@ export type Database = {
           openrouter_api_key_secret_id: string | null
           preferred_content_type: string | null
           preferred_formality: string | null
-          preferred_grammar_level: number | null
           preferred_model: string | null
           preferred_paragraphs: number | null
-          preferred_prioritized_kanji_count: number | null
           user_id: string
         }
         Insert: {
@@ -80,10 +78,8 @@ export type Database = {
           openrouter_api_key_secret_id?: string | null
           preferred_content_type?: string | null
           preferred_formality?: string | null
-          preferred_grammar_level?: number | null
           preferred_model?: string | null
           preferred_paragraphs?: number | null
-          preferred_prioritized_kanji_count?: number | null
           user_id: string
         }
         Update: {
@@ -92,10 +88,8 @@ export type Database = {
           openrouter_api_key_secret_id?: string | null
           preferred_content_type?: string | null
           preferred_formality?: string | null
-          preferred_grammar_level?: number | null
           preferred_model?: string | null
           preferred_paragraphs?: number | null
-          preferred_prioritized_kanji_count?: number | null
           user_id?: string
         }
         Relationships: []
