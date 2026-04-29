@@ -329,6 +329,10 @@ button {
     gap: 0.5rem;
     padding: 0.75rem 1rem;
   }
+  .nav-links a {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.85rem;
+  }
   .main {
     padding: 1rem;
   }

@@ -159,7 +159,6 @@ export async function generateStoryStream(
     topic?: string;
     style?: string;
     formality: Formality;
-    grammarLevel: number;
     model: string;
     prioritizedKanji: string[];
   },
@@ -183,7 +182,6 @@ export async function generateStoryStream(
     params.paragraphs,
     allowedKanji,
     params.formality,
-    params.grammarLevel,
     params.topic,
     params.style,
     params.prioritizedKanji
@@ -466,9 +464,7 @@ export async function updateProfile(
     preferred_model?: string;
     preferred_content_type?: string;
     preferred_formality?: string;
-    preferred_grammar_level?: number;
     preferred_paragraphs?: number;
-    preferred_prioritized_kanji_count?: number;
   }
 ): Promise<void> {
   const { error } = await supabase

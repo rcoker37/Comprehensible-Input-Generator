@@ -8,7 +8,7 @@ interface GenerationContextType {
   story: Story | null;
   genProgress: GenerationProgress | null;
   startedAt: number | null;
-  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string; prioritizedKanji: string[] }) => void;
+  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[] }) => void;
   clear: () => void;
   setStoryAudio: (audio: StoryAudio) => void;
   setStoryReadAt: (read_at: string | null) => void;
@@ -44,7 +44,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setStartedAt(null);
   }, []);
 
-  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; grammarLevel: number; model: string; prioritizedKanji: string[] }) => {
+  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[] }) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
