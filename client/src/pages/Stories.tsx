@@ -48,7 +48,7 @@ export default function Stories() {
 
   return (
     <div className="stories-page">
-      <h1>Story History</h1>
+      <h1>Composition History</h1>
       {error && <div className="error">{error}</div>}
       {stories.length > 0 && (
         <div className="filter-row">

@@ -45,7 +45,7 @@ export default function AppLayout() {
           <div className="nav-brand">読む練習</div>
           <div className="nav-links">
             <NavLink to="/">Generate</NavLink>
-            <NavLink to="/stories">Stories</NavLink>
+            <NavLink to="/stories">Compositions</NavLink>
             <NavLink to="/kanji">Kanji</NavLink>
             <NavLink to="/settings">Settings</NavLink>
           </div>
