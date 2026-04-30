@@ -225,16 +225,15 @@ export default function StoryDisplay({
     setActiveTap({ offset, el: e.currentTarget });
   };
 
-  const handleThreadUpdated = (key: string, thread: WordThread) => {
-    setWordThreads((prev) => ({ ...prev, [key]: thread }));
-  };
-
-  const handleThreadCleared = (key: string) => {
-    setWordThreads((prev) => {
-      const { [key]: _omit, ...rest } = prev;
-      void _omit;
-      return rest;
-    });
+  const handleThreadUpdated = (
+    rangeKey: string,
+    threadId: string,
+    thread: WordThread
+  ) => {
+    setWordThreads((prev) => ({
+      ...prev,
+      [rangeKey]: { ...(prev[rangeKey] ?? {}), [threadId]: thread },
+    }));
   };
 
   return (
@@ -311,7 +310,6 @@ export default function StoryDisplay({
           if (!open) setActiveTap(null);
         }}
         onThreadUpdated={handleThreadUpdated}
-        onThreadCleared={handleThreadCleared}
       />
       {unknownKanji.size > 0 && (
         <div className="violations">

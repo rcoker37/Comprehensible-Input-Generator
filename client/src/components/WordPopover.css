@@ -184,32 +184,6 @@
   padding-top: 0.6rem;
 }
 
-.word-popover__thread-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: -0.35rem;
-}
-
-.word-popover__clear-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-dim);
-  font-size: 0.75rem;
-  cursor: pointer;
-  padding: 0.1rem 0.35rem;
-  border-radius: var(--radius);
-}
-
-.word-popover__clear-btn:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--bg-dim);
-}
-
-.word-popover__clear-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .word-popover__thread-scroll {
   display: flex;
   flex-direction: column;
@@ -243,27 +217,12 @@
 }
 
 .word-popover__chips {
-  position: relative;
-}
-
-.word-popover__chips-track {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-  padding: 0.1rem 0.25rem;
-}
-
-.word-popover__chips-track::-webkit-scrollbar {
-  display: none;
 }
 
 .word-popover__chip {
-  flex: 0 0 auto;
-  white-space: nowrap;
-  scroll-snap-align: start;
   font-size: 0.78rem;
   background: var(--bg-dim);
   border: 1px solid var(--border);
@@ -284,106 +243,26 @@
   cursor: not-allowed;
 }
 
-.word-popover__chips-arrow {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  color: var(--text);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 1;
-  padding: 0;
-}
-
-.word-popover__chips-arrow--left {
-  left: 0;
-  background: linear-gradient(
-    to right,
-    var(--bg-card, var(--bg, #1e1e22)) 60%,
-    transparent
-  );
-}
-
-.word-popover__chips-arrow--right {
-  right: 0;
-  background: linear-gradient(
-    to left,
-    var(--bg-card, var(--bg, #1e1e22)) 60%,
-    transparent
-  );
-}
-
-@media (hover: none) {
-  .word-popover__chips-arrow {
-    display: none;
-  }
-}
-
-.word-popover__compose {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.word-popover__ask-input {
-  flex: 1;
-  resize: none;
-  font: inherit;
-  /* 16px keeps iOS Safari from auto-zooming the page on focus; the scale
-     below shrinks the box back to the popover's visual size. */
-  font-size: 16px;
-  line-height: 1.4;
-  padding: 0.4rem 0.55rem;
-  background: var(--bg-dim);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  transform: scale(0.82);
-  transform-origin: top left;
-  width: calc(100% / 0.82);
-  margin-bottom: -0.7rem;
-}
-
-.word-popover__ask-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.word-popover__ask-input:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.word-popover__ask-btn {
-  align-self: flex-start;
+.word-popover__chip--active,
+.word-popover__chip--active:hover:not(:disabled) {
   background: var(--accent);
+  border-color: var(--accent);
   color: var(--bg, #111);
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.4rem 0.75rem;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: opacity 0.15s;
 }
 
-.word-popover__ask-btn:hover:not(:disabled) {
-  opacity: 0.9;
-}
-
-.word-popover__ask-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+.word-popover__chip--has-thread {
+  color: var(--accent);
 }
 
 .word-popover__status {
   font-size: 0.8rem;
   color: var(--text-dim);
+}
+
+.word-popover__asking {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .word-popover__error {

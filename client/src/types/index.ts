@@ -63,8 +63,11 @@ export interface WordThread {
   messages: ChatMessage[];
 }
 
+/** Per-range map keyed by thread id ("custom" or a chip id from askChips.ts). */
+export type WordThreadsByThread = Record<string, WordThread>;
+
 /** Keyed by `${start_offset}-${end_offset}` (char offsets in the story content). */
-export type StoryWordThreads = Record<string, WordThread>;
+export type StoryWordThreads = Record<string, WordThreadsByThread>;
 
 export interface Story {
   id: number;
