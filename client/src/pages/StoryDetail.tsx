@@ -57,33 +57,66 @@ export default function StoryDetail() {
           &larr; Stories
         </button>
         <div className="story-detail-actions-right">
-          <button
-            type="button"
-            className="story-action-btn"
-            onClick={player.handleRegenerate}
-            disabled={!player.audio || player.regenerating || player.loading}
-            title={player.regenerating ? "Regenerating…" : "Regenerate audio"}
-            aria-label="Regenerate audio"
-          >
-            {player.regenerating ? (
-              <span className="playback-spinner" aria-hidden="true" />
-            ) : (
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M13.5 2.5v3.5h-3.5" />
-                <path d="M13.5 6A5.5 5.5 0 1 0 14 9.5" />
-              </svg>
-            )}
-          </button>
+          {player.audio ? (
+            <button
+              type="button"
+              className="story-action-btn"
+              onClick={player.handleRegenerate}
+              disabled={player.regenerating || player.loading}
+              title={player.regenerating ? "Regenerating…" : "Regenerate audio"}
+              aria-label="Regenerate audio"
+            >
+              {player.regenerating ? (
+                <span className="playback-spinner" aria-hidden="true" />
+              ) : (
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M13.5 2.5v3.5h-3.5" />
+                  <path d="M13.5 6A5.5 5.5 0 1 0 14 9.5" />
+                </svg>
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="story-action-btn"
+              onClick={player.handlePlayPause}
+              disabled={player.loading}
+              title={player.loading ? "Generating audio…" : "Generate audio"}
+              aria-label="Generate audio"
+            >
+              {player.loading ? (
+                <span className="playback-spinner" aria-hidden="true" />
+              ) : (
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2 8h0" />
+                  <path d="M5 5v6" />
+                  <path d="M8 3v10" />
+                  <path d="M11 5v6" />
+                  <path d="M14 8h0" />
+                </svg>
+              )}
+            </button>
+          )}
           <button
             type="button"
             className="story-action-btn"
@@ -119,7 +152,7 @@ export default function StoryDetail() {
         story={story}
         onChange={(read_at) => setStory((s) => (s ? { ...s, read_at } : s))}
       />
-      <PlaybackFooter {...player} />
+      {player.audio && <PlaybackFooter {...player} />}
     </div>
   );
 }
