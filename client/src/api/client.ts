@@ -11,7 +11,6 @@ import type {
   KanjiStats,
   Story,
   StoryAudio,
-  StoryWordThreads,
   WordThread,
 } from "../types";
 
@@ -409,6 +408,7 @@ export async function askWord(
   storyId: number,
   startOffset: number,
   endOffset: number,
+  threadId: string,
   question: string
 ): Promise<WordThread> {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -426,6 +426,7 @@ export async function askWord(
       story_id: storyId,
       start_offset: startOffset,
       end_offset: endOffset,
+      thread_id: threadId,
       question,
     }),
   });
@@ -437,23 +438,6 @@ export async function askWord(
 
   const { thread } = await response.json();
   return thread as WordThread;
-}
-
-export async function clearWordThread(
-  storyId: number,
-  startOffset: number,
-  endOffset: number,
-  currentThreads: StoryWordThreads
-): Promise<StoryWordThreads> {
-  const cacheKey = `${startOffset}-${endOffset}`;
-  const { [cacheKey]: _omit, ...rest } = currentThreads;
-  void _omit;
-  const { error } = await supabase
-    .from("stories")
-    .update({ explanations: rest })
-    .eq("id", storyId);
-  if (error) throw new Error(error.message);
-  return rest as StoryWordThreads;
 }
 
 // Profiles

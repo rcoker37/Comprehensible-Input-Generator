@@ -1,14 +1,19 @@
-// Adds a follow-up Q&A turn to a per-word conversation thread (the same
-// stories.explanations JSONB managed by explain-word). Asks see the prior
-// Overview (if any) and prior Q&A turns as context — the model is given a
-// real multi-turn messages array.
+// Adds a follow-up Q&A turn to a per-word, per-thread conversation thread
+// stored in the stories.explanations JSONB. Each (story, range) can hold
+// multiple threads keyed by thread id ("custom" or a chip id from the
+// client-side askChips list); within a thread the model sees the prior
+// Q&A turns as context.
 //
-// POST { story_id, start_offset, end_offset, question }
+// POST { story_id, start_offset, end_offset, thread_id, question }
+//   thread_id — "custom" or chip id; slug-like, ≤ 64 chars
 //   question — non-empty trimmed string, ≤ 1000 chars
 //
 // On success, appends one user turn and one assistant turn to the stored
-// thread. On any failure (validation, OpenRouter, DB write) the thread is
-// not mutated, so the client can retry the same question with one click.
+// thread. The first call for a non-custom thread sends the chip prompt as
+// the seed user turn; the UI hides messages[0] of any chip thread.
+//
+// On any failure (validation, OpenRouter, DB write) the thread is not
+// mutated, so the client can retry the same question with one click.
 //
 // Returns: { thread: WordThread }
 
@@ -32,6 +37,7 @@ import type {
   ChatMessage,
   StoredWordThreads,
   WordThread,
+  WordThreadsByThread,
 } from "../_shared/word-thread.ts";
 
 const corsHeaders = {
@@ -43,6 +49,8 @@ const corsHeaders = {
 const ASK_MODEL = "anthropic/claude-sonnet-4.6";
 const MAX_TOKENS_ASK = 600;
 const MAX_QUESTION_LEN = 1000;
+const MAX_THREAD_ID_LEN = 64;
+const THREAD_ID_PATTERN = /^[a-z0-9-]+$/;
 
 const SYSTEM_PROMPT =
   "You are helping a Japanese learner understand a specific word in context. " +
@@ -112,6 +120,7 @@ Deno.serve(async (req) => {
     const storyId = body?.story_id;
     const startOffset = body?.start_offset;
     const endOffset = body?.end_offset;
+    const rawThreadId = body?.thread_id;
     const rawQuestion = body?.question;
 
     if (typeof storyId !== "number") {
@@ -125,6 +134,15 @@ Deno.serve(async (req) => {
     ) {
       return json(400, { error: "Invalid offsets" });
     }
+    if (
+      typeof rawThreadId !== "string" ||
+      rawThreadId.length === 0 ||
+      rawThreadId.length > MAX_THREAD_ID_LEN ||
+      !THREAD_ID_PATTERN.test(rawThreadId)
+    ) {
+      return json(400, { error: "Invalid thread_id" });
+    }
+    const threadId = rawThreadId;
     if (typeof rawQuestion !== "string") {
       return json(400, { error: "Missing question" });
     }
@@ -142,8 +160,10 @@ Deno.serve(async (req) => {
       return json(400, { error: "Offsets out of range" });
     }
 
-    const cacheKey = `${startOffset}-${endOffset}`;
-    const existingThread = story.explanations?.[cacheKey] ?? null;
+    const rangeKey = `${startOffset}-${endOffset}`;
+    const existingRange: WordThreadsByThread =
+      story.explanations?.[rangeKey] ?? {};
+    const existingThread = existingRange[threadId] ?? null;
 
     const targetWord = content.slice(startOffset, endOffset);
     const { sentenceStart, sentenceEnd } = findSentenceBounds(
@@ -191,7 +211,10 @@ Deno.serve(async (req) => {
 
     const updatedExplanations: StoredWordThreads = {
       ...(story.explanations ?? {}),
-      [cacheKey]: thread,
+      [rangeKey]: {
+        ...existingRange,
+        [threadId]: thread,
+      },
     };
 
     const { error: updateErr } = await supabaseAdmin

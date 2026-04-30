@@ -14,15 +14,17 @@ import {
 } from "@floating-ui/react";
 import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
-import { askWord, clearWordThread } from "../api/client";
-import { ASK_CHIPS } from "../lib/askChips";
+import { askWord } from "../api/client";
+import { ASK_CHIPS, type AskChip } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
 import { parseAnnotatedText } from "../lib/furigana";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
 import { useIsMobile } from "../hooks/useIsMobile";
+import AnimatedDots from "./AnimatedDots";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
-import type { ChatMessage, StoryWordThreads, WordThread } from "../types";
+import { pairThreadMessages } from "./wordPopoverHelpers";
+import type { StoryWordThreads, WordThread } from "../types";
 import "./WordPopover.css";
 
 interface WordPopoverProps {
@@ -33,13 +35,12 @@ interface WordPopoverProps {
   referenceEl: HTMLElement | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onThreadUpdated: (key: string, thread: WordThread) => void;
-  onThreadCleared: (key: string) => void;
+  onThreadUpdated: (rangeKey: string, threadId: string, thread: WordThread) => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
 
-function threadKey(hit: LookupHit): string {
+function rangeKey(hit: LookupHit): string {
   return `${hit.start}-${hit.end}`;
 }
 
@@ -75,7 +76,6 @@ export default function WordPopover({
   open,
   onOpenChange,
   onThreadUpdated,
-  onThreadCleared,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
   const [hit, setHit] = useState<LookupHit | null>(null);
@@ -84,18 +84,17 @@ export default function WordPopover({
   const [activeKanji, setActiveKanji] = useState<string | null>(null);
   const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
-  const [thread, setThread] = useState<WordThread | null>(null);
+  const [activeChipId, setActiveChipId] = useState<string | null>(null);
   const [pending, setPending] = useState<boolean>(false);
-  const [question, setQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const userAskedRef = useRef(false);
-  const chipsTrackRef = useRef<HTMLDivElement | null>(null);
-  const [chipScroll, setChipScroll] = useState({
-    canLeft: false,
-    canRight: false,
-  });
+  // Mirrors `pending` but updates synchronously so a second click in the
+  // same tick (before React re-renders) is blocked. Without this, two fast
+  // clicks on the same chip can both pass the `pending` check, race on the
+  // server, and produce a thread with duplicated seed/reply turns.
+  const pendingRef = useRef(false);
 
   const { refs, floatingStyles, context } = useFloating({
     open,
@@ -119,8 +118,7 @@ export default function WordPopover({
     setLoadingKanji(null);
     setError(null);
     setHit(null);
-    setThread(null);
-    setQuestion("");
+    setActiveChipId(null);
     setPending(false);
     userAskedRef.current = false;
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
@@ -136,9 +134,6 @@ export default function WordPopover({
       .then((result) => {
         if (cancelled) return;
         setHit(result);
-        if (result) {
-          setThread(wordThreads[threadKey(result)] ?? null);
-        }
       })
       .finally(() => {
         if (!cancelled) setLookingUp(false);
@@ -146,14 +141,17 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, cursorOffset, cleanText, dictState, wordThreads]);
+  }, [open, cursorOffset, cleanText, dictState]);
 
-  const asks = useMemo<ChatMessage[]>(
-    () =>
-      (thread?.messages ?? []).filter(
-        (m) => m.role === "user" || m.role === "assistant"
-      ),
-    [thread]
+  const rangeThreads = useMemo(
+    () => (hit ? wordThreads[rangeKey(hit)] ?? {} : {}),
+    [hit, wordThreads]
+  );
+  const activeThread: WordThread | null =
+    activeChipId !== null ? rangeThreads[activeChipId] ?? null : null;
+  const askPairs = useMemo(
+    () => pairThreadMessages(activeThread?.messages ?? []),
+    [activeThread]
   );
 
   // Auto-scroll the popover body to the bottom only when the user has just
@@ -163,47 +161,22 @@ export default function WordPopover({
     const el = bodyRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [thread?.messages.length]);
+  }, [activeThread?.messages.length]);
 
   const kanjiChars = useMemo(
     () => (hit ? [...hit.surface].filter((ch) => KANJI_REGEX.test(ch)) : []),
     [hit]
   );
 
-  const visibleChips = useMemo(() => {
-    const used = new Set(
-      (thread?.messages ?? [])
-        .filter((m) => m.role === "user")
-        .map((m) => m.content)
-    );
-    return ASK_CHIPS.filter((c) => !used.has(c.prompt));
-  }, [thread]);
-
-  // Track whether the chip carousel can scroll further in either direction so
-  // the arrow buttons hide at the edges. Re-evaluates when the popover opens,
-  // the lookup hit changes, or the visible chip count changes (after sending).
-  useEffect(() => {
-    const el = chipsTrackRef.current;
-    if (!el) {
-      setChipScroll({ canLeft: false, canRight: false });
-      return;
-    }
-    const update = () => {
-      const { scrollLeft, scrollWidth, clientWidth } = el;
-      setChipScroll({
-        canLeft: scrollLeft > 2,
-        canRight: scrollLeft + clientWidth < scrollWidth - 2,
-      });
-    };
-    update();
-    el.addEventListener("scroll", update, { passive: true });
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    return () => {
-      el.removeEventListener("scroll", update);
-      observer.disconnect();
-    };
-  }, [open, hit, visibleChips.length]);
+  const chipsWithState = useMemo(
+    () =>
+      ASK_CHIPS.map((c) => ({
+        chip: c,
+        active: activeChipId === c.id,
+        hasThread: c.id in rangeThreads,
+      })),
+    [activeChipId, rangeThreads]
+  );
 
   const handleKanjiClick = async (ch: string) => {
     if (loadingKanji) return;
@@ -227,38 +200,35 @@ export default function WordPopover({
     }
   };
 
-  const handleAsk = async (promptOverride?: string) => {
+  const handleChipClick = (chip: AskChip) => {
     if (!hit || pending) return;
-    const trimmed = (promptOverride ?? question).trim();
-    if (!trimmed) return;
+    if (activeChipId === chip.id) {
+      setActiveChipId(null);
+      setError(null);
+      return;
+    }
+    setActiveChipId(chip.id);
+    setError(null);
+    if (chip.id in rangeThreads) return;
+
     userAskedRef.current = true;
     setPending(true);
-    setError(null);
-    try {
-      const updated = await askWord(storyId, hit.start, hit.end, trimmed);
-      setThread(updated);
-      onThreadUpdated(threadKey(hit), updated);
-      setQuestion("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Ask failed");
-    } finally {
-      setPending(false);
-    }
-  };
-
-  const handleClear = async () => {
-    if (!hit || pending) return;
-    setPending(true);
-    setError(null);
-    try {
-      await clearWordThread(storyId, hit.start, hit.end, wordThreads);
-      setThread(null);
-      onThreadCleared(threadKey(hit));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Clear failed");
-    } finally {
-      setPending(false);
-    }
+    void (async () => {
+      try {
+        const updated = await askWord(
+          storyId,
+          hit.start,
+          hit.end,
+          chip.id,
+          chip.prompt
+        );
+        onThreadUpdated(rangeKey(hit), chip.id, updated);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Ask failed");
+      } finally {
+        setPending(false);
+      }
+    })();
   };
 
   if (!open || !referenceEl) return null;
@@ -272,20 +242,8 @@ export default function WordPopover({
   const headerReading = hit?.base ? undefined : primary?.r?.[0]?.ent;
   const baseReading = hit?.base ? primary?.r?.[0]?.ent : undefined;
 
-  // Pair up asks into [user, assistant] tuples so we can render each Q&A as
-  // a unit. A trailing user turn without an assistant reply (shouldn't happen
-  // in practice — we only persist on success) renders alone.
-  const askPairs: Array<{ q: ChatMessage; a: ChatMessage | null }> = [];
-  for (let i = 0; i < asks.length; i++) {
-    if (asks[i].role === "user") {
-      const next = asks[i + 1];
-      const a = next && next.role === "assistant" ? next : null;
-      askPairs.push({ q: asks[i], a });
-      if (a) i++;
-    }
-  }
-
-  const askDisabled = pending || question.trim().length === 0 || !hit;
+  const showResponseArea = activeChipId !== null;
+  const showAskingPlaceholder = pending && askPairs.length === 0;
 
   return (
     <FloatingPortal>
@@ -388,110 +346,60 @@ export default function WordPopover({
               )}
 
               <section className="word-popover__thread">
-                {askPairs.length > 0 && (
-                  <div className="word-popover__thread-header">
-                    <button
-                      type="button"
-                      className="word-popover__clear-btn"
-                      onClick={() => void handleClear()}
-                      disabled={pending}
-                    >
-                      Clear chat
-                    </button>
-                  </div>
-                )}
-                <div className="word-popover__thread-scroll">
-                  {askPairs.map((pair, i) => (
-                    <div key={i} className="word-popover__qa">
-                      <div className="word-popover__msg-user">
-                        {pair.q.content}
+                <div
+                  className="word-popover__chips"
+                  role="tablist"
+                  aria-label="Suggested questions"
+                >
+                  {chipsWithState.map(({ chip, active, hasThread }) => {
+                    const classNames = [
+                      "word-popover__chip",
+                      active ? "word-popover__chip--active" : "",
+                      hasThread && !active
+                        ? "word-popover__chip--has-thread"
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ");
+                    return (
+                      <button
+                        key={chip.id}
+                        type="button"
+                        className={classNames}
+                        role="tab"
+                        aria-selected={active}
+                        disabled={pending || !hit}
+                        onClick={() => handleChipClick(chip)}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {showResponseArea && (
+                  <div className="word-popover__thread-scroll" role="tabpanel">
+                    {askPairs.map((pair, i) => (
+                      <div key={i} className="word-popover__qa">
+                        {pair.q && (
+                          <div className="word-popover__msg-user">
+                            {pair.q.content}
+                          </div>
+                        )}
+                        {pair.a && (
+                          <div className="word-popover__msg-assistant">
+                            {renderAssistant(pair.a.content)}
+                          </div>
+                        )}
                       </div>
-                      {pair.a && (
-                        <div className="word-popover__msg-assistant">
-                          {renderAssistant(pair.a.content)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {visibleChips.length > 0 && (
-                  <div className="word-popover__chips">
-                    {chipScroll.canLeft && (
-                      <button
-                        type="button"
-                        className="word-popover__chips-arrow word-popover__chips-arrow--left"
-                        aria-label="Scroll questions left"
-                        onClick={() =>
-                          chipsTrackRef.current?.scrollBy({
-                            left: -200,
-                            behavior: "smooth",
-                          })
-                        }
-                      >
-                        <span aria-hidden="true">‹</span>
-                      </button>
-                    )}
-                    <div
-                      ref={chipsTrackRef}
-                      className="word-popover__chips-track"
-                      role="group"
-                      aria-label="Suggested questions"
-                    >
-                      {visibleChips.map((c) => (
-                        <button
-                          key={c.label}
-                          type="button"
-                          className="word-popover__chip"
-                          disabled={pending || !hit}
-                          onClick={() => void handleAsk(c.prompt)}
-                        >
-                          {c.label}
-                        </button>
-                      ))}
-                    </div>
-                    {chipScroll.canRight && (
-                      <button
-                        type="button"
-                        className="word-popover__chips-arrow word-popover__chips-arrow--right"
-                        aria-label="Scroll questions right"
-                        onClick={() =>
-                          chipsTrackRef.current?.scrollBy({
-                            left: 200,
-                            behavior: "smooth",
-                          })
-                        }
-                      >
-                        <span aria-hidden="true">›</span>
-                      </button>
+                    ))}
+                    {showAskingPlaceholder && (
+                      <div className="word-popover__asking">
+                        Loading<AnimatedDots />
+                      </div>
                     )}
                   </div>
                 )}
-
-                <div className="word-popover__compose">
-                  <textarea
-                    className="word-popover__ask-input"
-                    placeholder="Ask AI about this word…"
-                    value={question}
-                    rows={2}
-                    disabled={pending || !hit}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey && !askDisabled) {
-                        e.preventDefault();
-                        void handleAsk();
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="word-popover__ask-btn"
-                    onClick={() => void handleAsk()}
-                    disabled={askDisabled}
-                  >
-                    {pending ? "Sending…" : "Send Message"}
-                  </button>
-                </div>
 
                 {error && <div className="word-popover__error">{error}</div>}
               </section>
