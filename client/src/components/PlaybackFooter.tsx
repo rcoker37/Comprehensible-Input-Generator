@@ -23,11 +23,9 @@ export default function PlaybackFooter(props: AudioPlayerState) {
     ? "Generating audio…"
     : regenerating
       ? "Regenerating audio…"
-      : !audio
-        ? "Generate audio"
-        : playing
-          ? "Pause"
-          : "Play story";
+      : playing
+        ? "Pause"
+        : "Play story";
   const pauseToggleTitle = pauseAtSentence
     ? "Auto-pause after each sentence: ON"
     : "Auto-pause after each sentence: OFF";
@@ -61,14 +59,6 @@ export default function PlaybackFooter(props: AudioPlayerState) {
           >
             {loading ? (
               <span className="playback-spinner" aria-hidden="true" />
-            ) : !audio ? (
-              <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M2 8h0" />
-                <path d="M5 5v6" />
-                <path d="M8 3v10" />
-                <path d="M11 5v6" />
-                <path d="M14 8h0" />
-              </svg>
             ) : playing ? (
               <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                 <rect x="4" y="3" width="3" height="10" />
