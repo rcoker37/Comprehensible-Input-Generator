@@ -201,7 +201,7 @@ export default function WordPopover({
   };
 
   const handleChipClick = (chip: AskChip) => {
-    if (!hit || pending) return;
+    if (!hit || pendingRef.current) return;
     if (activeChipId === chip.id) {
       setActiveChipId(null);
       setError(null);
@@ -212,6 +212,7 @@ export default function WordPopover({
     if (chip.id in rangeThreads) return;
 
     userAskedRef.current = true;
+    pendingRef.current = true;
     setPending(true);
     void (async () => {
       try {
@@ -226,6 +227,7 @@ export default function WordPopover({
       } catch (e) {
         setError(e instanceof Error ? e.message : "Ask failed");
       } finally {
+        pendingRef.current = false;
         setPending(false);
       }
     })();
