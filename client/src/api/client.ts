@@ -409,7 +409,8 @@ export async function askWord(
   startOffset: number,
   endOffset: number,
   threadId: string,
-  question: string
+  question: string,
+  regenerate = false
 ): Promise<WordThread> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -428,6 +429,7 @@ export async function askWord(
       end_offset: endOffset,
       thread_id: threadId,
       question,
+      ...(regenerate && { regenerate: true }),
     }),
   });
 

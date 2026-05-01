@@ -55,18 +55,23 @@ const THREAD_ID_PATTERN = /^[a-z0-9-]+$/;
 const SYSTEM_PROMPT =
   "You are helping a Japanese learner understand a specific word in context. " +
   "The word they tapped is wrapped in 【…】 in the sentence — focus only on " +
-  "that bracketed instance even if the same surface appears elsewhere. " +
-  "Answer the user's questions concisely (≤ 100 words unless they ask for " +
-  "more).\n\n" +
+  "that bracketed instance even if the same surface appears elsewhere.\n\n" +
   "Output rules:\n" +
+  "- Write all explanations and commentary in English. Use Japanese only " +
+  "for the target word, alternate words, example sentences, and other " +
+  "Japanese vocabulary you cite.\n" +
   "- Plain text only. Do NOT use markdown — never wrap text in ** or * to " +
   "bold or emphasize.\n" +
-  "- Furigana: for any kanji in your reply that does NOT appear in the " +
-  "passage above (e.g. example sentences, related vocabulary), append a " +
-  "hiragana reading using Aozora ruby notation immediately after the kanji " +
-  "run: 漢字《かんじ》. Annotate only the kanji portion (not trailing " +
-  "okurigana, e.g. 食《た》べる, not 食べる《たべる》). Kanji that already " +
-  "appear in the passage do not need readings.";
+  "- Furigana: append a hiragana reading using Aozora ruby notation " +
+  "immediately after every kanji run in your reply: 漢字《かんじ》. " +
+  "Annotate only the kanji portion, not trailing okurigana (e.g. 食《た》" +
+  "べる, not 食べる《たべる》). Apply this to every kanji, including ones " +
+  "that already appear in the passage.\n" +
+  "- Go straight to the answer. Do NOT include greetings, preamble, recaps, " +
+  "postscripts, summaries, or section headers. Do NOT restate the target " +
+  "word, the surrounding sentence, or what the user asked before answering. " +
+  "For numbered-list answers, the very first non-whitespace characters of " +
+  "your reply must be \"1.\".";
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -122,6 +127,7 @@ Deno.serve(async (req) => {
     const endOffset = body?.end_offset;
     const rawThreadId = body?.thread_id;
     const rawQuestion = body?.question;
+    const regenerate = body?.regenerate === true;
 
     if (typeof storyId !== "number") {
       return json(400, { error: "Missing story_id" });
@@ -163,7 +169,9 @@ Deno.serve(async (req) => {
     const rangeKey = `${startOffset}-${endOffset}`;
     const existingRange: WordThreadsByThread =
       story.explanations?.[rangeKey] ?? {};
-    const existingThread = existingRange[threadId] ?? null;
+    const existingThread = regenerate
+      ? null
+      : existingRange[threadId] ?? null;
 
     const targetWord = content.slice(startOffset, endOffset);
     const { sentenceStart, sentenceEnd } = findSentenceBounds(
