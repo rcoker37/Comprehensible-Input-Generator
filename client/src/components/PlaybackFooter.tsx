@@ -39,7 +39,8 @@ export default function PlaybackFooter(props: AudioPlayerState) {
             className="playback-speed-btn"
             onClick={() => {
               const idx = SPEEDS.indexOf(playbackRate);
-              setPlaybackRate(SPEEDS[(idx + 1) % SPEEDS.length]);
+              const next = SPEEDS[(idx + 1) % SPEEDS.length] ?? 1;
+              setPlaybackRate(next);
             }}
             disabled={busy || !audio}
             aria-label={`Playback speed: ${playbackRate}×`}

@@ -15,8 +15,9 @@ export function pairThreadMessages(messages: ChatMessage[]): AskPair[] {
   let i = 0;
 
   if (messages.length > 0) {
-    if (messages[1]?.role === "assistant") {
-      pairs.push({ q: null, a: messages[1] });
+    const second = messages[1];
+    if (second?.role === "assistant") {
+      pairs.push({ q: null, a: second });
       i = 2;
     } else {
       i = 1;
@@ -24,10 +25,11 @@ export function pairThreadMessages(messages: ChatMessage[]): AskPair[] {
   }
 
   for (; i < messages.length; i++) {
-    if (messages[i].role === "user") {
+    const msg = messages[i];
+    if (msg?.role === "user") {
       const next = messages[i + 1];
       const a = next && next.role === "assistant" ? next : null;
-      pairs.push({ q: messages[i], a });
+      pairs.push({ q: msg, a });
       if (a) i++;
     }
   }

@@ -177,12 +177,15 @@ export class LanguageTransformer {
     ];
 
     for (let i = 0; i < results.length; i++) {
-      const { text, conditions, trace } = results[i];
+      const current = results[i];
+      if (!current) continue;
+      const { text, conditions, trace } = current;
       for (const transform of this.transforms) {
         if (!transform.heuristic.test(text)) continue;
 
         for (let j = 0; j < transform.rules.length; j++) {
           const rule = transform.rules[j];
+          if (!rule) continue;
           if (!conditionsMatch(conditions, rule.conditionsIn)) continue;
           if (!rule.isInflected.test(text)) continue;
 

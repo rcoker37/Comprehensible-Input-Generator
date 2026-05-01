@@ -62,9 +62,9 @@ export function parseAnnotatedText(raw: string): ParsedFurigana {
   let match: RegExpExecArray | null;
   while ((match = RUBY_RE.exec(raw)) !== null) {
     const matchStart = match.index;
-    const kanjiRun = match[1];
-    const okurigana = match[2];
-    const reading = match[3];
+    const kanjiRun = match[1] ?? "";
+    const okurigana = match[2] ?? "";
+    const reading = match[3] ?? "";
 
     // Append text between the last match and this one.
     clean += raw.slice(cursor, matchStart);

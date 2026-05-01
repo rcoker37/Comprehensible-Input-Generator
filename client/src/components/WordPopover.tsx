@@ -8,7 +8,6 @@ import {
   FloatingFocusManager,
   FloatingOverlay,
 } from "@floating-ui/react";
-import type { WordResult } from "@birchill/jpdict-idb";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { askWord } from "../api/client";
 import { ASK_CHIPS, type AskChip } from "../lib/askChips";
@@ -47,8 +46,7 @@ function renderAssistant(content: string): ReactNode {
   if (annotations.length === 0) return cleanText;
   const parts: ReactNode[] = [];
   let cursor = 0;
-  for (let i = 0; i < annotations.length; i++) {
-    const a = annotations[i];
+  for (const [i, a] of annotations.entries()) {
     if (a.start > cursor) parts.push(cleanText.slice(cursor, a.start));
     parts.push(
       <ruby key={i}>
@@ -84,6 +82,7 @@ export default function WordPopover({
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const userAskedRef = useRef(false);
   // Mirrors `pending` but updates synchronously so a second click in the
   // same tick (before React re-renders) is blocked. Without this, two fast
@@ -277,7 +276,7 @@ export default function WordPopover({
   return (
     <FloatingPortal>
       <FloatingOverlay className="word-popover__backdrop" lockScroll>
-        <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
+        <FloatingFocusManager context={context} modal={true} initialFocus={closeBtnRef}>
           <div
             ref={refs.setFloating}
             style={{
@@ -290,6 +289,7 @@ export default function WordPopover({
             {...getFloatingProps()}
           >
             <button
+              ref={closeBtnRef}
               type="button"
               className="word-popover__close"
               onClick={() => onOpenChange(false)}
@@ -469,12 +469,11 @@ function SenseSection({
   if (lookingUp || !hit) {
     return <div className="word-popover__status">Looking up…</div>;
   }
-  if (hit.results.length === 0) {
+  // Flatten senses across the top word result — simplest useful render for v1.
+  const primary = hit.results[0];
+  if (!primary) {
     return <div className="word-popover__status">No dictionary entry.</div>;
   }
-
-  // Flatten senses across the top word result — simplest useful render for v1.
-  const primary: WordResult = hit.results[0];
   const senses = primary.s;
   const visible = showAll ? senses : senses.slice(0, MAX_SENSES_COLLAPSED);
 

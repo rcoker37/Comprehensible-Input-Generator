@@ -38,11 +38,13 @@ export function filterKanji(
   params: { search?: string; jlpt?: number[]; grade?: number[] }
 ): Kanji[] {
   let results = kanji;
-  if (params.jlpt && params.jlpt.length > 0) {
-    results = results.filter((k) => k.jlpt !== null && params.jlpt!.includes(Number(k.jlpt)));
+  const jlptFilter = params.jlpt;
+  if (jlptFilter && jlptFilter.length > 0) {
+    results = results.filter((k) => k.jlpt !== null && jlptFilter.includes(Number(k.jlpt)));
   }
-  if (params.grade && params.grade.length > 0) {
-    results = results.filter((k) => params.grade!.includes(Number(k.grade)));
+  const gradeFilter = params.grade;
+  if (gradeFilter && gradeFilter.length > 0) {
+    results = results.filter((k) => gradeFilter.includes(Number(k.grade)));
   }
   if (params.search) {
     const s = params.search.toLowerCase();
@@ -211,7 +213,8 @@ export async function generateStoryStream(
   }
 
   // Read SSE stream
-  const reader = response.body!.getReader();
+  if (!response.body) throw new Error("No response body from generate-story");
+  const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let fullText = "";
   let fullReasoning = "";

@@ -256,9 +256,9 @@ export default function KanjiManager() {
                 <span className="kanji-count" aria-hidden="true">{count}</span>
                 <span className="kanji-char">{k.character}</span>
                 <span className="kanji-reading">
-                  {k.readings_on ? k.readings_on.split(",")[0].trim() : ""}
+                  {k.readings_on ? (k.readings_on.split(",")[0] ?? "").trim() : ""}
                   {k.readings_on && k.readings_kun ? " " : ""}
-                  {k.readings_kun ? k.readings_kun.split(",")[0].trim() : ""}
+                  {k.readings_kun ? (k.readings_kun.split(",")[0] ?? "").trim() : ""}
                 </span>
                 <span className="kanji-badges">
                   <span className="badge grade">G{GRADE_LABELS[k.grade] || k.grade}</span>

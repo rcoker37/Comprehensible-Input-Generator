@@ -37,7 +37,7 @@ const passiveEnglishDescription = '1. Indicates an action received from an actio
 const ikuVerbs = ['いく', '行く', '逝く', '往く'];
 const godanUSpecialVerbs = ['こう', 'とう', '請う', '乞う', '恋う', '問う', '訪う', '宣う', '曰う', '給う', '賜う', '揺蕩う'];
 const specialHonorificMasuVerbs = ['いらっしゃる', 'ござる', 'なさる', 'くださる', '下さる', 'おっしゃる', '仰る', '仰有る'];
-const fuVerbTeConjugations = [
+const fuVerbTeConjugations: [string, string][] = [
     ['のたまう', 'のたもう'],
     ['たまう', 'たもう'],
     ['たゆたう', 'たゆとう'],

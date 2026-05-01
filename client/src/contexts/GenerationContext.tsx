@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { generateStoryStream } from "../api/client";
 import type { ContentType, Formality, Story, StoryAudio, GenerationProgress } from "../types";
 
@@ -78,8 +78,13 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setStory((s) => (s ? { ...s, read_at } : s));
   }, []);
 
+  const value = useMemo(
+    () => ({ loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt }),
+    [loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt]
+  );
+
   return (
-    <GenerationContext.Provider value={{ loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt }}>
+    <GenerationContext.Provider value={value}>
       {children}
     </GenerationContext.Provider>
   );
