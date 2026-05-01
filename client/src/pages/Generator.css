@@ -124,7 +124,7 @@ label:has(input[type="checkbox"]) {
 }
 
 .kanji-preview__char {
-  font-size: 1.6rem;
+  font-size: 1.4rem;
   line-height: 1.1;
   color: var(--text);
   background: transparent;
