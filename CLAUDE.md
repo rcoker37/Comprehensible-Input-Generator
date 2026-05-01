@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A web app that generates short Japanese stories constrained to kanji the user knows, using OpenRouter LLM APIs. Designed for Japanese reading practice via comprehensible input. Each user has their own kanji known-state, story history, audio playback, and per-word LLM Q&A threads.
 
+## Keep This File Up To Date
+
+When your change affects anything documented here, update CLAUDE.md alongside the code change. Common triggers: adding, renaming, or removing files listed under *Architecture*; changing commands, env vars, RPCs, or table columns; pinning/unpinning a model or updating a `file:line` reference; discovering a non-obvious gotcha (silent failure, RLS quirk, dev-env footgun); changing a convention.
+
+Prefer durable descriptions over snapshots — describe roles and patterns, not commit-state. "See `supabase/migrations/` for history" beats naming the latest migration. If a section is already drifting, thin it rather than chasing every rename. If you find an entry that no longer matches reality, fix it in the same change rather than leaving it.
+
 ## Commands
 
 ```bash
@@ -15,7 +21,7 @@ npm install
 # Start local Supabase (requires Docker)
 npx supabase start
 
-# Apply migrations and seed data
+# Apply migrations and seed data (kanji + dev test user)
 npx supabase db reset
 
 # Generate seed SQL from data/kanji.json (only needed if kanji data changes)
@@ -30,7 +36,7 @@ npx supabase gen types typescript --local > client/src/lib/database.types.ts
 # Run client dev server
 npm run dev
 
-# Build client
+# Build client (typecheck + Vite build)
 npm run build
 
 # Lint client
@@ -40,8 +46,8 @@ npm run lint --workspace=client
 npm test                              # one-shot
 npm run test:watch --workspace=client # watch mode
 
-# Serve Edge Functions locally
-npx supabase functions serve
+# Serve Edge Functions locally (loads .env.local for AZURE_SPEECH_*)
+npx supabase functions serve --env-file .env.local
 
 # Deploy Edge Functions
 npx supabase functions deploy generate-story
@@ -52,73 +58,60 @@ npx supabase functions deploy openrouter-usage
 
 ## Architecture
 
-This is an npm workspaces monorepo. The root `package.json` declares `client` as the only workspace; there is **no `server/` directory** — the backend is entirely Supabase (Postgres + Edge Functions). Despite mentions in `spec.md`, Express/SQLite/Ollama have been replaced by Supabase + OpenRouter.
+This is an npm workspaces monorepo. The root `package.json` declares `client` as the only workspace; there is no `server/` directory — the backend is entirely Supabase (Postgres + Edge Functions).
 
-### Client (`client/`) — Vite + React 19 + TypeScript
+### Client (`client/`) — Vite + React + TypeScript
 
-Talks directly to Supabase (DB via SDK, Edge Functions via `functions.invoke`). Routing in `client/src/App.tsx` lazy-loads each page; everything except `/login` is wrapped in `<ProtectedRoute>` + `<AppLayout>`.
+Talks directly to Supabase (DB via SDK, Edge Functions via `functions.invoke`). Routing in `client/src/App.tsx` lazy-loads `/generator`, `/stories`, `/stories/:id`, `/kanji`, `/settings`; everything except `/login` is wrapped in `<ProtectedRoute>` + `<AppLayout>`. Plain CSS colocated as `Component.css` next to `Component.tsx` — no Tailwind, no CSS modules. Floating UI for popover positioning; `react-router-dom` for routing.
 
-- `main.tsx`, `App.tsx` — entry, router, providers, error boundaries
-- `lib/supabase.ts` — Supabase client singleton (uses `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`)
-- `lib/database.types.ts` — auto-generated from Supabase schema; regenerate after migrations
-- `lib/generation.ts` — `buildPrompt()` (kanji constraint + Aozora ruby annotation rules), `computeDifficulty()`
-- `lib/furigana.ts` — parses `kanji《reading》` Aozora ruby blocks emitted by the LLM
-- `lib/text.ts` — sentence boundary, markdown cleanup
-- `lib/tokenizer.ts` — kuromoji morphological analyzer (loads dict from `/dict/`)
-- `lib/dictionary.ts` — JPDict (IndexedDB) word lookup
-- `lib/lookupAtCursor.ts`, `lib/japaneseDeinflect.ts`, `lib/japaneseTransforms.ts`, `lib/languageTransformer.ts` — word-at-cursor + verb/adjective base-form recovery
-- `lib/constants.ts` — `KANJI_REGEX`, `KANJI_REGEX_G`
-- `api/client.ts` — all data ops: `getKanji`/`toggleKanji`/`bulkUpdateKanji` (RPC `get_user_kanji`), CRUD for stories, `generateStory`/`generateAudio`/`askWord` (invoke Edge Functions), profile + API key management
-- `contexts/AuthContext.tsx` — session, user, profile, sign in/out
-- `contexts/GenerationContext.tsx` — story generation state machine (streams SSE → parses ruby → saves)
-- `contexts/KanjiContext.tsx` — known-kanji state, filter selections
-- `contexts/DictionaryContext.tsx` — dictionary lookup cache
-- `hooks/useAudioPlayer.ts` — playback + token-by-token sync against `audio.tokens`
-- `hooks/useIsMobile.ts` — responsive breakpoint
-- `pages/`: `Login`, `Generator`, `Stories`, `StoryDetail`, `KanjiManager`, `Settings`
-- `components/`: `AppLayout`, `ProtectedRoute`, `ErrorBoundary`, `StoryDisplay` (renders `<ruby>` annotations + click-to-ask), `PlaybackFooter`, `StoryReadButton`, `WordPopover`, `KanjiInlineDetail`, `DifficultyBadge`, `AnimatedDots`
-- `types/index.ts` — shared interfaces (`Kanji`, `Story`, `StoryFilters`, `StoryAudio`, `WordThread`, `Profile`)
-- Tests: `*.test.ts` colocated under `lib/` and `api/` (Vitest)
+- **`lib/`** — pure utilities, no React imports. Notable: `generation.ts` (`buildPrompt()` + `computeDifficulty()`), `furigana.ts` (parses Aozora `kanji《reading》` ruby blocks), `tokenizer.ts` (kuromoji; loads dict from `/dict/`), `dictionary.ts` (JPDict IndexedDB lookup), `askChips.ts` (chip definitions; each chip's `prompt` is the hidden first turn of its thread), and the word-at-cursor stack (`lookupAtCursor`, `japaneseDeinflect`, `japaneseTransforms`, `languageTransformer`). `database.types.ts` is auto-generated — regenerate after migrations.
+- **`api/client.ts`** — single boundary for all data ops: kanji (RPC `get_user_kanji`), story CRUD, Edge Function invocations (`generateStory`/`generateAudio`/`askWord`), profile + Vault-backed API key management. Snake↔camel conversion happens here.
+- **`contexts/`** — `AuthContext` (session/profile), `GenerationContext` (story-generation state machine, SSE → ruby parse → save), `KanjiContext` (known-state + filters), `DictionaryContext` (lookup cache).
+- **`components/`** — notable behaviors: `StoryDisplay` renders `<ruby>` annotations + click-to-ask; `WordPopover` is chip-only (no free-form input; helpers in `wordPopoverHelpers.ts`).
+- **`hooks/useAudioPlayer`** — playback + token-by-token sync against `audio.tokens`.
+- **`types/index.ts`** — shared interfaces (`Kanji`, `Story`, `StoryFilters`, `StoryAudio`, `WordThread`, `Profile`).
+- **Tests** — Vitest, colocated `*.test.ts`. Pure-lib only — no React rendering tests. `src/test/setup.ts` stubs Vite env vars so `lib/supabase.ts` is importable transitively.
 
 ### Supabase (`supabase/`)
 
-- `config.toml` — local CLI config
-- `seed.sql` — 2,140 joyo kanji reference data
-- `migrations/` — timestamped SQL files (`YYYYMMDDHHMMSS_*.sql`). Schema has evolved: initial schema → preferences → content type → composite indexes → security hardening → audio columns → markdown cleanup → annotations → explanations (replaces annotations) → storage policies → read tracking → **Vault helpers** (latest, `20260427100000_use_vault_helpers.sql`)
-- `functions/_shared/` — `openrouter.ts`, `story.ts`, `text.ts`, `word-thread.ts` (shared by edge functions)
-- `functions/generate-story/index.ts` — main story generation; auths user via JWT, fetches OpenRouter key from Vault RPC, calls OpenRouter (`anthropic/claude-opus-4.7`) with `reasoning.max_tokens: 6000` and `max_tokens: 16000`, 120s timeout, streams SSE through to client. Maps 401/402/429 to user-friendly errors.
-- `functions/ask-word/index.ts` — single-turn LLM Q&A keyed by chip id on a selected word/range within a story; appends to `stories.explanations` JSONB at `[${start}-${end}][thread_id]`. `thread_id` is a chip id from `client/src/lib/askChips.ts` (legacy `"custom"` entries from earlier rounds may still exist in the DB but the UI never surfaces them). The first user turn of any thread is the chip prompt; the UI hides `messages[0]` and shows just the model's reply. The popover has no free-form input or follow-up affordance — chip click is the only way to ask. Uses Sonnet-tier model with 600 token cap.
-- `functions/generate-audio/index.ts` — TTS for stories; persists path + tokens + sync points into `stories.audio` JSONB
-- `functions/openrouter-usage/index.ts` — surfaces OpenRouter credit/usage to the client
+- `config.toml` — local CLI config; `db.seed.sql_paths` runs both `seed.sql` and `seed_dev.sql` on `db reset`.
+- `seed.sql` — joyo kanji reference data (regenerated from `data/kanji.json` via `npm run generate-seed`).
+- `seed_dev.sql` — dev test user (`dev@local.test` / `devpassword`), grade 1–3 kanji marked known, sample stories. Idempotent on re-runs.
+- `migrations/` — timestamped SQL files (`YYYYMMDDHHMMSS_*.sql`). Run `ls supabase/migrations/` for current state.
+- `functions/_shared/` — utilities shared by Edge Functions (`openrouter.ts`, `story.ts`, `text.ts`, `word-thread.ts`).
+- `functions/generate-story/` — main story generation. Auths user via JWT, fetches OpenRouter key from Vault RPC, streams SSE through to client. Pins to a single model via `ALLOWED_MODELS` allow-list (see `generate-story/index.ts:9`). Maps 401/402/429 to user-friendly errors.
+- `functions/ask-word/` — single-turn LLM Q&A keyed by chip id on a selected word/range. Appends to `stories.explanations` JSONB at `["${start}-${end}"]["${thread_id}"]` where `thread_id` is a chip id from `client/src/lib/askChips.ts`. The first user turn of each thread is the chip prompt (seed); the UI hides `messages[0]` and shows just the model's reply. The popover has no free-form input — chip click is the only way to ask.
+- `functions/generate-audio/` — Azure Neural TTS; persists path + tokens + sync points into `stories.audio` JSONB and uploads MP3 to the `story-audio` Storage bucket. Returns 500 *"Azure TTS is not configured"* if `AZURE_SPEECH_KEY` or `AZURE_SPEECH_REGION` is unset.
+- `functions/openrouter-usage/` — surfaces OpenRouter credit/usage to the client.
 
 ## Data Model
 
 - `kanji` — reference data (read-only). `character` PK, `grade` (1-6, 8=secondary), `jlpt` (5=easiest, 1=hardest, NULL allowed), `meanings`, `readings_on`, `readings_kun`
-- `user_kanji` — per-user known state. Composite PK `(user_id, character)`. Missing row = unknown.
-- `stories` — per-user stories. Columns include `title`, `content`, `paragraphs`, `topic`, `formality` (`impolite`/`casual`/`polite`/`keigo`), `content_type` (`story`/`dialogue`/`essay`), `filters` JSONB, `allowed_kanji`, `difficulty` JSONB, `audio` JSONB (`{path, duration_ms, voice, version, tokens, paragraphs, sentences?}`), `explanations` JSONB (`{ "start-end": { "<thread_id>": { version, messages } } }` — `thread_id` is `"custom"` or a chip id from `askChips.ts`; chip-thread `messages[0]` is the hidden chip prompt seed), `read_at`, `created_at`. RLS-scoped.
-- `profiles` — auto-created on signup. Stores `display_name`, `preferred_model`, `preferred_formality`, `preferred_paragraphs`, `preferred_content_type`, and `openrouter_api_key_secret_id` (UUID reference into Supabase Vault — the actual key is encrypted, never stored in plaintext on `profiles`).
+- `user_kanji` — per-user known state. Composite PK `(user_id, character)`, `known BOOLEAN NOT NULL DEFAULT true`. The client deletes the row to mark unknown.
+- `stories` — per-user stories. Columns include `title`, `content`, `paragraphs`, `topic`, `formality` (`impolite`/`casual`/`polite`/`keigo`), `content_type` (`story`/`dialogue`/`essay`), `filters` JSONB, `allowed_kanji` (TEXT — concatenated kanji string, not JSON), `difficulty` JSONB, `audio` JSONB nullable (`{path, duration_ms, voice, version, tokens, paragraphs, sentences?}`), `explanations` JSONB nullable (`{ "start-end": { "<chip_id>": { version, messages } } }` where `messages[0]` is the hidden chip prompt seed), `read_at`, `created_at`. RLS-scoped.
+- `profiles` — auto-created on signup by the `handle_new_user()` trigger. Stores `display_name`, `openrouter_api_key_secret_id` (UUID reference into Supabase Vault — the actual key is encrypted, never stored in plaintext on `profiles`), and `preferred_*` columns (model, formality, paragraphs, content_type) used as Generator defaults.
 
 RLS policies: `kanji` readable by authenticated users; `user_kanji`/`stories`/`profiles` scoped to `auth.uid()`.
 
 ## Key RPCs
 
-- `get_user_kanji()` — returns all 2,140 kanji joined with `COALESCE(user_kanji.known, false)` for the calling user. Avoids pre-populating 2,140 rows per user.
+- `get_user_kanji()` — returns every kanji joined with `COALESCE(user_kanji.known, false)` for the calling user. Avoids pre-populating one row per kanji per user.
+- `user_underused_kanji(p_limit INT DEFAULT 20)` — returns the caller's known kanji ordered by exposure ASC, grade DESC, character (deterministic, no random tiebreaker). Used by the Generator to suggest under-exposed kanji to inject into the prompt.
+- `set_openrouter_api_key(key text)` / `clear_openrouter_api_key()` — user-callable; manage the Vault secret tied to the caller's profile. `set_…` self-heals if a stored secret-id no longer resolves in `vault.decrypted_secrets` (e.g., after `npm run sync-prod`).
 - `get_openrouter_api_key_for_user(p_user_id uuid)` — service-role RPC that decrypts the Vault secret. Called only by Edge Functions.
-- `set_openrouter_api_key(key text)` / `clear_openrouter_api_key()` — user-callable; manage the Vault secret tied to the caller's profile.
+- `strip_ruby(t text)` / `clean_generated_text(t text)` — text helpers used internally by `user_underused_kanji` and migrations.
 
 ## Key Details
 
 - Kanji grades use kanjiapi.dev convention: 1-6 for elementary, 8 for secondary (no grade 7).
-- JLPT levels: 5 = easiest, 1 = hardest. ~176 kanji have no JLPT classification.
+- JLPT levels: 5 = easiest, 1 = hardest. Some kanji are unclassified (NULL).
 - LLM output uses **Aozora ruby** notation: `kanji《reading》`. The prompt instructs character-level (not word-level) rubies, fall back to hiragana when a kanji is not in the allow-list. `lib/furigana.ts` parses this on the client.
 - Story generation **streams SSE** through the Edge Function rather than retrying server-side. Validation (any kanji outside allow-list) runs client-side after streaming completes; retry is whole-request from the client.
 - Edge Functions read the OpenRouter API key from **Supabase Vault** via a service-role RPC (not from a plaintext profile column).
-- OpenRouter API is OpenAI-compatible (`/v1/chat/completions`). Story generation pins `anthropic/claude-opus-4.7` (`ALLOWED_MODELS` allow-list in `generate-story/index.ts:9`); ask-word uses a Sonnet-tier model.
+- OpenRouter API is OpenAI-compatible (`/v1/chat/completions`). Story generation enforces an `ALLOWED_MODELS` allow-list (see `generate-story/index.ts:9` for the current pin); ask-word pins its own model with a per-request token cap (see `ask-word/index.ts`).
 - The `postinstall` script copies `@aiktb/kuromoji` dict files into `client/public/dict/` so the tokenizer can fetch them at runtime — do not delete `client/public/dict/` after install.
-- Client env vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Edge Functions read `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from the Deno env.
-- `spec.md` is the original v1 spec and references an Express/SQLite/Ollama stack that no longer applies; treat it as historical context for product intent only.
-- `generation-strategies.md` documents prompt-engineering tradeoffs explored during development.
-- `audits/` holds dated review docs (e.g., `supabase-audit-2026-04-10.md`).
+- All local-dev env vars live in a single project-root `.env.local` (gitignored — see `.env.local.example`). Vite reads it via `envDir` set in `client/vite.config.ts`; `supabase functions serve --env-file .env.local` loads it for Edge Functions. Only `VITE_*` vars are exposed to the browser bundle. Vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (client → Supabase), `AZURE_SPEECH_KEY` + `AZURE_SPEECH_REGION` (optional, enables local audio). Edge Functions also see `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from the Deno env automatically.
+- Local dev user: `supabase start` and `db reset` apply both `supabase/seed.sql` (kanji reference data) and `supabase/seed_dev.sql` (test account `dev@local.test` / `devpassword`, grade 1–3 kanji marked known, sample stories). The OpenRouter key is not seeded — log in and paste it in Settings (it goes through the existing `set_openrouter_api_key()` RPC into Vault). Audio works locally too: set the Azure env vars and serve functions with `--env-file .env.local`; seeded stories have `audio = NULL` and regenerate on first play exactly like fresh ones.
 
 ## Conventions
 
