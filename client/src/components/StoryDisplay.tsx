@@ -254,12 +254,21 @@ export default function StoryDisplay({
                 {para.sentences.map((sent) => (
                   <span
                     key={sent.audioIdx}
+                    role="button"
+                    tabIndex={0}
                     className={`story-sentence${
                       activeSegmentIdx === sent.audioIdx ? " active" : ""
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
                       onSentenceClick?.(sent.audioIdx);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onSentenceClick?.(sent.audioIdx);
+                      }
                     }}
                   >
                     {sent.tokens.map((tok) => {
@@ -281,6 +290,7 @@ export default function StoryDisplay({
                           type="button"
                           className="word-token"
                           data-offset={tok.offset}
+                          aria-label={tok.s}
                           onClick={(e) => handleWordClick(e, sent.audioIdx)}
                           onDoubleClick={(e) =>
                             handleWordDoubleClick(e, tok.offset)

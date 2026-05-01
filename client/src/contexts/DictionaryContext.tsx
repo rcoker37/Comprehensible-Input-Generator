@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -51,8 +52,13 @@ export function DictionaryProvider({ children }: { children: ReactNode }) {
     });
   }, [user]);
 
+  const value = useMemo(
+    () => ({ state, error, lookupWord, lookupKanji }),
+    [state, error]
+  );
+
   return (
-    <DictionaryContext.Provider value={{ state, error, lookupWord, lookupKanji }}>
+    <DictionaryContext.Provider value={value}>
       {children}
     </DictionaryContext.Provider>
   );

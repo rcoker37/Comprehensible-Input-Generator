@@ -1,7 +1,9 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -35,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -60,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Failed to fetch profile:", err);
       setProfile(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Use refreshSession instead of getSession to ensure a fresh token
@@ -88,52 +90,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) throw error;
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
-  };
+  }, []);
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
     });
     if (error) throw error;
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-  };
+  }, []);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) await fetchProfile(user.id);
-  };
+  }, [user, fetchProfile]);
 
-  return (
-    <AuthContext.Provider
-      value={{
-        session,
-        user,
-        profile,
-        loading,
-        signIn,
-        signUp,
-        signInWithGoogle,
-        signOut,
-        refreshProfile,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      session,
+      user,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      refreshProfile,
+    }),
+    [
+      session,
+      user,
+      profile,
+      loading,
+      signIn,
+      signUp,
+      signInWithGoogle,
+      signOut,
+      refreshProfile,
+    ]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

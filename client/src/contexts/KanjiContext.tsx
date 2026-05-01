@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { getKanji } from "../api/client";
 import { preloadTokenizer } from "../lib/tokenizer";
@@ -34,8 +34,13 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
     preloadTokenizer();
   }, [refreshKnownKanji]);
 
+  const value = useMemo(
+    () => ({ knownKanji, knownKanjiLoaded, refreshKnownKanji }),
+    [knownKanji, knownKanjiLoaded, refreshKnownKanji]
+  );
+
   return (
-    <KanjiContext.Provider value={{ knownKanji, knownKanjiLoaded, refreshKnownKanji }}>
+    <KanjiContext.Provider value={value}>
       {children}
     </KanjiContext.Provider>
   );

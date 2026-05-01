@@ -82,6 +82,10 @@ export async function tokenizeForAudio(
   let i = 0;
   while (i < tokens.length) {
     const token = tokens[i];
+    if (!token) {
+      i++;
+      continue;
+    }
     const tokenStart = charPos;
     const tokenEnd = tokenStart + token.surface_form.length;
 
@@ -99,8 +103,10 @@ export async function tokenizeForAudio(
       let mergedEnd = tokenEnd;
       let j = i + 1;
       while (mergedEnd < straddling.end && j < tokens.length) {
-        mergedSurface += tokens[j].surface_form;
-        mergedEnd += tokens[j].surface_form.length;
+        const next = tokens[j];
+        if (!next) break;
+        mergedSurface += next.surface_form;
+        mergedEnd += next.surface_form.length;
         j++;
       }
       const reading = tokenReadingFromAnnotations(

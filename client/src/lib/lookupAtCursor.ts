@@ -101,12 +101,16 @@ function getScript(ch: string): Script {
 
 export function scanLengthFromCursor(text: string, offset: number): number {
   if (offset >= text.length) return 0;
-  const start = getScript(text[offset]);
+  const startCh = text[offset];
+  if (startCh === undefined) return 0;
+  const start = getScript(startCh);
   if (start === "other") return 1;
   const katakanaRun = start === "kata";
   let len = 1;
   while (offset + len < text.length) {
-    const s = getScript(text[offset + len]);
+    const ch = text[offset + len];
+    if (ch === undefined) break;
+    const s = getScript(ch);
     if (s === "other") break;
     if (katakanaRun ? s !== "kata" : s === "kata") break;
     len++;

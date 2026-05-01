@@ -20,8 +20,8 @@ describe("pairThreadMessages", () => {
   it("hides the seed user turn and shows its reply alone", () => {
     const pairs = pairThreadMessages([user("chip prompt"), assistant("A0")]);
     expect(pairs).toHaveLength(1);
-    expect(pairs[0].q).toBeNull();
-    expect(pairs[0].a?.content).toBe("A0");
+    expect(pairs[0]?.q).toBeNull();
+    expect(pairs[0]?.a?.content).toBe("A0");
   });
 
   it("hides the seed and pairs subsequent legacy follow-ups", () => {
@@ -33,10 +33,10 @@ describe("pairThreadMessages", () => {
     ];
     const pairs = pairThreadMessages(msgs);
     expect(pairs).toHaveLength(2);
-    expect(pairs[0].q).toBeNull();
-    expect(pairs[0].a?.content).toBe("A0");
-    expect(pairs[1].q?.content).toBe("follow-up");
-    expect(pairs[1].a?.content).toBe("A1");
+    expect(pairs[0]?.q).toBeNull();
+    expect(pairs[0]?.a?.content).toBe("A0");
+    expect(pairs[1]?.q?.content).toBe("follow-up");
+    expect(pairs[1]?.a?.content).toBe("A1");
   });
 
   it("hides the seed even when the reply is missing (defensive)", () => {

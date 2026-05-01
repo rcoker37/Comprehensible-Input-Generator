@@ -53,7 +53,8 @@ function findActiveSegment(segments: { t: number }[], ms: number): number {
   let active = -1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (segments[mid].t <= ms) {
+    const seg = segments[mid];
+    if (seg && seg.t <= ms) {
       active = mid;
       lo = mid + 1;
     } else {
