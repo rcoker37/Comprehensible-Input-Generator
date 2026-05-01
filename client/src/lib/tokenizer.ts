@@ -1,5 +1,4 @@
 import kuromoji from "@aiktb/kuromoji";
-import { KANJI_REGEX } from "./constants";
 import {
   tokenReadingFromAnnotations,
   type FuriganaAnnotation,
@@ -38,11 +37,6 @@ function katakanaToHiragana(str: string): string {
   return str.replace(/[\u30A1-\u30F6]/g, (ch) =>
     String.fromCharCode(ch.charCodeAt(0) - 0x60)
   );
-}
-
-export interface FuriganaSegment {
-  text: string;
-  reading?: string;
 }
 
 /**
@@ -137,79 +131,4 @@ export async function tokenizeForAudio(
   }
 
   return out;
-}
-
-/**
- * Tokenize Japanese text and produce furigana segments, only attaching
- * readings to kanji the user doesn't know. When `annotations` are supplied
- * (LLM-provided ruby), they override kuromoji's dictionary readings. Merges
- * kuromoji tokens the same way tokenizeForAudio does when an annotation
- * spans across a kuromoji split.
- */
-export async function getFurigana(
-  text: string,
-  unknownKanji: Set<string>,
-  annotations: FuriganaAnnotation[] = []
-): Promise<FuriganaSegment[]> {
-  const t = await getTokenizer();
-  const tokens = t.tokenize(text);
-  const segments: FuriganaSegment[] = [];
-
-  let charPos = 0;
-  let i = 0;
-  while (i < tokens.length) {
-    const token = tokens[i];
-    const tokenStart = charPos;
-    const tokenEnd = tokenStart + token.surface_form.length;
-
-    const straddling = annotations.find(
-      (a) => a.start >= tokenStart && a.start < tokenEnd && a.end > tokenEnd
-    );
-
-    let surface: string;
-    let start: number;
-    let kuromojiReading: string | undefined;
-    if (straddling) {
-      let mergedSurface = token.surface_form;
-      let mergedEnd = tokenEnd;
-      let j = i + 1;
-      while (mergedEnd < straddling.end && j < tokens.length) {
-        mergedSurface += tokens[j].surface_form;
-        mergedEnd += tokens[j].surface_form.length;
-        j++;
-      }
-      surface = mergedSurface;
-      start = tokenStart;
-      kuromojiReading = undefined;
-      charPos = mergedEnd;
-      i = j;
-    } else {
-      surface = token.surface_form;
-      start = tokenStart;
-      kuromojiReading =
-        token.reading && token.reading !== "*"
-          ? katakanaToHiragana(token.reading)
-          : undefined;
-      charPos = tokenEnd;
-      i++;
-    }
-
-    const hasUnknown = [...surface].some(
-      (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
-    );
-    if (!hasUnknown) {
-      segments.push({ text: surface });
-      continue;
-    }
-
-    const reading = tokenReadingFromAnnotations(
-      surface,
-      start,
-      annotations,
-      kuromojiReading
-    );
-    segments.push(reading ? { text: surface, reading } : { text: surface });
-  }
-
-  return segments;
 }
