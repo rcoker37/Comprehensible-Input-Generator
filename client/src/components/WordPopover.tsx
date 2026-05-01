@@ -1,10 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   useFloating,
-  autoUpdate,
-  offset,
-  flip,
-  shift,
   useDismiss,
   useRole,
   useInteractions,
@@ -20,7 +16,6 @@ import { KANJI_REGEX } from "../lib/constants";
 import { parseAnnotatedText } from "../lib/furigana";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
-import { useIsMobile } from "../hooks/useIsMobile";
 import AnimatedDots from "./AnimatedDots";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
 import { pairThreadMessages } from "./wordPopoverHelpers";
@@ -86,8 +81,8 @@ export default function WordPopover({
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
   const [activeChipId, setActiveChipId] = useState<string | null>(null);
   const [pending, setPending] = useState<boolean>(false);
+  const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const isMobile = useIsMobile();
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const userAskedRef = useRef(false);
   // Mirrors `pending` but updates synchronously so a second click in the
@@ -96,12 +91,9 @@ export default function WordPopover({
   // server, and produce a thread with duplicated seed/reply turns.
   const pendingRef = useRef(false);
 
-  const { refs, floatingStyles, context } = useFloating({
+  const { refs, context } = useFloating({
     open,
     onOpenChange,
-    placement: "bottom",
-    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
-    whileElementsMounted: isMobile ? undefined : autoUpdate,
     elements: { reference: referenceEl },
   });
 
@@ -120,6 +112,7 @@ export default function WordPopover({
     setHit(null);
     setActiveChipId(null);
     setPending(false);
+    setIsRegenerating(false);
     userAskedRef.current = false;
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [open, cursorOffset]);
@@ -233,6 +226,37 @@ export default function WordPopover({
     })();
   };
 
+  const handleRegenerate = () => {
+    if (!hit || pendingRef.current || !activeChipId) return;
+    const chip = ASK_CHIPS.find((c) => c.id === activeChipId);
+    if (!chip) return;
+
+    userAskedRef.current = true;
+    pendingRef.current = true;
+    setPending(true);
+    setIsRegenerating(true);
+    setError(null);
+    void (async () => {
+      try {
+        const updated = await askWord(
+          storyId,
+          hit.start,
+          hit.end,
+          chip.id,
+          chip.prompt,
+          true
+        );
+        onThreadUpdated(rangeKey(hit), chip.id, updated);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Regenerate failed");
+      } finally {
+        pendingRef.current = false;
+        setPending(false);
+        setIsRegenerating(false);
+      }
+    })();
+  };
+
   if (!open || !referenceEl) return null;
 
   const primary = hit?.results[0];
@@ -245,7 +269,10 @@ export default function WordPopover({
   const baseReading = hit?.base ? primary?.r?.[0]?.ent : undefined;
 
   const showResponseArea = activeChipId !== null;
-  const showAskingPlaceholder = pending && askPairs.length === 0;
+  const visibleAskPairs = isRegenerating ? [] : askPairs;
+  const showAskingPlaceholder = pending && visibleAskPairs.length === 0;
+  const canRegenerate =
+    activeChipId !== null && activeChipId in rangeThreads && !pending;
 
   return (
     <FloatingPortal>
@@ -253,17 +280,13 @@ export default function WordPopover({
         <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
           <div
             ref={refs.setFloating}
-            style={
-              isMobile
-                ? {
-                    position: "fixed",
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                  }
-                : floatingStyles
-            }
-            className={`word-popover ${isMobile ? "word-popover--centered" : ""}`}
+            style={{
+              position: "fixed",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+            }}
+            className="word-popover"
             {...getFloatingProps()}
           >
             <button
@@ -381,7 +404,7 @@ export default function WordPopover({
 
                 {showResponseArea && (
                   <div className="word-popover__thread-scroll" role="tabpanel">
-                    {askPairs.map((pair, i) => (
+                    {visibleAskPairs.map((pair, i) => (
                       <div key={i} className="word-popover__qa">
                         {pair.q && (
                           <div className="word-popover__msg-user">
@@ -399,6 +422,15 @@ export default function WordPopover({
                       <div className="word-popover__asking">
                         Loading<AnimatedDots />
                       </div>
+                    )}
+                    {canRegenerate && (
+                      <button
+                        type="button"
+                        className="word-popover__regenerate"
+                        onClick={handleRegenerate}
+                      >
+                        ↻ Regenerate
+                      </button>
                     )}
                   </div>
                 )}

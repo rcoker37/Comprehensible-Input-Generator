@@ -7,8 +7,8 @@
 
 .word-popover {
   z-index: 1000;
-  max-width: min(22rem, 90vw);
-  max-height: 90vh;
+  width: min(700px, 90vw);
+  max-height: min(700px, 90vh);
   background: var(--bg-card, var(--bg, #1e1e22));
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -19,8 +19,11 @@
   font-size: 0.9rem;
 }
 
-.word-popover--centered {
-  width: min(90vw, 22rem);
+@media (max-width: 600px) {
+  .word-popover {
+    width: min(90vw, 22rem);
+    max-height: 90vh;
+  }
 }
 
 .word-popover__body {
@@ -268,4 +271,18 @@
 .word-popover__error {
   font-size: 0.78rem;
   color: var(--error, #d66);
+}
+
+.word-popover__regenerate {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.2rem 0;
+}
+
+.word-popover__regenerate:hover {
+  color: var(--accent);
 }
