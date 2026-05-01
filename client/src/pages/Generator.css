@@ -64,11 +64,6 @@ label:has(input[type="checkbox"]) {
   cursor: pointer;
 }
 
-.kanji-count {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-
 .generate-btn {
   padding: 0.75rem 2rem;
   background: var(--accent);
