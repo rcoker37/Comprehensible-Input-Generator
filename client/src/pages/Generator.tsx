@@ -46,7 +46,7 @@ export default function Generator() {
     const userId = user?.id;
     if (!userId) return;
     let cancelled = false;
-    getUnderusedKanji(20)
+    getUnderusedKanji(10)
       .then((kanji) => {
         if (!cancelled) setUnderusedKanji(kanji);
       })
