@@ -98,7 +98,7 @@ export default function Generator() {
 
       {profileLoaded && !hasKey && (
         <div className="warning" role="alert">
-          You need an OpenRouter API key to generate stories.{" "}
+          You need an OpenRouter API key to generate compositions.{" "}
           <Link to="/settings">Add one in Settings →</Link>
         </div>
       )}

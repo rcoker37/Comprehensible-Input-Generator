@@ -85,7 +85,7 @@ export default function Settings() {
             autoComplete="off"
           />
           <span className="field-hint">
-            Get a key at openrouter.ai. Required to generate stories. Keys are
+            Get a key at openrouter.ai. Required to generate compositions. Keys are
             stored encrypted server-side and never returned to the browser.
           </span>
         </div>
