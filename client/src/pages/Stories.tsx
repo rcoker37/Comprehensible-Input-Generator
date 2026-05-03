@@ -24,21 +24,21 @@ export default function Stories() {
   useEffect(() => {
     getStories()
       .then(setStories)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load stories"))
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load compositions"))
       .finally(() => setLoading(false));
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm("Delete this story? This cannot be undone.")) return;
+    if (!window.confirm("Delete this composition? This cannot be undone.")) return;
     try {
       await deleteStory(id);
       setStories((prev) => prev.filter((s) => s.id !== id));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete story");
+      setError(err instanceof Error ? err.message : "Failed to delete composition");
     }
   };
 
-  if (loading) return <div className="loading">Loading stories...</div>;
+  if (loading) return <div className="loading">Loading compositions...</div>;
 
   const visibleStories = stories.filter((s) => {
     if (readFilter === "unread") return s.read_at == null;
@@ -68,9 +68,9 @@ export default function Stories() {
         </div>
       )}
       {stories.length === 0 ? (
-        <p className="empty">No stories yet. Generate one from the home page!</p>
+        <p className="empty">No compositions yet. Generate one from the home page!</p>
       ) : visibleStories.length === 0 ? (
-        <p className="empty">No stories match this filter.</p>
+        <p className="empty">No compositions match this filter.</p>
       ) : (
         <div className="story-list">
           {visibleStories.map((story) => (

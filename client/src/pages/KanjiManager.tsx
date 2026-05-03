@@ -249,9 +249,9 @@ export default function KanjiManager() {
                 key={k.character}
                 className={`kanji-cell ${k.known ? "known" : ""}${toggling.has(k.character) ? " toggling" : ""}`}
                 onClick={() => handleToggle(k.character)}
-                aria-label={`${k.character}: ${k.meanings}. Appears ${count} time${count === 1 ? "" : "s"} in read stories.`}
+                aria-label={`${k.character}: ${k.meanings}. Appears ${count} time${count === 1 ? "" : "s"} in read compositions.`}
                 aria-pressed={k.known}
-                title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}\nAppears ${count} time${count === 1 ? "" : "s"} in read stories`}
+                title={`${k.meanings}\nGrade ${k.grade}${k.jlpt ? ` | N${k.jlpt}` : ""}\nAppears ${count} time${count === 1 ? "" : "s"} in read compositions.`}
               >
                 <span className="kanji-count" aria-hidden="true">{count}</span>
                 <span className="kanji-char">{k.character}</span>

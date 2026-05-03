@@ -5,16 +5,16 @@
 }
 
 :root {
-  --bg: #1a1a2e;
-  --surface: #16213e;
-  --surface-2: #0f3460;
-  --accent: #e94560;
-  --accent-soft: #e9456033;
+  --bg: #14140F;
+  --surface: #053D38;
+  --surface-2: #34675C33;
+  --accent: #F26800;
+  --accent-soft: #F2680050;
   --text: #eee;
-  --text-dim: #999;
-  --border: #333;
-  --success: #4caf50;
-  --success-soft: #4caf5033;
+  --text-dim: #B2BEB5;
+  --border: #A3CCAB;
+  --success: #A3CCAB;
+  --success-soft: #34675C;
   --radius: 8px;
 }
 

@@ -54,7 +54,7 @@ export default function StoryDetail() {
           className="story-detail-back"
           onClick={() => navigate("/stories")}
         >
-          &larr; Stories
+          &larr; Compositions
         </button>
         <div className="story-detail-actions-right">
           {player.audio ? (
