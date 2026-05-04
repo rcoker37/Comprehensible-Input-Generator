@@ -12,7 +12,7 @@ import { useDictionary } from "../contexts/DictionaryContext";
 import { askWord } from "../api/client";
 import { ASK_CHIPS, type AskChip } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
-import { parseAnnotatedText } from "../lib/furigana";
+import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
 import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
@@ -24,6 +24,7 @@ import "./WordPopover.css";
 interface WordPopoverProps {
   storyId: number;
   cleanText: string;
+  annotations: FuriganaAnnotation[];
   offset: number | null;
   wordThreads: StoryWordThreads;
   referenceEl: HTMLElement | null;
@@ -63,6 +64,7 @@ function renderAssistant(content: string): ReactNode {
 export default function WordPopover({
   storyId,
   cleanText,
+  annotations,
   offset: cursorOffset,
   wordThreads,
   referenceEl,
@@ -122,7 +124,7 @@ export default function WordPopover({
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    lookupAtCursor(cleanText, cursorOffset)
+    lookupAtCursor(cleanText, cursorOffset, annotations)
       .then((result) => {
         if (cancelled) return;
         setHit(result);
@@ -133,7 +135,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, cursorOffset, cleanText, dictState]);
+  }, [open, cursorOffset, cleanText, annotations, dictState]);
 
   const rangeThreads = useMemo(
     () => (hit ? wordThreads[rangeKey(hit)] ?? {} : {}),
@@ -263,8 +265,12 @@ export default function WordPopover({
   // The JMdict reading is for the dictionary form; rendering it as ruby over
   // the surface is misleading whenever the surface is an inflection (e.g.
   // つかう over 使われる). Only show ruby when the lookup didn't deinflect; if
-  // it did, the chain below carries the base + its reading.
-  const headerReading = hit?.base ? undefined : primary?.r?.[0]?.ent;
+  // it did, the chain below carries the base + its reading. preferredReading,
+  // when present, comes from the LLM's ruby annotation and beats r[0] (e.g.
+  // にほん rather than にっぽん for 日本《にほん》).
+  const headerReading = hit?.base
+    ? undefined
+    : hit?.preferredReading ?? primary?.r?.[0]?.ent;
   const baseReading = hit?.base ? primary?.r?.[0]?.ent : undefined;
 
   const showResponseArea = activeChipId !== null;
