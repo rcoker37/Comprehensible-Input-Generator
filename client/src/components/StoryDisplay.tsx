@@ -312,6 +312,7 @@ export default function StoryDisplay({
       <WordPopover
         storyId={story.id}
         cleanText={cleanContent}
+        annotations={rubyAnnotations}
         offset={activeTap?.offset ?? null}
         wordThreads={wordThreads}
         referenceEl={activeTap?.el ?? null}

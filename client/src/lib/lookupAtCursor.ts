@@ -8,6 +8,10 @@
 import type { WordResult } from "@birchill/jpdict-idb";
 import { deinflect, posMatches, type DeinflectionCandidate } from "./japaneseDeinflect";
 import { lookupWord } from "./dictionary";
+import {
+  tokenReadingFromAnnotations,
+  type FuriganaAnnotation,
+} from "./furigana";
 
 const MAX_LOOKUP_LEN = 16;
 
@@ -24,6 +28,14 @@ export interface LookupHit {
   derivations?: string[];
   /** JMdict hits — empty when no dictionary entry exists for the tapped span. */
   results: WordResult[];
+  /**
+   * The LLM-provided reading for this span when it matches one of the JMdict
+   * entries' readings — used by the popover to display the disambiguated
+   * reading (e.g. にほん rather than にっぽん for 日本《にほん》). Unset when
+   * the LLM didn't annotate the span, when no JMdict entry agrees with the
+   * annotation, or when the hit was deinflected.
+   */
+  preferredReading?: string;
 }
 
 /**
@@ -31,10 +43,16 @@ export interface LookupHit {
  * candidates at each length, returning the first span that has a dictionary
  * hit. Falls back to a single-character hit with empty results so the popover
  * always has a span to anchor the Explain affordance on.
+ *
+ * `annotations` are the LLM-provided ruby readings parsed from Aozora notation.
+ * When supplied, an exact-match hit is post-processed via `applyAnnotatedReading`
+ * so the WordResult whose reading agrees with the LLM is hoisted to the front
+ * and surfaced as `preferredReading`.
  */
 export async function lookupAtCursor(
   text: string,
-  offset: number
+  offset: number,
+  annotations: FuriganaAnnotation[] = []
 ): Promise<LookupHit | null> {
   if (offset < 0 || offset >= text.length) return null;
 
@@ -51,7 +69,10 @@ export async function lookupAtCursor(
 
     const exact = await lookupWord(prefix);
     if (exact.length > 0) {
-      return { start: offset, end: offset + len, surface: prefix, results: exact };
+      return applyAnnotatedReading(
+        { start: offset, end: offset + len, surface: prefix, results: exact },
+        annotations
+      );
     }
 
     for (const c of deinflect(prefix)) {
@@ -78,6 +99,46 @@ export async function lookupAtCursor(
     surface: text.slice(offset, offset + 1),
     results: [],
   };
+}
+
+/**
+ * Re-rank `hit.results` using the LLM-provided reading for the matched span.
+ * If any WordResult lists a reading equal to the annotation reading, hoist it
+ * to the front and stamp the hit with `preferredReading`. Deinflected hits are
+ * returned untouched (the annotation reading describes the inflected surface,
+ * not the lemma's r.ent — comparing them would produce false negatives).
+ *
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function applyAnnotatedReading(
+  hit: LookupHit,
+  annotations: FuriganaAnnotation[]
+): LookupHit {
+  if (hit.base || annotations.length === 0 || hit.results.length === 0) {
+    return hit;
+  }
+  const annotatedReading = tokenReadingFromAnnotations(
+    hit.surface,
+    hit.start,
+    annotations,
+    undefined
+  );
+  if (!annotatedReading) return hit;
+
+  const matchIdx = hit.results.findIndex((wr) =>
+    wr.r?.some((r) => r.ent === annotatedReading)
+  );
+  if (matchIdx === -1) return hit;
+
+  const results =
+    matchIdx === 0
+      ? hit.results
+      : [
+          hit.results[matchIdx]!,
+          ...hit.results.slice(0, matchIdx),
+          ...hit.results.slice(matchIdx + 1),
+        ];
+  return { ...hit, results, preferredReading: annotatedReading };
 }
 
 type Script = "hira" | "kata" | "kanji" | "other";
