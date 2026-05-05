@@ -33,7 +33,7 @@ export default function Generator() {
   const { user, profile } = useAuth();
   const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt } = useGeneration();
   const player = useAudioPlayer(story, setStoryAudio);
-  const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "story");
+  const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "fiction");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
@@ -107,7 +107,7 @@ export default function Generator() {
         <div className="form-group">
           <label>Type</label>
           <div className="chip-group" role="radiogroup" aria-label="Content type">
-            {(["story", "dialogue", "essay"] as ContentType[]).map((t) => (
+            {(["fiction", "nonfiction"] as ContentType[]).map((t) => (
               <button
                 key={t}
                 className={`chip ${contentType === t ? "active" : ""}`}
@@ -122,7 +122,7 @@ export default function Generator() {
 
         <div className="form-row">
           <label>
-            {contentType === "dialogue" ? "Exchanges" : "Paragraphs"}
+            Paragraphs
             <select
               value={paragraphs}
               onChange={(e) => setParagraphs(Number(e.target.value))}
