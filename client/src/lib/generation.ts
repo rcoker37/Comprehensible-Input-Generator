@@ -11,21 +11,18 @@ export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
 };
 
 const CONTENT_TYPE_PREAMBLE: Record<ContentType, string> = {
-  story: "You are a Japanese language teacher writing a short story for a student learning Japanese.",
-  dialogue: "You are a Japanese language teacher writing a dialogue between two characters for a student learning Japanese.",
-  essay: "You are a Japanese language teacher writing a short non-fiction, factual, educational essay for a student learning Japanese. The essay should present accurate information on a real-world topic in an informative, expository style — not a personal narrative or fictional piece.",
+  fiction: "You are a Japanese language teacher writing a short story for a student learning Japanese.",
+  nonfiction: "You are a Japanese language teacher writing a short non-fiction, factual, educational essay for a student learning Japanese. The essay should present accurate information on a real-world topic in an informative, expository style — not a personal narrative or fictional piece.",
 };
 
 const CONTENT_TYPE_LENGTH: Record<ContentType, (n: number) => string> = {
-  story: (n) => `Write exactly ${n} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
-  dialogue: (n) => `Write exactly ${n} exchanges. Each exchange is one back-and-forth between two characters (two lines). Format each line as 「Name：dialogue」 with brief scene or action descriptions between exchanges where natural.`,
-  essay: (n) => `Write exactly ${n} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
+  fiction: (n) => `Write exactly ${n} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
+  nonfiction: (n) => `Write exactly ${n} paragraphs. Each paragraph should be at least 4-5 sentences long.`,
 };
 
 const CONTENT_TYPE_TOPIC_LABEL: Record<ContentType, string> = {
-  story: "The story should be about",
-  dialogue: "The dialogue should be about",
-  essay: "The essay should be about",
+  fiction: "The story should be about",
+  nonfiction: "The essay should be about",
 };
 
 function sanitizeUserText(raw: string): string {

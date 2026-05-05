@@ -242,7 +242,7 @@ export default function StoryDisplay({
         <h2 className="story-title">{stripAnnotations(stripBold(story.title))}</h2>
       </div>
       <div className="story-meta">
-        <span className="type-tag">{story.content_type ?? "story"}</span>
+        <span className="type-tag">{story.content_type ?? "fiction"}</span>
         <span className="formality-tag">{story.formality}</span>
         {story.topic && <span className="topic-tag">{story.topic}</span>}
       </div>

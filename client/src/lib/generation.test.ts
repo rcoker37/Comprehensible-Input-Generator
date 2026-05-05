@@ -9,74 +9,60 @@ describe("buildPrompt", () => {
   };
 
   it("includes the allowed kanji list", () => {
-    const result = buildPrompt("story", defaults.paragraphs, defaults.kanjiList, defaults.formality);
+    const result = buildPrompt("fiction", defaults.paragraphs, defaults.kanjiList, defaults.formality);
     expect(result).toContain("Allowed kanji: 日本語");
   });
 
   it("includes story preamble for story type", () => {
-    const result = buildPrompt("story", 3, "日", "polite");
+    const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).toContain("writing a short story");
   });
 
-  it("includes dialogue preamble for dialogue type", () => {
-    const result = buildPrompt("dialogue", 3, "日", "polite");
-    expect(result).toContain("writing a dialogue");
-  });
-
   it("includes essay preamble for essay type", () => {
-    const result = buildPrompt("essay", 3, "日", "polite");
+    const result = buildPrompt("nonfiction", 3, "日", "polite");
     expect(result).toContain("non-fiction, factual, educational essay");
   });
 
   it("includes the correct formality instruction", () => {
     for (const [formality, instruction] of Object.entries(FORMALITY_INSTRUCTIONS)) {
-      const result = buildPrompt("story", 3, "日", formality as "polite");
+      const result = buildPrompt("fiction", 3, "日", formality as "polite");
       expect(result).toContain(instruction);
     }
   });
 
   it("includes topic when provided", () => {
-    const result = buildPrompt("story", 3, "日", "polite", "cooking");
+    const result = buildPrompt("fiction", 3, "日", "polite", "cooking");
     expect(result).toContain("The story should be about: cooking");
   });
 
-  it("uses dialogue topic label for dialogue type", () => {
-    const result = buildPrompt("dialogue", 3, "日", "polite", "school");
-    expect(result).toContain("The dialogue should be about: school");
-  });
-
   it("omits topic line when topic is undefined", () => {
-    const result = buildPrompt("story", 3, "日", "polite");
+    const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).not.toContain("should be about");
   });
 
   it("includes paragraph count for story type", () => {
-    const result = buildPrompt("story", 5, "日", "polite");
+    const result = buildPrompt("fiction", 5, "日", "polite");
     expect(result).toContain("Write exactly 5 paragraphs");
   });
 
-  it("includes exchange count for dialogue type", () => {
-    const result = buildPrompt("dialogue", 4, "日", "polite");
-    expect(result).toContain("Write exactly 4 exchanges");
-  });
-
+  
   it("includes output-only instruction", () => {
-    const result = buildPrompt("story", 3, "日", "polite");
+    const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).toContain("Output ONLY the final content in Japanese");
   });
 
   it("omits the underused-kanji directive when not provided", () => {
-    const result = buildPrompt("story", 3, "日", "polite");
+    const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).not.toContain("seen rarely");
   });
 
   it("omits the underused-kanji directive when the list is empty", () => {
-    const result = buildPrompt("story", 3, "日", "polite", undefined, undefined, []);
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, []);
     expect(result).not.toContain("seen rarely");
   });
 
   it("includes the underused-kanji directive when characters are provided", () => {
-    const result = buildPrompt("story", 3, "日", "polite", undefined, undefined, ["漁", "傘", "磁"]);
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, ["漁", "傘", "磁"]);
     expect(result).toContain("seen rarely: 漁傘磁");
   });
 });

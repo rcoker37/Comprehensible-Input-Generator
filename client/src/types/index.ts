@@ -10,7 +10,7 @@ export interface Kanji {
 
 export type Formality = "impolite" | "casual" | "polite" | "keigo";
 
-export type ContentType = "story" | "dialogue" | "essay";
+export type ContentType = "fiction" | "nonfiction";
 
 export interface StoryFilters {
   knownOnly: boolean;
