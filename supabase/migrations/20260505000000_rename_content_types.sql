@@ -1,14 +1,14 @@
--- Migrate existing data to new values first
-UPDATE stories SET content_type = 'fiction'    WHERE content_type = 'story';
-UPDATE stories SET content_type = 'fiction'    WHERE content_type = 'dialogue';
+-- Drop the constraint first so data migrations can use the new values
+ALTER TABLE stories DROP CONSTRAINT stories_content_type_check;
+
+-- Migrate existing data to new values
+UPDATE stories SET content_type = 'fiction'    WHERE content_type IN ('story', 'dialogue', 'anime');
 UPDATE stories SET content_type = 'nonfiction' WHERE content_type = 'essay';
 
-UPDATE profiles SET preferred_content_type = 'fiction'    WHERE preferred_content_type = 'story';
-UPDATE profiles SET preferred_content_type = 'fiction'    WHERE preferred_content_type = 'dialogue';
+UPDATE profiles SET preferred_content_type = 'fiction'    WHERE preferred_content_type IN ('story', 'dialogue', 'anime');
 UPDATE profiles SET preferred_content_type = 'nonfiction' WHERE preferred_content_type = 'essay';
 
--- Replace the CHECK constraint on stories
-ALTER TABLE stories DROP CONSTRAINT stories_content_type_check;
+-- Re-add the CHECK constraint with new values
 ALTER TABLE stories ADD CONSTRAINT stories_content_type_check
   CHECK (content_type IN ('fiction', 'nonfiction'));
 ALTER TABLE stories ALTER COLUMN content_type SET DEFAULT 'fiction';
