@@ -46,6 +46,26 @@
   color: var(--text-dim);
 }
 
+.furigana-toggle {
+  margin-left: auto;
+  width: 4.5rem;
+  text-align: center;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  padding: 0.1rem 0;
+  font: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.furigana-toggle::before {
+  content: none;
+}
+
 .story-content {
   font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP",
     "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
