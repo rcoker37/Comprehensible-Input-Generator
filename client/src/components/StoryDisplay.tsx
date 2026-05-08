@@ -149,7 +149,7 @@ export default function StoryDisplay({
     offset: number;
     el: HTMLElement;
   } | null>(null);
-
+  const [furiganaState, setFuriganaState] = useState("unknown");
   useEffect(() => {
     setWordThreads(story.explanations ?? {});
   }, [story.explanations]);
@@ -245,6 +245,21 @@ export default function StoryDisplay({
         <span className="type-tag">{story.content_type ?? "fiction"}</span>
         <span className="formality-tag">{story.formality}</span>
         {story.topic && <span className="topic-tag">{story.topic}</span>}
+        <button
+          type="button"
+          className="furigana-toggle"
+          onClick={() =>
+            setFuriganaState((s) =>
+              s === "unknown" ? "all" : s === "all" ? "none" : "unknown"
+            )
+          }
+        >
+          {furiganaState === "all"
+            ? "all"
+            : furiganaState === "unknown"
+              ? "unknown"
+              : "off"}
+        </button>
       </div>
       <div className="story-content">
         {paragraphs ? (
@@ -275,7 +290,18 @@ export default function StoryDisplay({
                       const hasUnknown = [...tok.s].some(
                         (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
                       );
-                      const showRuby = hasUnknown && tok.r;
+                      let showRuby = false;
+                      switch (furiganaState) {
+                        case "all":
+                          showRuby = true;
+                          break;
+                        case "unknown":
+                          showRuby = hasUnknown;
+                          break;
+                        case "none":
+                          showRuby = false;
+                          break;
+                      }
                       const inner = showRuby ? (
                         <ruby>
                           {tok.s}
@@ -322,7 +348,7 @@ export default function StoryDisplay({
         }}
         onThreadUpdated={handleThreadUpdated}
       />
-      {unknownKanji.size > 0 && (
+      {furiganaState === "unknown" && unknownKanji.size > 0 && (
         <div className="violations">
           {unknownKanji.size} unknown kanji marked with readings:{" "}
           {[...unknownKanji].join(", ")}
