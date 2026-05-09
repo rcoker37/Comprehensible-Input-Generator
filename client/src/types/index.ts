@@ -82,8 +82,16 @@ export interface Story {
   difficulty: DifficultyEstimate;
   audio: StoryAudio | null;
   explanations: StoryWordThreads | null;
-  read_at: string | null;
+  read_count: number;
+  first_read_at: string | null;
+  last_read_at: string | null;
   created_at: string;
+}
+
+export interface StoryReadState {
+  read_count: number;
+  first_read_at: string | null;
+  last_read_at: string | null;
 }
 
 export type GenerationPhase = "thinking" | "generating";

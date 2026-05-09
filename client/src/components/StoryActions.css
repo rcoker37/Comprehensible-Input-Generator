@@ -43,6 +43,39 @@
   margin-top: 2rem;
 }
 
+.story-read-controls {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.story-read-undo-btn {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.story-read-undo-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.story-read-undo-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .story-read-btn {
   padding: 0.55rem 1.4rem;
   background: var(--accent);

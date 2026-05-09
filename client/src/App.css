@@ -98,6 +98,12 @@ body {
   color: var(--accent);
 }
 
+.nav-score {
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .nav-dict-status {
   padding: 0.25rem 0.55rem;
   border-radius: var(--radius);
@@ -343,6 +349,7 @@ button {
 .formality-tag,
 .topic-tag,
 .paragraphs-tag,
+.score-tag,
 .unknown-tag {
   display: inline-block;
   padding: 0.2rem 0.6rem;
@@ -358,6 +365,11 @@ button {
 
 .unknown-tag.none {
   color: var(--success);
+}
+
+.score-tag {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .date {

@@ -1,45 +1,91 @@
 import { useState } from "react";
-import { setStoryRead } from "../api/client";
-import type { Story } from "../types";
+import { markStoryRead, undoStoryRead } from "../api/client";
+import { useKnownKanji } from "../contexts/KanjiContext";
+import type { Story, StoryReadState } from "../types";
 
 interface Props {
   story: Story;
-  onChange: (read_at: string | null) => void;
+  onChange: (state: StoryReadState) => void;
 }
 
+// One mark per session: after the user clicks once, the primary button locks
+// and the undo (−) button appears. Reload starts a fresh session. The undo
+// affordance is therefore only ever wired to a same-session increment, so
+// past-session reads can't be cleared from the UI — only deleting the story
+// removes those. Server-side undo is a safety net (decrements with a floor of 0).
 export default function StoryReadButton({ story, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isRead = story.read_at != null;
+  const [markedThisSession, setMarkedThisSession] = useState(false);
+  const { refreshKanjiExposures } = useKnownKanji();
 
-  const handleClick = async () => {
+  const count = story.read_count;
+  const isRead = count > 0;
+
+  const handleMark = async () => {
+    if (markedThisSession) return;
     setBusy(true);
     setError(null);
     try {
-      const read_at = await setStoryRead(story.id, !isRead);
-      onChange(read_at);
+      const state = await markStoryRead(story.id);
+      onChange(state);
+      setMarkedThisSession(true);
+      refreshKanjiExposures();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update read status");
+      setError(err instanceof Error ? err.message : "Failed to mark as read");
     } finally {
       setBusy(false);
     }
   };
 
-  const title = isRead && story.read_at
-    ? `Read on ${new Date(story.read_at).toLocaleString()} — click to unmark`
+  const handleUndo = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const state = await undoStoryRead(story.id);
+      onChange(state);
+      setMarkedThisSession(false);
+      refreshKanjiExposures();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to undo");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const label = !isRead ? "Mark as Read" : count === 1 ? "✓ Read" : `✓ Read ${count}×`;
+
+  const title = markedThisSession
+    ? "Already marked as read this session"
+    : isRead && story.last_read_at
+    ? `Last read ${new Date(story.last_read_at).toLocaleString()} — click to mark as read again`
     : undefined;
 
   return (
     <div className="story-read-row">
-      <button
-        type="button"
-        className={`story-read-btn ${isRead ? "is-read" : ""}`}
-        onClick={handleClick}
-        disabled={busy}
-        title={title}
-      >
-        {isRead ? "✓ Read" : "Mark as Read"}
-      </button>
+      <div className="story-read-controls">
+        <button
+          type="button"
+          className={`story-read-btn ${isRead ? "is-read" : ""}`}
+          onClick={handleMark}
+          disabled={busy || markedThisSession}
+          title={title}
+        >
+          {label}
+        </button>
+        {markedThisSession && (
+          <button
+            type="button"
+            className="story-read-undo-btn"
+            onClick={handleUndo}
+            disabled={busy}
+            title="Undo this session's mark"
+            aria-label="Undo this session's mark as read"
+          >
+            undo
+          </button>
+        )}
+      </div>
       {error && <div className="story-read-error">{error}</div>}
     </div>
   );

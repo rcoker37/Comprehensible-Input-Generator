@@ -1,20 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { getStories, deleteStory } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
+import { readingScoreDeltaPerParagraph } from "../lib/rarity";
 import type { Story } from "../types";
 import "./Stories.css";
 
 type ReadFilter = "all" | "unread" | "read";
+type SortMode = "newest" | "rare";
 
 export default function Stories() {
   const [stories, setStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
-  const { knownKanji } = useKnownKanji();
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const { knownKanji, kanjiExposures } = useKnownKanji();
 
   const unknownCount = (text?: string | null) => {
     if (!text) return 0;
@@ -38,34 +41,66 @@ export default function Stories() {
     }
   };
 
+  const deltaPerParaById = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const s of stories) {
+      m.set(s.id, readingScoreDeltaPerParagraph(s.content, kanjiExposures, s.paragraphs));
+    }
+    return m;
+  }, [stories, kanjiExposures]);
+
   if (loading) return <div className="loading">Loading compositions...</div>;
 
-  const visibleStories = stories.filter((s) => {
-    if (readFilter === "unread") return s.read_at == null;
-    if (readFilter === "read") return s.read_at != null;
+  const filtered = stories.filter((s) => {
+    if (readFilter === "unread") return s.read_count === 0;
+    if (readFilter === "read") return s.read_count > 0;
     return true;
   });
+
+  const visibleStories = sortMode === "rare"
+    ? [...filtered].sort((a, b) => (deltaPerParaById.get(b.id) ?? 0) - (deltaPerParaById.get(a.id) ?? 0))
+    : filtered;
 
   return (
     <div className="stories-page">
       <h1>Composition History</h1>
       {error && <div className="error">{error}</div>}
       {stories.length > 0 && (
-        <div className="filter-row">
-          <label>Status</label>
-          <div className="chip-group" role="radiogroup" aria-label="Read status filter">
-            {(["all", "unread", "read"] as const).map((v) => (
-              <button
-                key={v}
-                className={`chip ${readFilter === v ? "active" : ""}`}
-                onClick={() => setReadFilter(v)}
-                aria-pressed={readFilter === v}
-              >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-              </button>
-            ))}
+        <>
+          <div className="filter-row">
+            <label>Status</label>
+            <div className="chip-group" role="radiogroup" aria-label="Read status filter">
+              {(["all", "unread", "read"] as const).map((v) => (
+                <button
+                  key={v}
+                  className={`chip ${readFilter === v ? "active" : ""}`}
+                  onClick={() => setReadFilter(v)}
+                  aria-pressed={readFilter === v}
+                >
+                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+          <div className="filter-row">
+            <label>Sort</label>
+            <div className="chip-group" role="radiogroup" aria-label="Sort mode">
+              {([
+                ["newest", "Newest"],
+                ["rare", "Rare kanji"],
+              ] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  className={`chip ${sortMode === v ? "active" : ""}`}
+                  onClick={() => setSortMode(v)}
+                  aria-pressed={sortMode === v}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
       )}
       {stories.length === 0 ? (
         <p className="empty">No compositions yet. Generate one from the home page!</p>
@@ -102,12 +137,16 @@ export default function Stories() {
                       </svg>
                     </span>
                   )}
-                  {story.read_at && (
+                  {story.read_count > 0 && (
                     <span
                       className="read-tag"
-                      title={`Read on ${new Date(story.read_at).toLocaleString()}`}
+                      title={
+                        story.last_read_at
+                          ? `Last read ${new Date(story.last_read_at).toLocaleString()}`
+                          : undefined
+                      }
                     >
-                      ✓ Read
+                      {story.read_count > 1 ? `✓ Read ${story.read_count}×` : "✓ Read"}
                     </span>
                   )}
                   <button
@@ -126,6 +165,11 @@ export default function Stories() {
                 <span className={`unknown-tag ${unknownCount(story.content) === 0 ? "none" : ""}`}>
                   {unknownCount(story.content)} unknown kanji
                 </span>
+                {(deltaPerParaById.get(story.id) ?? 0) > 0 && (
+                  <span className="score-tag" title="Score gain per paragraph if read once more">
+                    +{Math.round(deltaPerParaById.get(story.id) ?? 0).toLocaleString()} / paragraph
+                  </span>
+                )}
                 <span className="type-tag">{story.content_type ?? "fiction"}</span>
                 <span className="paragraphs-tag">
                   {story.paragraphs} {story.paragraphs === 1 ? "paragraph" : "paragraphs"}

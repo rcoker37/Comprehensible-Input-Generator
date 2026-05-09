@@ -53,11 +53,11 @@ export default function KanjiManager() {
     setAllKanji(data);
     setStats(s);
     const counts = new Map<string, number>();
-    for (const content of contents) {
+    for (const { content, read_count } of contents) {
       const matches = content.match(KANJI_REGEX_G);
       if (!matches) continue;
       for (const ch of matches) {
-        counts.set(ch, (counts.get(ch) || 0) + 1);
+        counts.set(ch, (counts.get(ch) || 0) + read_count);
       }
     }
     setAppearances(counts);

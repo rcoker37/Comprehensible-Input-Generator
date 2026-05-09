@@ -11,6 +11,7 @@ import type {
   KanjiStats,
   Story,
   StoryAudio,
+  StoryReadState,
   WordThread,
 } from "../types";
 
@@ -309,20 +310,20 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, audio, read_at, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, audio, read_count, first_read_at, last_read_at, created_at"
     )
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data as Story[]) || [];
 }
 
-export async function getReadStoryContents(): Promise<string[]> {
+export async function getReadStoryContents(): Promise<{ content: string; read_count: number }[]> {
   const { data, error } = await supabase
     .from("stories")
-    .select("content")
-    .not("read_at", "is", null);
+    .select("content, read_count")
+    .gt("read_count", 0);
   if (error) throw new Error(error.message);
-  return ((data as { content: string }[]) || []).map((s) => s.content);
+  return (data as { content: string; read_count: number }[]) || [];
 }
 
 export async function getStory(id: number): Promise<Story> {
@@ -335,22 +336,36 @@ export async function getStory(id: number): Promise<Story> {
   return data as Story;
 }
 
-export async function setStoryRead(id: number, read: boolean): Promise<string | null> {
-  const read_at = read ? new Date().toISOString() : null;
-  const { data, error } = await supabase
-    .from("stories")
-    .update({ read_at })
-    .eq("id", id)
-    .select("read_at")
-    .single();
+export async function markStoryRead(id: number): Promise<StoryReadState> {
+  const { data, error } = await supabase.rpc("mark_story_read", { p_story_id: id });
   if (error) throw new Error(error.message);
-  return (data as { read_at: string | null }).read_at;
+  const row = (data as StoryReadState[] | null)?.[0];
+  if (!row) throw new Error("Story not found");
+  return row;
+}
+
+export async function undoStoryRead(id: number): Promise<StoryReadState> {
+  const { data, error } = await supabase.rpc("undo_story_read", { p_story_id: id });
+  if (error) throw new Error(error.message);
+  const row = (data as StoryReadState[] | null)?.[0];
+  if (!row) throw new Error("Story not found");
+  return row;
 }
 
 export async function getUnderusedKanji(limit = 20): Promise<string[]> {
   const { data, error } = await supabase.rpc("user_underused_kanji", { p_limit: limit });
   if (error) throw new Error(error.message);
   return ((data as { kanji: string }[]) || []).map((r) => r.kanji);
+}
+
+// Returns exposure counts (read_count-weighted) for every known kanji. Used by
+// rarity-based story sorting. The RPC orders by exposure ASC, so passing a
+// limit larger than the joyo set returns the full known-kanji exposure map.
+export async function getKnownKanjiExposures(): Promise<Map<string, number>> {
+  const { data, error } = await supabase.rpc("user_underused_kanji", { p_limit: 10000 });
+  if (error) throw new Error(error.message);
+  const rows = (data as { kanji: string; exposures: number }[]) || [];
+  return new Map(rows.map((r) => [r.kanji, r.exposures]));
 }
 
 export async function deleteStory(id: number, audioPath?: string | null): Promise<void> {
