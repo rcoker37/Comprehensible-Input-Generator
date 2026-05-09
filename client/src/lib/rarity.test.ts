@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  formatScore,
   kanjiScore,
   totalScore,
   readingScoreDelta,
@@ -35,9 +36,28 @@ describe("kanjiScore", () => {
   });
 
   it("scales by SCORE_MULTIPLIER", () => {
-    // f(1) ≈ 2.485 raw; ×100 ≈ 248.5
-    expect(kanjiScore(1)).toBeCloseTo(248.5, 1);
-    expect(SCORE_MULTIPLIER).toBe(100);
+    // f(1) ≈ 2.485 raw; ×1 ≈ 2.485
+    expect(kanjiScore(1)).toBeCloseTo(2.485, 2);
+    expect(SCORE_MULTIPLIER).toBe(1);
+  });
+});
+
+describe("formatScore", () => {
+  it("returns '<1' for values below 1", () => {
+    expect(formatScore(0)).toBe("<1");
+    expect(formatScore(0.001)).toBe("<1");
+    expect(formatScore(0.999)).toBe("<1");
+  });
+
+  it("returns a rounded integer string for values >= 1", () => {
+    expect(formatScore(1)).toBe("1");
+    expect(formatScore(1.4)).toBe("1");
+    expect(formatScore(1.5)).toBe("2");
+    expect(formatScore(248.7)).toBe("249");
+  });
+
+  it("uses locale grouping for large values", () => {
+    expect(formatScore(12345)).toBe("12,345");
   });
 });
 

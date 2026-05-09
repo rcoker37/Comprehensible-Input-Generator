@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { generateStoryStream } from "../api/client";
+import type { UnknownKanjiTarget } from "../lib/generation";
 import type { ContentType, Formality, Story, StoryAudio, StoryReadState, GenerationProgress } from "../types";
 
 interface GenerationContextType {
@@ -8,7 +9,7 @@ interface GenerationContextType {
   story: Story | null;
   genProgress: GenerationProgress | null;
   startedAt: number | null;
-  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[] }) => void;
+  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[]; unknownKanjiTarget: UnknownKanjiTarget }) => void;
   clear: () => void;
   setStoryAudio: (audio: StoryAudio) => void;
   setStoryReadState: (state: StoryReadState) => void;
@@ -44,7 +45,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     setStartedAt(null);
   }, []);
 
-  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[] }) => {
+  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[]; unknownKanjiTarget: UnknownKanjiTarget }) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;

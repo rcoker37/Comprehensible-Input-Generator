@@ -4,7 +4,7 @@ import { getStories, deleteStory } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
-import { readingScoreDeltaPerParagraph } from "../lib/rarity";
+import { formatScore, readingScoreDeltaPerParagraph } from "../lib/rarity";
 import type { Story } from "../types";
 import "./Stories.css";
 
@@ -167,7 +167,7 @@ export default function Stories() {
                 </span>
                 {(deltaPerParaById.get(story.id) ?? 0) > 0 && (
                   <span className="score-tag" title="Score gain per paragraph if read once more">
-                    +{Math.round(deltaPerParaById.get(story.id) ?? 0).toLocaleString()} / paragraph
+                    +{formatScore(deltaPerParaById.get(story.id) ?? 0)} / paragraph
                   </span>
                 )}
                 <span className="type-tag">{story.content_type ?? "fiction"}</span>
