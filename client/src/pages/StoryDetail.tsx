@@ -150,7 +150,7 @@ export default function StoryDetail() {
       />
       <StoryReadButton
         story={story}
-        onChange={(read_at) => setStory((s) => (s ? { ...s, read_at } : s))}
+        onChange={(state) => setStory((s) => (s ? { ...s, ...state } : s))}
       />
       {player.audio && <PlaybackFooter {...player} />}
     </div>

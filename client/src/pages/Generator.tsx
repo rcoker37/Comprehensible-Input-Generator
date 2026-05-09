@@ -31,7 +31,7 @@ const MODEL = "anthropic/claude-opus-4.7";
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadAt } = useGeneration();
+  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadState } = useGeneration();
   const player = useAudioPlayer(story, setStoryAudio);
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "fiction");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
@@ -303,7 +303,7 @@ export default function Generator() {
             activeSegmentIdx={player.activeSegmentIdx}
             onSentenceClick={player.seekToSegment}
           />
-          <StoryReadButton story={story} onChange={setStoryReadAt} />
+          <StoryReadButton story={story} onChange={setStoryReadState} />
           <PlaybackFooter {...player} />
         </div>
       )}

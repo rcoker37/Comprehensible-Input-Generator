@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
-import { KanjiProvider } from "../contexts/KanjiContext";
+import { KanjiProvider, useKnownKanji } from "../contexts/KanjiContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { getOpenRouterUsage } from "../api/client";
+import { totalScore } from "../lib/rarity";
 import ThemeToggle from "./ThemeToggle";
 
 function DictionaryStatusChip() {
@@ -17,6 +18,17 @@ function DictionaryStatusChip() {
         ? `Dictionary error${error ? `: ${error}` : ""}`
         : "";
   return <span className={`nav-dict-status nav-dict-status--${state}`}>{label}</span>;
+}
+
+function NavTotalScore() {
+  const { kanjiExposures, kanjiExposuresLoaded } = useKnownKanji();
+  if (!kanjiExposuresLoaded) return null;
+  const score = Math.round(totalScore(kanjiExposures));
+  return (
+    <span className="nav-score" title="Total kanji score from reading">
+      ★ {score.toLocaleString()}
+    </span>
+  );
 }
 
 export default function AppLayout() {
@@ -41,36 +53,37 @@ export default function AppLayout() {
 
   return (
     <DictionaryProvider>
-      <div className="app">
-        <nav className="nav">
-          <div className="nav-brand">読む練習</div>
-          <div className="nav-links">
-            <NavLink to="/">Generate</NavLink>
-            <NavLink to="/stories">Compositions</NavLink>
-            <NavLink to="/kanji">Kanji</NavLink>
-            <NavLink to="/settings">Settings</NavLink>
-          </div>
-          {user && (
-            <span className="nav-user">
-              <DictionaryStatusChip />
-              {usage && (
-                <span className="nav-usage">
-                  ${usage.used.toFixed(2)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
-                </span>
-              )}
-              <ThemeToggle />
-              <span>{user.email}</span>
-            </span>
-          )}
-        </nav>
-        <main className="main">
-          <KanjiProvider>
+      <KanjiProvider>
+        <div className="app">
+          <nav className="nav">
+            <div className="nav-brand">読む練習</div>
+            <div className="nav-links">
+              <NavLink to="/">Generate</NavLink>
+              <NavLink to="/stories">Compositions</NavLink>
+              <NavLink to="/kanji">Kanji</NavLink>
+              <NavLink to="/settings">Settings</NavLink>
+            </div>
+            {user && (
+              <span className="nav-user">
+                <DictionaryStatusChip />
+                <NavTotalScore />
+                {usage && (
+                  <span className="nav-usage">
+                    ${usage.used.toFixed(2)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
+                  </span>
+                )}
+                <ThemeToggle />
+                <span>{user.email}</span>
+              </span>
+            )}
+          </nav>
+          <main className="main">
             <GenerationProvider>
               <Outlet />
             </GenerationProvider>
-          </KanjiProvider>
-        </main>
-      </div>
+          </main>
+        </div>
+      </KanjiProvider>
     </DictionaryProvider>
   );
 }

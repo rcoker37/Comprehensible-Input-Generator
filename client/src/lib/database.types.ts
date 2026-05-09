@@ -104,10 +104,12 @@ export type Database = {
           difficulty: Json
           explanations: Json | null
           filters: Json
+          first_read_at: string | null
           formality: string
           id: number
+          last_read_at: string | null
           paragraphs: number
-          read_at: string | null
+          read_count: number
           title: string
           topic: string | null
           user_id: string
@@ -121,10 +123,12 @@ export type Database = {
           difficulty: Json
           explanations?: Json | null
           filters: Json
+          first_read_at?: string | null
           formality: string
           id?: never
+          last_read_at?: string | null
           paragraphs: number
-          read_at?: string | null
+          read_count?: number
           title: string
           topic?: string | null
           user_id: string
@@ -138,10 +142,12 @@ export type Database = {
           difficulty?: Json
           explanations?: Json | null
           filters?: Json
+          first_read_at?: string | null
           formality?: string
           id?: never
+          last_read_at?: string | null
           paragraphs?: number
-          read_at?: string | null
+          read_count?: number
           title?: string
           topic?: string | null
           user_id?: string
@@ -196,8 +202,24 @@ export type Database = {
           readings_on: string
         }[]
       }
+      mark_story_read: {
+        Args: { p_story_id: number }
+        Returns: {
+          first_read_at: string
+          last_read_at: string
+          read_count: number
+        }[]
+      }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
       strip_ruby: { Args: { t: string }; Returns: string }
+      undo_story_read: {
+        Args: { p_story_id: number }
+        Returns: {
+          first_read_at: string
+          last_read_at: string
+          read_count: number
+        }[]
+      }
       user_underused_kanji: {
         Args: { p_limit?: number }
         Returns: {
@@ -340,4 +362,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
