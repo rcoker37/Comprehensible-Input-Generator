@@ -270,7 +270,7 @@
 
 .word-popover__error {
   font-size: 0.78rem;
-  color: var(--error, #d66);
+  color: var(--error-fg);
 }
 
 .word-popover__regenerate {

@@ -67,7 +67,7 @@ label:has(input[type="checkbox"]) {
 .generate-btn {
   padding: 0.75rem 2rem;
   background: var(--accent);
-  color: white;
+  color: var(--bg);
   border: none;
   border-radius: var(--radius);
   font-size: 1rem;

@@ -5,17 +5,46 @@
 }
 
 :root {
-  --bg: #14140F;
-  --surface: #053D38;
-  --surface-2: #34675C33;
-  --accent: #F26800;
-  --accent-soft: #F2680050;
-  --text: #eee;
-  --text-dim: #B2BEB5;
-  --border: #A3CCAB;
-  --success: #A3CCAB;
-  --success-soft: #34675C;
+  /* Dark theme — Slate & Sakura (also serves as the default if no data-theme is set) */
+  --bg: #14171C;
+  --surface: #1E242B;
+  --surface-2: #2A323B33;
+  --bg-dim: #0F1216;
+  --bg-card: #1E242B;
+  --accent: #F4A6A6;
+  --accent-soft: #F4A6A650;
+  --text: #E8EAEE;
+  --text-dim: #9099A4;
+  --border: #3A434F;
+  --success: #A8D5A8;
+  --success-soft: #2E443833;
+  --warning-bg: #f5a52422;
+  --warning-fg: #f5a524;
+  --error-bg: #e9456022;
+  --error-fg: #e94560;
   --radius: 8px;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  /* Light theme — Parchment */
+  --bg: #F5EFE1;
+  --surface: #EBE2CF;
+  --surface-2: #C9BFA833;
+  --bg-dim: #E0D5BD;
+  --bg-card: #EBE2CF;
+  --accent: #8B4513;
+  --accent-soft: #8B451350;
+  --text: #2A1F15;
+  --text-dim: #7A6B5C;
+  --border: #C9BFA8;
+  --success: #5A7A3C;
+  --success-soft: #D4D0BA33;
+  --warning-bg: #c0801922;
+  --warning-fg: #8A5A0E;
+  --error-bg: #B0354022;
+  --error-fg: #8A2530;
+  color-scheme: light;
 }
 
 body {
@@ -82,8 +111,25 @@ body {
 }
 
 .nav-dict-status--error {
-  color: var(--error, #d66);
-  border-color: var(--error, #d66);
+  color: var(--error-fg);
+  border-color: var(--error-fg);
+}
+
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .nav-links a {
@@ -142,7 +188,7 @@ h1 {
 .chip.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: white;
+  color: var(--bg);
 }
 
 @media (max-width: 400px) {
@@ -182,18 +228,18 @@ h1 {
 }
 
 .error {
-  background: #e9456022;
-  border: 1px solid var(--accent);
-  color: var(--accent);
+  background: var(--error-bg);
+  border: 1px solid var(--error-fg);
+  color: var(--error-fg);
   padding: 1rem;
   border-radius: var(--radius);
   margin: 1rem 0;
 }
 
 .warning {
-  background: #f5a52422;
-  border: 1px solid #f5a524;
-  color: #f5a524;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-fg);
+  color: var(--warning-fg);
   padding: 1rem;
   border-radius: var(--radius);
   margin: 0 0 1rem 0;

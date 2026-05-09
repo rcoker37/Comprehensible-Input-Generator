@@ -46,8 +46,25 @@
   color: var(--text-dim);
 }
 
-.furigana-toggle {
+.furigana-control {
   margin-left: auto;
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.furigana-control::before {
+  content: none;
+}
+
+.furigana-label {
+  font-size: inherit;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.furigana-toggle {
   width: 4.5rem;
   text-align: center;
   background: none;
@@ -60,10 +77,6 @@
   cursor: pointer;
   text-transform: lowercase;
   letter-spacing: 0.03em;
-}
-
-.furigana-toggle::before {
-  content: none;
 }
 
 .story-content {
@@ -79,7 +92,7 @@
 }
 
 .story-content ruby rt {
-  color: #ffb74d;
+  color: var(--text-dim);
   font-size: 0.5em;
 }
 
@@ -121,10 +134,10 @@
 .violations {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: #ff980022;
-  border: 1px solid #ff9800;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-fg);
   border-radius: var(--radius);
-  color: #ff9800;
+  color: var(--warning-fg);
   font-size: 0.85rem;
 }
 
