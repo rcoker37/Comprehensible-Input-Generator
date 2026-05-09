@@ -5,6 +5,7 @@ import { useGeneration } from "../contexts/GenerationContext";
 import { updateProfile, deleteStory, getUnderusedKanji } from "../api/client";
 import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
+import type { UnknownKanjiTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import PlaybackFooter from "../components/PlaybackFooter";
@@ -29,6 +30,13 @@ function ElapsedTimer({ startedAt }: { startedAt: number }) {
 
 const MODEL = "anthropic/claude-opus-4.7";
 
+const UNKNOWN_KANJI_OPTIONS: { value: UnknownKanjiTarget; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "1-2", label: "1–2" },
+  { value: "3-5", label: "3–5" },
+  { value: "5-10", label: "5–10" },
+];
+
 export default function Generator() {
   const { user, profile } = useAuth();
   const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadState } = useGeneration();
@@ -38,6 +46,7 @@ export default function Generator() {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
+  const [unknownKanjiTarget, setUnknownKanjiTarget] = useState<UnknownKanjiTarget>("none");
   const [underusedKanji, setUnderusedKanji] = useState<string[]>([]);
   const [excludedKanji, setExcludedKanji] = useState<Set<string>>(() => new Set());
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -69,6 +78,7 @@ export default function Generator() {
       formality,
       model: MODEL,
       prioritizedKanji: underusedKanji.filter((k) => !excludedKanji.has(k)),
+      unknownKanjiTarget,
     });
     updateProfile(user!.id, {
       preferred_content_type: contentType,
@@ -168,15 +178,51 @@ export default function Generator() {
           </div>
         </div>
 
+        <div className="form-group">
+          <label>Unknown kanji</label>
+          <div className="chip-group" role="radiogroup" aria-label="Unknown kanji target">
+            {UNKNOWN_KANJI_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`chip ${unknownKanjiTarget === opt.value ? "active" : ""}`}
+                onClick={() => setUnknownKanjiTarget(opt.value)}
+                aria-pressed={unknownKanjiTarget === opt.value}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {underusedKanji.length > 0 && (
           <div className="form-group">
-            <label>
-              Prioritized kanji{" "}
-              <span className="optional">
-                ({underusedKanji.length - excludedKanji.size} / {underusedKanji.length})
-              </span>
-            </label>
-            <div className="kanji-preview" aria-label="Prioritized kanji — tap to toggle">
+            <div className="form-group__header">
+              <label>
+                Low scoring kanji{" "}
+                <span className="optional">
+                  ({underusedKanji.length - excludedKanji.size} / {underusedKanji.length})
+                </span>
+              </label>
+              <div className="kanji-preview-actions">
+                <button
+                  type="button"
+                  className="text-btn"
+                  onClick={() => setExcludedKanji(new Set())}
+                  disabled={excludedKanji.size === 0}
+                >
+                  Select all
+                </button>
+                <button
+                  type="button"
+                  className="text-btn"
+                  onClick={() => setExcludedKanji(new Set(underusedKanji))}
+                  disabled={excludedKanji.size === underusedKanji.length}
+                >
+                  Deselect all
+                </button>
+              </div>
+            </div>
+            <div className="kanji-preview" aria-label="Low scoring kanji — tap to toggle">
               {underusedKanji.map((k) => {
                 const isExcluded = excludedKanji.has(k);
                 return (

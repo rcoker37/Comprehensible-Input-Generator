@@ -1,10 +1,8 @@
 import { stripAnnotations } from "./furigana";
 
 // Per-kanji raw score caps near ~9.9 (saturating curve up to c=10, slow log
-// tail past it). Multiplied by SCORE_MULTIPLIER for display so the headline
-// total reads bigger and feels rewarding — reasonable user totals land in
-// the tens to low hundreds of thousands.
-export const SCORE_MULTIPLIER = 100;
+// tail past it). SCORE_MULTIPLIER scales the raw curve before display.
+export const SCORE_MULTIPLIER = 1;
 
 const TAU = 3.5;
 const KINK = 10;
@@ -55,4 +53,11 @@ export function readingScoreDeltaPerParagraph(
 ): number {
   if (paragraphs <= 0) return 0;
   return readingScoreDelta(content, exposures) / paragraphs;
+}
+
+// Display formatter: any positive score below 1 collapses to "<1"; otherwise
+// a locale-formatted integer. Never shows decimals.
+export function formatScore(score: number): string {
+  if (score < 1) return "<1";
+  return Math.round(score).toLocaleString();
 }

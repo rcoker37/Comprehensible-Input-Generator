@@ -1,7 +1,7 @@
 import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { cleanGeneratedText } from "../lib/text";
-import { buildPrompt, computeDifficulty } from "../lib/generation";
+import { buildPrompt, computeDifficulty, type UnknownKanjiTarget } from "../lib/generation";
 import type { AudioToken } from "../lib/tokenizer";
 import type {
   ContentType,
@@ -163,6 +163,7 @@ export async function generateStoryStream(
     formality: Formality;
     model: string;
     prioritizedKanji: string[];
+    unknownKanjiTarget: UnknownKanjiTarget;
   },
   onProgress: (progress: GenerationProgress) => void,
   signal?: AbortSignal
@@ -186,7 +187,8 @@ export async function generateStoryStream(
     params.formality,
     params.topic,
     params.style,
-    params.prioritizedKanji
+    params.prioritizedKanji,
+    params.unknownKanjiTarget
   );
 
   // Get auth token for the edge function
@@ -486,26 +488,4 @@ export async function setOpenRouterApiKey(key: string): Promise<void> {
 export async function clearOpenRouterApiKey(): Promise<void> {
   const { error } = await supabase.rpc("clear_openrouter_api_key");
   if (error) throw new Error(error.message);
-}
-
-export async function getOpenRouterUsage(signal?: AbortSignal): Promise<{
-  usage: number;
-  limit: number | null;
-} | null> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) return null;
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const url = `${supabaseUrl}/functions/v1/openrouter-usage`;
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Bearer ${accessToken}` },
-    signal,
-  });
-  if (!response.ok) return null;
-  const body = await response.json();
-  if (!body?.data) return null;
-  return { usage: body.data.usage, limit: body.data.limit ?? null };
 }

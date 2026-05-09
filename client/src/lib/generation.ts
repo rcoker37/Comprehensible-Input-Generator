@@ -29,6 +29,15 @@ function sanitizeUserText(raw: string): string {
   return raw.replace(/[\n\r#`]/g, "").trim();
 }
 
+export type UnknownKanjiTarget = "none" | "1-2" | "3-5" | "5-10";
+
+const UNKNOWN_KANJI_RANGES: Record<UnknownKanjiTarget, [number, number] | null> = {
+  none: null,
+  "1-2": [1, 2],
+  "3-5": [3, 5],
+  "5-10": [5, 10],
+};
+
 export function buildPrompt(
   contentType: ContentType,
   paragraphs: number,
@@ -36,15 +45,30 @@ export function buildPrompt(
   formality: Formality,
   topic?: string,
   style?: string,
-  underusedKanji?: string[]
+  underusedKanji?: string[],
+  unknownKanjiTarget: UnknownKanjiTarget = "none"
 ): string {
-  const rules = [
-    "Rules:",
-    "- Try to only use kanji from the list above, minimizing usage of kanji not in the list. Use hiragana and katakana freely.",
-    "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
-    "- If a word needs kanji not in the list, rephrase with simpler vocabulary rather than writing it in hiragana.",
-    "- For EVERY run of kanji in the output, attach its reading in hiragana immediately after using full-width angle brackets 《…》. Use strict Aozora Bunko ruby notation: the reading covers ONLY the kanji run itself, not any okurigana or particles. Examples: 二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。先生《せんせい》は学生《がくせい》に話《はな》しました。新《あたら》しい本《ほん》を読《よ》みました。Annotate every kanji run, even common ones. Do NOT use the pipe character.",
-  ];
+  const range = UNKNOWN_KANJI_RANGES[unknownKanjiTarget];
+  const rules: string[] = ["Rules:"];
+
+  if (range) {
+    const [min, max] = range;
+    rules.push(
+      `- Include ${min}–${max} unique kanji that are NOT in the allowed list ("stretch kanji"). Pick ones natural to the topic; weave them in normally.`,
+      "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
+      "- Beyond those stretch kanji, only use kanji from the allowed list. If a word would need a non-allowed, non-stretch kanji, rephrase with simpler vocabulary rather than writing it in hiragana."
+    );
+  } else {
+    rules.push(
+      "- Try to only use kanji from the list above, minimizing usage of kanji not in the list. Use hiragana and katakana freely.",
+      "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
+      "- If a word needs kanji not in the list, rephrase with simpler vocabulary rather than writing it in hiragana."
+    );
+  }
+
+  rules.push(
+    "- For EVERY run of kanji in the output, attach its reading in hiragana immediately after using full-width angle brackets 《…》. Use strict Aozora Bunko ruby notation: the reading covers ONLY the kanji run itself, not any okurigana or particles. Examples: 二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。先生《せんせい》は学生《がくせい》に話《はな》しました。新《あたら》しい本《ほん》を読《よ》みました。Annotate every kanji run, even common ones. Do NOT use the pipe character."
+  );
 
   if (underusedKanji && underusedKanji.length > 0) {
     rules.push(

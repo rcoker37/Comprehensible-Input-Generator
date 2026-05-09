@@ -65,6 +65,26 @@ describe("buildPrompt", () => {
     const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, ["漁", "傘", "磁"]);
     expect(result).toContain("seen rarely: 漁傘磁");
   });
+
+  it("uses the strict avoid-unknown rules when target is 'none' (default)", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite");
+    expect(result).toContain("minimizing usage of kanji not in the list");
+    expect(result).not.toContain("stretch kanji");
+  });
+
+  it("includes the stretch-kanji range when target is set", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "3-5");
+    expect(result).toContain('Include 3–5 unique kanji that are NOT in the allowed list ("stretch kanji")');
+    expect(result).toContain("Beyond those stretch kanji");
+    expect(result).not.toContain("minimizing usage of kanji not in the list");
+  });
+
+  it("emits the right range for each target bucket", () => {
+    expect(buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "1-2"))
+      .toContain("Include 1–2 unique kanji");
+    expect(buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "5-10"))
+      .toContain("Include 5–10 unique kanji");
+  });
 });
 
 describe("computeDifficulty", () => {

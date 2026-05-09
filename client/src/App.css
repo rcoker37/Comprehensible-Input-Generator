@@ -94,10 +94,6 @@ body {
   white-space: nowrap;
 }
 
-.nav-usage {
-  color: var(--accent);
-}
-
 .nav-score {
   color: var(--accent);
   font-weight: 600;

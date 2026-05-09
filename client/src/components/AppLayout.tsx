@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
 import { KanjiProvider, useKnownKanji } from "../contexts/KanjiContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
-import { getOpenRouterUsage } from "../api/client";
-import { totalScore } from "../lib/rarity";
+import { formatScore, totalScore } from "../lib/rarity";
 import ThemeToggle from "./ThemeToggle";
 
 function DictionaryStatusChip() {
@@ -23,33 +21,15 @@ function DictionaryStatusChip() {
 function NavTotalScore() {
   const { kanjiExposures, kanjiExposuresLoaded } = useKnownKanji();
   if (!kanjiExposuresLoaded) return null;
-  const score = Math.round(totalScore(kanjiExposures));
   return (
     <span className="nav-score" title="Total kanji score from reading">
-      ★ {score.toLocaleString()}
+      ★ {formatScore(totalScore(kanjiExposures))}
     </span>
   );
 }
 
 export default function AppLayout() {
-  const { user, profile } = useAuth();
-  const [usage, setUsage] = useState<{ used: number; limit: number | null } | null>(null);
-
-  useEffect(() => {
-    if (!profile?.has_openrouter_api_key) {
-      setUsage(null);
-      return;
-    }
-    const controller = new AbortController();
-    getOpenRouterUsage(controller.signal)
-      .then((data) => {
-        if (data) setUsage({ used: data.usage, limit: data.limit });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setUsage(null);
-      });
-    return () => controller.abort();
-  }, [profile?.has_openrouter_api_key]);
+  const { user } = useAuth();
 
   return (
     <DictionaryProvider>
@@ -67,11 +47,6 @@ export default function AppLayout() {
               <span className="nav-user">
                 <DictionaryStatusChip />
                 <NavTotalScore />
-                {usage && (
-                  <span className="nav-usage">
-                    ${usage.used.toFixed(2)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
-                  </span>
-                )}
                 <ThemeToggle />
                 <span>{user.email}</span>
               </span>
