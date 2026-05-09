@@ -86,5 +86,5 @@
 }
 
 .kanji-inline__error {
-  color: var(--error, #d66);
+  color: var(--error-fg);
 }

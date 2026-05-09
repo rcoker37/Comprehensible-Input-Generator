@@ -245,21 +245,24 @@ export default function StoryDisplay({
         <span className="type-tag">{story.content_type ?? "fiction"}</span>
         <span className="formality-tag">{story.formality}</span>
         {story.topic && <span className="topic-tag">{story.topic}</span>}
-        <button
-          type="button"
-          className="furigana-toggle"
-          onClick={() =>
-            setFuriganaState((s) =>
-              s === "unknown" ? "all" : s === "all" ? "none" : "unknown"
-            )
-          }
-        >
-          {furiganaState === "all"
-            ? "all"
-            : furiganaState === "unknown"
-              ? "unknown"
-              : "off"}
-        </button>
+        <div className="furigana-control">
+          <span className="furigana-label">furigana: </span>
+          <button
+            type="button"
+            className="furigana-toggle"
+            onClick={() =>
+              setFuriganaState((s) =>
+                s === "unknown" ? "all" : s === "all" ? "none" : "unknown"
+              )
+            }
+          >
+            {furiganaState === "all"
+              ? "all"
+              : furiganaState === "unknown"
+                ? "unknown"
+                : "off"}
+          </button>
+        </div>
       </div>
       <div className="story-content">
         {paragraphs ? (

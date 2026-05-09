@@ -47,7 +47,7 @@
   padding: 0.55rem 1.4rem;
   background: var(--accent);
   border: 1px solid var(--accent);
-  color: white;
+  color: var(--bg);
   border-radius: var(--radius);
   font-size: 0.95rem;
   cursor: pointer;

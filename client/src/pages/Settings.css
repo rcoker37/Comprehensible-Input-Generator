@@ -40,7 +40,7 @@
 .save-btn {
   padding: 0.6rem 1.5rem;
   background: var(--accent);
-  color: white;
+  color: var(--bg);
   border: none;
   border-radius: var(--radius);
   font-size: 0.95rem;

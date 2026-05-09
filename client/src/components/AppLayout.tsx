@@ -5,6 +5,7 @@ import { GenerationProvider } from "../contexts/GenerationContext";
 import { KanjiProvider } from "../contexts/KanjiContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { getOpenRouterUsage } from "../api/client";
+import ThemeToggle from "./ThemeToggle";
 
 function DictionaryStatusChip() {
   const { state, error } = useDictionary();
@@ -57,6 +58,7 @@ export default function AppLayout() {
                   ${usage.used.toFixed(2)} / {usage.limit != null ? `$${usage.limit.toFixed(0)}` : "unlimited"}
                 </span>
               )}
+              <ThemeToggle />
               <span>{user.email}</span>
             </span>
           )}
