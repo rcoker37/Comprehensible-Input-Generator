@@ -27,13 +27,6 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
   const [kanjiExposures, setKanjiExposures] = useState<Map<string, number>>(new Map());
   const [kanjiExposuresLoaded, setKanjiExposuresLoaded] = useState(false);
 
-  const refreshKnownKanji = useCallback(async () => {
-    if (!user) return;
-    const all = await getKanji(user.id);
-    setKnownKanji(new Set(all.filter((k) => k.known).map((k) => k.character)));
-    setKnownKanjiLoaded(true);
-  }, [user]);
-
   const refreshKanjiExposures = useCallback(async () => {
     if (!user) return;
     const map = await getKnownKanjiExposures();
@@ -41,11 +34,24 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
     setKanjiExposuresLoaded(true);
   }, [user]);
 
+  // Marking a kanji known/unknown changes which kanji contribute to the
+  // exposure map (and therefore the header total score and per-story rarity
+  // sort), so refresh exposures alongside the known-set whenever this fires.
+  const refreshKnownKanji = useCallback(async () => {
+    if (!user) return;
+    await Promise.all([
+      getKanji(user.id).then((all) => {
+        setKnownKanji(new Set(all.filter((k) => k.known).map((k) => k.character)));
+        setKnownKanjiLoaded(true);
+      }),
+      refreshKanjiExposures(),
+    ]);
+  }, [user, refreshKanjiExposures]);
+
   useEffect(() => {
     refreshKnownKanji();
-    refreshKanjiExposures();
     preloadTokenizer();
-  }, [refreshKnownKanji, refreshKanjiExposures]);
+  }, [refreshKnownKanji]);
 
   const value = useMemo(
     () => ({

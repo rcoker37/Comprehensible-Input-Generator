@@ -4,7 +4,7 @@ import { getStories, deleteStory } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
-import { formatScore, readingScoreDeltaPerParagraph } from "../lib/rarity";
+import { formatScore, readingScoreDeltaPer100Chars } from "../lib/rarity";
 import type { Story } from "../types";
 import "./Stories.css";
 
@@ -41,10 +41,10 @@ export default function Stories() {
     }
   };
 
-  const deltaPerParaById = useMemo(() => {
+  const deltaPer100CharsById = useMemo(() => {
     const m = new Map<number, number>();
     for (const s of stories) {
-      m.set(s.id, readingScoreDeltaPerParagraph(s.content, kanjiExposures, s.paragraphs));
+      m.set(s.id, readingScoreDeltaPer100Chars(s.content, kanjiExposures));
     }
     return m;
   }, [stories, kanjiExposures]);
@@ -58,7 +58,7 @@ export default function Stories() {
   });
 
   const visibleStories = sortMode === "rare"
-    ? [...filtered].sort((a, b) => (deltaPerParaById.get(b.id) ?? 0) - (deltaPerParaById.get(a.id) ?? 0))
+    ? [...filtered].sort((a, b) => (deltaPer100CharsById.get(b.id) ?? 0) - (deltaPer100CharsById.get(a.id) ?? 0))
     : filtered;
 
   return (
@@ -165,9 +165,9 @@ export default function Stories() {
                 <span className={`unknown-tag ${unknownCount(story.content) === 0 ? "none" : ""}`}>
                   {unknownCount(story.content)} unknown kanji
                 </span>
-                {(deltaPerParaById.get(story.id) ?? 0) > 0 && (
-                  <span className="score-tag" title="Score gain per paragraph if read once more">
-                    +{formatScore(deltaPerParaById.get(story.id) ?? 0)} / paragraph
+                {(deltaPer100CharsById.get(story.id) ?? 0) > 0 && (
+                  <span className="score-tag" title="Score gain per 100 characters if read once more">
+                    +{formatScore(deltaPer100CharsById.get(story.id) ?? 0)} / 100 chars
                   </span>
                 )}
                 <span className="type-tag">{story.content_type ?? "fiction"}</span>
