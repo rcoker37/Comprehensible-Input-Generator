@@ -46,15 +46,6 @@ export function readingScoreDelta(content: string, exposures: Map<string, number
   return delta;
 }
 
-export function readingScoreDeltaPer100Chars(
-  content: string,
-  exposures: Map<string, number>,
-): number {
-  const len = stripAnnotations(content).length;
-  if (len <= 0) return 0;
-  return (readingScoreDelta(content, exposures) / len) * 100;
-}
-
 // Display formatter: any positive score below 1 collapses to "<1"; otherwise
 // a locale-formatted integer. Never shows decimals.
 export function formatScore(score: number): string {

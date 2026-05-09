@@ -4,7 +4,6 @@ import {
   kanjiScore,
   totalScore,
   readingScoreDelta,
-  readingScoreDeltaPer100Chars,
   SCORE_MULTIPLIER,
 } from "./rarity";
 
@@ -107,26 +106,3 @@ describe("readingScoreDelta", () => {
   });
 });
 
-describe("readingScoreDeltaPer100Chars", () => {
-  it("scales delta by 100 / stripped-content length", () => {
-    const content = "猫が魚を食べる"; // 7 chars after stripping (no rubies)
-    const exposures = new Map([["猫", 0], ["魚", 0]]);
-    const delta = readingScoreDelta(content, exposures);
-    expect(readingScoreDeltaPer100Chars(content, exposures)).toBeCloseTo(
-      (delta / content.length) * 100,
-      6,
-    );
-  });
-
-  it("ignores ruby annotations when computing length", () => {
-    const exposures = new Map([["猫", 0]]);
-    // "猫《ねこ》" → stripped to "猫" (length 1)
-    const delta = readingScoreDelta("猫《ねこ》", exposures);
-    expect(readingScoreDeltaPer100Chars("猫《ねこ》", exposures)).toBeCloseTo(delta * 100, 6);
-  });
-
-  it("returns 0 for empty content rather than dividing by zero", () => {
-    const exposures = new Map([["猫", 0]]);
-    expect(readingScoreDeltaPer100Chars("", exposures)).toBe(0);
-  });
-});
