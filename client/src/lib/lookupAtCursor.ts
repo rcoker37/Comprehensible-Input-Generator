@@ -9,7 +9,7 @@ import type { WordResult } from "@birchill/jpdict-idb";
 import { deinflect, posMatches, type DeinflectionCandidate } from "./japaneseDeinflect";
 import { lookupWord } from "./dictionary";
 import {
-  tokenReadingFromAnnotations,
+  surfaceReadingFromAnnotations,
   type FuriganaAnnotation,
 } from "./furigana";
 
@@ -117,11 +117,10 @@ export function applyAnnotatedReading(
   if (hit.base || annotations.length === 0 || hit.results.length === 0) {
     return hit;
   }
-  const annotatedReading = tokenReadingFromAnnotations(
+  const annotatedReading = surfaceReadingFromAnnotations(
     hit.surface,
     hit.start,
-    annotations,
-    undefined
+    annotations
   );
   if (!annotatedReading) return hit;
 

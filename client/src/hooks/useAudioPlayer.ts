@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createElement } from "react";
 import type { Story, StoryAudio } from "../types";
-import { tokenizeForAudio } from "../lib/tokenizer";
 import { parseAnnotatedText } from "../lib/furigana";
 import { generateStoryAudio, getStoryAudioUrl } from "../api/client";
 import { stripBold } from "../lib/text";
@@ -31,7 +30,7 @@ const PAUSE_AT_SENTENCE_KEY = "valencia.pauseAtSentence";
 // the edge function to regenerate; the client mirror routes any version-
 // mismatched audio row through the generate path so the UI shows the
 // "generate" icon and the next play triggers a regeneration.
-const EXPECTED_AUDIO_VERSION = 3;
+const EXPECTED_AUDIO_VERSION = 4;
 
 // Pull each segment back into the silence that precedes it. Azure's bookmark
 // fires at the first audio sample of the sentence, but the <audio> element's
@@ -174,10 +173,18 @@ export function useAudioPlayer(
     async (force: boolean) => {
       if (!story) return;
       setError(null);
-      const rawText = stripBold(`${story.title}\n\n${story.content}`);
-      const { cleanText, annotations } = parseAnnotatedText(rawText);
-      const tokens = await tokenizeForAudio(cleanText, annotations);
-      const generated = await generateStoryAudio(story.id, tokens, { force });
+      const titleParsed = parseAnnotatedText(stripBold(story.title));
+      const contentParsed = parseAnnotatedText(stripBold(story.content));
+      const generated = await generateStoryAudio(
+        story.id,
+        {
+          title: titleParsed.cleanText,
+          titleAnnotations: titleParsed.annotations,
+          content: contentParsed.cleanText,
+          contentAnnotations: contentParsed.annotations,
+        },
+        { force }
+      );
       setAudio(generated);
       setUrl(null);
       onAudioGenerated?.(generated);

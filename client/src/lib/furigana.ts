@@ -7,13 +7,11 @@
 //   二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。
 //
 // The reading covers ONLY the kanji run, NOT trailing okurigana — this is the
-// strict Aozora convention. It's also far cheaper to align with kuromoji
-// tokens than a "whole word" reading style.
+// strict Aozora convention.
 //
-// We trust LLM readings as ground truth and fall back to kuromoji's dictionary
-// only when an annotation is missing (e.g., older stories, LLM oversights).
-
-import { KANJI_REGEX } from "./constants";
+// LLM readings are the source of truth — when an annotation is missing,
+// readers see the kanji without ruby and Azure TTS falls back to its own
+// pronunciation guess.
 
 export interface FuriganaAnnotation {
   /** Inclusive start offset in the *clean* text (annotations stripped). */
@@ -99,45 +97,36 @@ export function stripAnnotations(raw: string): string {
 }
 
 /**
- * Compose the reading for a kuromoji token that spans [tokenStart, tokenEnd)
- * in the clean text, using LLM annotations where available and falling back
- * to the kuromoji-provided reading for any portion without an annotation.
- *
- * Returns `undefined` only when the token has no kanji AND no annotation —
- * in that case the caller should treat the surface itself as the reading
- * (hiragana/katakana is pronounced unambiguously).
+ * Compose the reading for a surface that spans [start, start+length) in the
+ * clean text, using LLM annotations where available. Returns `undefined`
+ * when no annotation covers any part of the surface (the caller decides
+ * whether to render plain text or fall back to a heuristic).
  */
-export function tokenReadingFromAnnotations(
-  tokenSurface: string,
-  tokenStart: number,
-  annotations: FuriganaAnnotation[],
-  kuromojiReadingHiragana?: string
+export function surfaceReadingFromAnnotations(
+  surface: string,
+  start: number,
+  annotations: FuriganaAnnotation[]
 ): string | undefined {
-  const tokenEnd = tokenStart + tokenSurface.length;
+  const end = start + surface.length;
   const covering = annotations.filter(
-    (a) => a.start >= tokenStart && a.end <= tokenEnd
+    (a) => a.start >= start && a.end <= end
   );
+  if (covering.length === 0) return undefined;
 
-  // Fast paths.
-  if (covering.length === 0) {
-    const hasKanji = [...tokenSurface].some((ch) => KANJI_REGEX.test(ch));
-    return hasKanji ? kuromojiReadingHiragana : undefined;
-  }
-
-  // Walk the token range, replacing each covered kanji run with its reading
-  // and keeping non-kanji characters (okurigana, punctuation) verbatim.
+  // Walk the surface, replacing each covered kanji run with its reading and
+  // keeping non-kanji characters (okurigana, punctuation) verbatim.
   covering.sort((a, b) => a.start - b.start);
   let out = "";
-  let pos = tokenStart;
+  let pos = start;
   for (const ann of covering) {
     if (ann.start > pos) {
-      out += tokenSurface.slice(pos - tokenStart, ann.start - tokenStart);
+      out += surface.slice(pos - start, ann.start - start);
     }
     out += ann.reading;
     pos = ann.end;
   }
-  if (pos < tokenEnd) {
-    out += tokenSurface.slice(pos - tokenStart, tokenEnd - tokenStart);
+  if (pos < end) {
+    out += surface.slice(pos - start, end - start);
   }
   return out;
 }
