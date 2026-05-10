@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   parseAnnotatedText,
   stripAnnotations,
-  tokenReadingFromAnnotations,
+  surfaceReadingFromAnnotations,
 } from "./furigana";
 
 describe("parseAnnotatedText", () => {
@@ -109,42 +109,37 @@ describe("stripAnnotations", () => {
   });
 });
 
-describe("tokenReadingFromAnnotations", () => {
-  it("returns undefined for a pure-kana token with no annotation", () => {
-    expect(tokenReadingFromAnnotations("です", 10, [], undefined)).toBeUndefined();
+describe("surfaceReadingFromAnnotations", () => {
+  it("returns undefined when no annotation covers the surface", () => {
+    expect(surfaceReadingFromAnnotations("先生", 0, [])).toBeUndefined();
   });
 
-  it("falls back to kuromoji reading when no annotation covers the token", () => {
-    expect(
-      tokenReadingFromAnnotations("先生", 0, [], "せんせい")
-    ).toBe("せんせい");
+  it("returns undefined for pure-kana with no annotation", () => {
+    expect(surfaceReadingFromAnnotations("です", 10, [])).toBeUndefined();
   });
 
-  it("uses annotation reading when the token is a pure kanji run", () => {
+  it("uses annotation reading when the surface is a pure kanji run", () => {
     const anns = [{ start: 0, end: 2, reading: "ふたり" }];
-    expect(tokenReadingFromAnnotations("二人", 0, anns, "ににん")).toBe("ふたり");
+    expect(surfaceReadingFromAnnotations("二人", 0, anns)).toBe("ふたり");
   });
 
   it("combines annotation reading with trailing okurigana", () => {
     // Clean text: "行われた" (positions 0..4). Annotation covers kanji 行 at [0, 1).
-    // Kuromoji emits a single token spanning the whole thing.
     const anns = [{ start: 0, end: 1, reading: "おこな" }];
-    expect(
-      tokenReadingFromAnnotations("行われた", 0, anns, "いかれた")
-    ).toBe("おこなわれた");
+    expect(surfaceReadingFromAnnotations("行われた", 0, anns)).toBe("おこなわれた");
   });
 
-  it("handles a token offset into the clean text", () => {
-    // Clean text: "私は二人" — token 二人 starts at index 2.
+  it("handles a surface offset into the clean text", () => {
+    // Clean text: "私は二人" — surface 二人 starts at index 2.
     const anns = [{ start: 2, end: 4, reading: "ふたり" }];
-    expect(tokenReadingFromAnnotations("二人", 2, anns, undefined)).toBe("ふたり");
+    expect(surfaceReadingFromAnnotations("二人", 2, anns)).toBe("ふたり");
   });
 
-  it("ignores annotations that don't overlap this token", () => {
+  it("ignores annotations that don't overlap this surface", () => {
     const anns = [
       { start: 0, end: 2, reading: "ふたり" },
       { start: 10, end: 12, reading: "こうえん" },
     ];
-    expect(tokenReadingFromAnnotations("公園", 10, anns, undefined)).toBe("こうえん");
+    expect(surfaceReadingFromAnnotations("公園", 10, anns)).toBe("こうえん");
   });
 });

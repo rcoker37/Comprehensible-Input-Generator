@@ -13,7 +13,7 @@ import { askWord } from "../api/client";
 import { ASK_CHIPS, type AskChip } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
 import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
-import { lookupAtCursor, type LookupHit } from "../lib/lookupAtCursor";
+import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
@@ -25,7 +25,14 @@ interface WordPopoverProps {
   storyId: number;
   cleanText: string;
   annotations: FuriganaAnnotation[];
-  offset: number | null;
+  /**
+   * The exact span the regroup pass decided was a tap target — character
+   * offsets in `cleanText`. Lookups are constrained to this span so the
+   * popover stays consistent with what the user clicked, instead of doing a
+   * greedy longest-prefix scan that can reach past the rendered button.
+   */
+  start: number | null;
+  end: number | null;
   wordThreads: StoryWordThreads;
   referenceEl: HTMLElement | null;
   open: boolean;
@@ -65,7 +72,8 @@ export default function WordPopover({
   storyId,
   cleanText,
   annotations,
-  offset: cursorOffset,
+  start: tapStart,
+  end: tapEnd,
   wordThreads,
   referenceEl,
   open,
@@ -116,15 +124,17 @@ export default function WordPopover({
     setIsRegenerating(false);
     userAskedRef.current = false;
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
-  }, [open, cursorOffset]);
+  }, [open, tapStart, tapEnd]);
 
-  // Run the cursor lookup whenever we open against a new offset.
+  // Run the lookup against the tap target's span whenever we open against a
+  // new range. Constrained to the rendered span so the popover doesn't reach
+  // past the button the user actually clicked.
   useEffect(() => {
-    if (!open || cursorOffset === null) return;
+    if (!open || tapStart === null || tapEnd === null) return;
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    lookupAtCursor(cleanText, cursorOffset, annotations)
+    lookupExactSpan(cleanText, tapStart, tapEnd, annotations)
       .then((result) => {
         if (cancelled) return;
         setHit(result);
@@ -135,7 +145,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, cursorOffset, cleanText, annotations, dictState]);
+  }, [open, tapStart, tapEnd, cleanText, annotations, dictState]);
 
   const rangeThreads = useMemo(
     () => (hit ? wordThreads[rangeKey(hit)] ?? {} : {}),

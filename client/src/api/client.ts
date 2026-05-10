@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { cleanGeneratedText } from "../lib/text";
 import { buildPrompt, computeDifficulty, type UnknownKanjiTarget } from "../lib/generation";
-import type { AudioToken } from "../lib/tokenizer";
+import type { FuriganaAnnotation } from "../lib/furigana";
 import type {
   ContentType,
   Formality,
@@ -383,9 +383,16 @@ export async function deleteStory(id: number, audioPath?: string | null): Promis
 
 // Stories — audio
 
+export interface AudioGenerationInput {
+  title: string;
+  titleAnnotations: FuriganaAnnotation[];
+  content: string;
+  contentAnnotations: FuriganaAnnotation[];
+}
+
 export async function generateStoryAudio(
   storyId: number,
-  tokens: AudioToken[],
+  input: AudioGenerationInput,
   opts: { force?: boolean } = {}
 ): Promise<StoryAudio> {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -399,7 +406,14 @@ export async function generateStoryAudio(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ story_id: storyId, tokens, force: opts.force ?? false }),
+    body: JSON.stringify({
+      story_id: storyId,
+      title: input.title,
+      title_annotations: input.titleAnnotations,
+      content: input.content,
+      content_annotations: input.contentAnnotations,
+      force: opts.force ?? false,
+    }),
   });
 
   if (!response.ok) {

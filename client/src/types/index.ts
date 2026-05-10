@@ -24,18 +24,13 @@ export interface DifficultyEstimate {
   jlpt: { min: number; avg: number };
 }
 
-export interface StoryAudioToken {
-  s: string;
-  r?: string;
-}
-
 export interface StoryAudioParagraph {
-  start: number; // token index where this paragraph begins
+  start: number; // character offset (in content) where this paragraph begins
   t: number;     // offset in ms
 }
 
 export interface StoryAudioSentence {
-  start: number; // token index where this sentence begins
+  start: number; // character offset (in content) where this sentence begins
   t: number;     // offset in ms
 }
 
@@ -44,7 +39,6 @@ export interface StoryAudio {
   duration_ms: number;
   voice: string;
   version: number;
-  tokens: StoryAudioToken[];
   paragraphs: StoryAudioParagraph[];
   sentences?: StoryAudioSentence[];
 }
