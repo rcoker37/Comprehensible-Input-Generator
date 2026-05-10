@@ -364,6 +364,8 @@ export async function updateProfile(
     preferred_content_type?: string;
     preferred_formality?: string;
     preferred_paragraphs?: number;
+    preferred_unknown_kanji_target?: string;
+    preferred_prioritize_rare_kanji?: boolean;
   }
 ): Promise<void> {
   const { error } = await supabase

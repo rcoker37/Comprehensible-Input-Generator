@@ -70,6 +70,8 @@ export type Database = {
           preferred_formality: string | null
           preferred_model: string | null
           preferred_paragraphs: number | null
+          preferred_prioritize_rare_kanji: boolean | null
+          preferred_unknown_kanji_target: string | null
           user_id: string
         }
         Insert: {
@@ -80,6 +82,8 @@ export type Database = {
           preferred_formality?: string | null
           preferred_model?: string | null
           preferred_paragraphs?: number | null
+          preferred_prioritize_rare_kanji?: boolean | null
+          preferred_unknown_kanji_target?: string | null
           user_id: string
         }
         Update: {
@@ -90,6 +94,8 @@ export type Database = {
           preferred_formality?: string | null
           preferred_model?: string | null
           preferred_paragraphs?: number | null
+          preferred_prioritize_rare_kanji?: boolean | null
+          preferred_unknown_kanji_target?: string | null
           user_id?: string
         }
         Relationships: []
@@ -365,4 +371,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

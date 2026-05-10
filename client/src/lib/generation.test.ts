@@ -64,6 +64,7 @@ describe("buildPrompt", () => {
   it("includes the underused-kanji directive when characters are provided", () => {
     const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, ["漁", "傘", "磁"]);
     expect(result).toContain("seen rarely: 漁傘磁");
+    expect(result).toContain("at least 3–5 of them");
   });
 
   it("uses the strict avoid-unknown rules when target is 'none' (default)", () => {
