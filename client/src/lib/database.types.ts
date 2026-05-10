@@ -101,6 +101,7 @@ export type Database = {
           content_type: string
           created_at: string
           difficulty: Json
+          error_message: string | null
           explanations: Json | null
           filters: Json
           first_read_at: string | null
@@ -109,6 +110,7 @@ export type Database = {
           last_read_at: string | null
           paragraphs: number
           read_count: number
+          status: string
           title: string
           topic: string | null
           user_id: string
@@ -119,6 +121,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           difficulty: Json
+          error_message?: string | null
           explanations?: Json | null
           filters: Json
           first_read_at?: string | null
@@ -127,6 +130,7 @@ export type Database = {
           last_read_at?: string | null
           paragraphs: number
           read_count?: number
+          status?: string
           title: string
           topic?: string | null
           user_id: string
@@ -137,6 +141,7 @@ export type Database = {
           content_type?: string
           created_at?: string
           difficulty?: Json
+          error_message?: string | null
           explanations?: Json | null
           filters?: Json
           first_read_at?: string | null
@@ -145,6 +150,7 @@ export type Database = {
           last_read_at?: string | null
           paragraphs?: number
           read_count?: number
+          status?: string
           title?: string
           topic?: string | null
           user_id?: string
@@ -359,3 +365,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
