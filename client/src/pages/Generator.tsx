@@ -31,22 +31,24 @@ const UNKNOWN_KANJI_OPTIONS: { value: UnknownKanjiTarget; label: string }[] = [
 ];
 
 export default function Generator() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { loading, error, startedAt, generate } = useGeneration();
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "fiction");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
-  const [unknownKanjiTarget, setUnknownKanjiTarget] = useState<UnknownKanjiTarget>("none");
+  const [unknownKanjiTarget, setUnknownKanjiTarget] = useState<UnknownKanjiTarget>(
+    (profile?.preferred_unknown_kanji_target as UnknownKanjiTarget) ?? "none"
+  );
   const [underusedKanji, setUnderusedKanji] = useState<string[]>([]);
-  const [excludedKanji, setExcludedKanji] = useState<Set<string>>(() => new Set());
+  const [prioritizeRare, setPrioritizeRare] = useState(profile?.preferred_prioritize_rare_kanji ?? true);
 
   useEffect(() => {
     const userId = user?.id;
     if (!userId) return;
     let cancelled = false;
-    getUnderusedKanji(10)
+    getUnderusedKanji(25)
       .then((kanji) => {
         if (!cancelled) setUnderusedKanji(kanji);
       })
@@ -67,14 +69,18 @@ export default function Generator() {
       style: style.trim() || undefined,
       formality,
       model: MODEL,
-      prioritizedKanji: underusedKanji.filter((k) => !excludedKanji.has(k)),
+      prioritizedKanji: prioritizeRare ? underusedKanji : [],
       unknownKanjiTarget,
     });
     updateProfile(user!.id, {
       preferred_content_type: contentType,
       preferred_formality: formality,
       preferred_paragraphs: paragraphs,
-    }).catch((err) => console.warn("Failed to save preferences:", err));
+      preferred_unknown_kanji_target: unknownKanjiTarget,
+      preferred_prioritize_rare_kanji: prioritizeRare,
+    })
+      .then(() => refreshProfile())
+      .catch((err) => console.warn("Failed to save preferences:", err));
   };
 
   const hasKey = profile?.has_openrouter_api_key ?? false;
@@ -174,55 +180,14 @@ export default function Generator() {
 
         {underusedKanji.length > 0 && (
           <div className="form-group">
-            <div className="form-group__header">
-              <label>
-                Low scoring kanji{" "}
-                <span className="optional">
-                  ({underusedKanji.length - excludedKanji.size} / {underusedKanji.length})
-                </span>
-              </label>
-              <div className="kanji-preview-actions">
-                <button
-                  type="button"
-                  className="text-btn"
-                  onClick={() => setExcludedKanji(new Set())}
-                  disabled={excludedKanji.size === 0}
-                >
-                  Select all
-                </button>
-                <button
-                  type="button"
-                  className="text-btn"
-                  onClick={() => setExcludedKanji(new Set(underusedKanji))}
-                  disabled={excludedKanji.size === underusedKanji.length}
-                >
-                  Deselect all
-                </button>
-              </div>
-            </div>
-            <div className="kanji-preview" aria-label="Low scoring kanji — tap to toggle">
-              {underusedKanji.map((k) => {
-                const isExcluded = excludedKanji.has(k);
-                return (
-                  <button
-                    type="button"
-                    key={k}
-                    className={`kanji-preview__char${isExcluded ? " kanji-preview__char--excluded" : ""}`}
-                    onClick={() =>
-                      setExcludedKanji((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(k)) next.delete(k);
-                        else next.add(k);
-                        return next;
-                      })
-                    }
-                    aria-pressed={!isExcluded}
-                  >
-                    {k}
-                  </button>
-                );
-              })}
-            </div>
+            <label>
+              <input
+                type="checkbox"
+                checked={prioritizeRare}
+                onChange={(e) => setPrioritizeRare(e.target.checked)}
+              />
+              Prioritize rarely seen kanji
+            </label>
           </div>
         )}
 

@@ -85,5 +85,7 @@ export interface Profile {
   preferred_formality: string | null;
   preferred_paragraphs: number | null;
   preferred_content_type: string | null;
+  preferred_unknown_kanji_target: string | null;
+  preferred_prioritize_rare_kanji: boolean | null;
   created_at: string;
 }

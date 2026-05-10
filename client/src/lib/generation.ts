@@ -71,7 +71,7 @@ export function buildPrompt(
 
   if (underusedKanji && underusedKanji.length > 0) {
     rules.push(
-      `- Prioritize using these kanji that the student has seen rarely: ${underusedKanji.join("")}. Weave them in naturally where the story permits — do not force them or contort the narrative.`
+      `- Prioritize using these kanji that the student has seen rarely: ${underusedKanji.join("")}. Try to include at least 3–5 of them, weaving them in naturally where the topic permits — do not force them or contort the narrative.`
     );
   }
 

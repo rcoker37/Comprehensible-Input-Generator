@@ -9,7 +9,7 @@ import type { Story } from "../types";
 import "./Stories.css";
 
 type ReadFilter = "all" | "unread" | "read";
-type SortMode = "newest" | "rare";
+type SortMode = "newest" | "score" | "scorePerParagraph";
 
 export default function Stories() {
   const [stories, setStories] = useState<Story[]>([]);
@@ -57,9 +57,16 @@ export default function Stories() {
     return true;
   });
 
-  const visibleStories = sortMode === "rare"
-    ? [...filtered].sort((a, b) => (deltaById.get(b.id) ?? 0) - (deltaById.get(a.id) ?? 0))
-    : filtered;
+  const scoreFor = (s: Story) => deltaById.get(s.id) ?? 0;
+  const scorePerParagraphFor = (s: Story) =>
+    s.paragraphs > 0 ? scoreFor(s) / s.paragraphs : 0;
+
+  const visibleStories =
+    sortMode === "score"
+      ? [...filtered].sort((a, b) => scoreFor(b) - scoreFor(a))
+      : sortMode === "scorePerParagraph"
+      ? [...filtered].sort((a, b) => scorePerParagraphFor(b) - scorePerParagraphFor(a))
+      : filtered;
 
   return (
     <div className="stories-page">
@@ -87,7 +94,8 @@ export default function Stories() {
             <div className="chip-group" role="radiogroup" aria-label="Sort mode">
               {([
                 ["newest", "Newest"],
-                ["rare", "Rare kanji"],
+                ["score", "Score"],
+                ["scorePerParagraph", "Score per Paragraph"],
               ] as const).map(([v, label]) => (
                 <button
                   key={v}
