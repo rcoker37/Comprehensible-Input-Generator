@@ -8,10 +8,8 @@ import { stripAnnotations } from "../lib/furigana";
 import type { UnknownKanjiTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
-import PlaybackFooter from "../components/PlaybackFooter";
 import StoryReadButton from "../components/StoryReadButton";
 import AnimatedDots from "../components/AnimatedDots";
-import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import "../components/StoryActions.css";
 import "./Generator.css";
 
@@ -39,8 +37,7 @@ const UNKNOWN_KANJI_OPTIONS: { value: UnknownKanjiTarget; label: string }[] = [
 
 export default function Generator() {
   const { user, profile } = useAuth();
-  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadState } = useGeneration();
-  const player = useAudioPlayer(story, setStoryAudio);
+  const { loading, error, story, genProgress, startedAt, generate, clear, setStoryReadState } = useGeneration();
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "fiction");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
@@ -92,7 +89,7 @@ export default function Generator() {
     if (!window.confirm("Delete this story? This cannot be undone.")) return;
     setDeleteError(null);
     try {
-      await deleteStory(story.id, story.audio?.path);
+      await deleteStory(story.id);
       clear();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : "Failed to delete story");
@@ -294,33 +291,6 @@ export default function Generator() {
             <button
               type="button"
               className="story-action-btn"
-              onClick={player.handleRegenerate}
-              disabled={!player.audio || player.regenerating || player.loading}
-              title={player.regenerating ? "Regenerating…" : "Regenerate audio"}
-              aria-label="Regenerate audio"
-            >
-              {player.regenerating ? (
-                <span className="playback-spinner" aria-hidden="true" />
-              ) : (
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M13.5 2.5v3.5h-3.5" />
-                  <path d="M13.5 6A5.5 5.5 0 1 0 14 9.5" />
-                </svg>
-              )}
-            </button>
-            <button
-              type="button"
-              className="story-action-btn"
               onClick={handleDelete}
               title="Delete story"
               aria-label="Delete story"
@@ -343,14 +313,8 @@ export default function Generator() {
             </button>
           </div>
           {deleteError && <div className="error">{deleteError}</div>}
-          <StoryDisplay
-            story={story}
-            audio={player.audio}
-            activeSegmentIdx={player.activeSegmentIdx}
-            onSentenceClick={player.seekToSegment}
-          />
+          <StoryDisplay story={story} />
           <StoryReadButton story={story} onChange={setStoryReadState} />
-          <PlaybackFooter {...player} />
         </div>
       )}
     </div>

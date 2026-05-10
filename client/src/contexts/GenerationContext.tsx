@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { generateStoryStream } from "../api/client";
 import type { UnknownKanjiTarget } from "../lib/generation";
-import type { ContentType, Formality, Story, StoryAudio, StoryReadState, GenerationProgress } from "../types";
+import type { ContentType, Formality, Story, StoryReadState, GenerationProgress } from "../types";
 
 interface GenerationContextType {
   loading: boolean;
@@ -11,7 +11,6 @@ interface GenerationContextType {
   startedAt: number | null;
   generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[]; unknownKanjiTarget: UnknownKanjiTarget }) => void;
   clear: () => void;
-  setStoryAudio: (audio: StoryAudio) => void;
   setStoryReadState: (state: StoryReadState) => void;
 }
 
@@ -71,17 +70,13 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const setStoryAudio = useCallback((audio: StoryAudio) => {
-    setStory((s) => (s ? { ...s, audio } : s));
-  }, []);
-
   const setStoryReadState = useCallback((state: StoryReadState) => {
     setStory((s) => (s ? { ...s, ...state } : s));
   }, []);
 
   const value = useMemo(
-    () => ({ loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadState }),
-    [loading, error, story, genProgress, startedAt, generate, clear, setStoryAudio, setStoryReadState]
+    () => ({ loading, error, story, genProgress, startedAt, generate, clear, setStoryReadState }),
+    [loading, error, story, genProgress, startedAt, generate, clear, setStoryReadState]
   );
 
   return (

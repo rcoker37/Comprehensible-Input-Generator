@@ -2,7 +2,6 @@ import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { cleanGeneratedText } from "../lib/text";
 import { buildPrompt, computeDifficulty, type UnknownKanjiTarget } from "../lib/generation";
-import type { FuriganaAnnotation } from "../lib/furigana";
 import type {
   ContentType,
   Formality,
@@ -10,7 +9,6 @@ import type {
   Kanji,
   KanjiStats,
   Story,
-  StoryAudio,
   StoryReadState,
   WordThread,
 } from "../types";
@@ -312,7 +310,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, audio, read_count, first_read_at, last_read_at, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, read_count, first_read_at, last_read_at, created_at"
     )
     .order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
@@ -370,70 +368,9 @@ export async function getKnownKanjiExposures(): Promise<Map<string, number>> {
   return new Map(rows.map((r) => [r.kanji, r.exposures]));
 }
 
-export async function deleteStory(id: number, audioPath?: string | null): Promise<void> {
-  if (audioPath) {
-    const { error: storageError } = await supabase.storage
-      .from("story-audio")
-      .remove([audioPath]);
-    if (storageError) throw new Error(storageError.message);
-  }
+export async function deleteStory(id: number): Promise<void> {
   const { error } = await supabase.from("stories").delete().eq("id", id);
   if (error) throw new Error(error.message);
-}
-
-// Stories — audio
-
-export interface AudioGenerationInput {
-  title: string;
-  titleAnnotations: FuriganaAnnotation[];
-  content: string;
-  contentAnnotations: FuriganaAnnotation[];
-}
-
-export async function generateStoryAudio(
-  storyId: number,
-  input: AudioGenerationInput,
-  opts: { force?: boolean } = {}
-): Promise<StoryAudio> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-  if (!accessToken) throw new Error("Not authenticated");
-
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/generate-audio`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      story_id: storyId,
-      title: input.title,
-      title_annotations: input.titleAnnotations,
-      content: input.content,
-      content_annotations: input.contentAnnotations,
-      force: opts.force ?? false,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: "Audio generation failed" }));
-    throw new Error(body.error || `HTTP ${response.status}`);
-  }
-
-  const { audio } = await response.json();
-  return audio as StoryAudio;
-}
-
-export async function getStoryAudioUrl(path: string): Promise<string> {
-  // 1-hour signed URL — well past any realistic single-session playback.
-  const { data, error } = await supabase.storage
-    .from("story-audio")
-    .createSignedUrl(path, 3600);
-  if (error || !data?.signedUrl) {
-    throw new Error(error?.message || "Failed to sign audio URL");
-  }
-  return data.signedUrl;
 }
 
 // Stories — word conversation threads

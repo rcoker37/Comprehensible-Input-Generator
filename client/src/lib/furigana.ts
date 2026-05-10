@@ -10,8 +10,7 @@
 // strict Aozora convention.
 //
 // LLM readings are the source of truth — when an annotation is missing,
-// readers see the kanji without ruby and Azure TTS falls back to its own
-// pronunciation guess.
+// readers see the kanji without ruby.
 
 export interface FuriganaAnnotation {
   /** Inclusive start offset in the *clean* text (annotations stripped). */

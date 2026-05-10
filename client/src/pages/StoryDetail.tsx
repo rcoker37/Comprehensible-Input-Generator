@@ -1,11 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getStory, deleteStory } from "../api/client";
-import type { Story, StoryAudio } from "../types";
+import type { Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
-import PlaybackFooter from "../components/PlaybackFooter";
 import StoryReadButton from "../components/StoryReadButton";
-import { useAudioPlayer } from "../hooks/useAudioPlayer";
 import "../components/StoryActions.css";
 import "./StoryDetail.css";
 
@@ -25,17 +23,11 @@ export default function StoryDetail() {
     }
   }, [id]);
 
-  const handleAudioGenerated = useCallback((audio: StoryAudio) => {
-    setStory((s) => (s ? { ...s, audio } : s));
-  }, []);
-
-  const player = useAudioPlayer(story, handleAudioGenerated);
-
   const handleDelete = async () => {
     if (!id) return;
     if (!window.confirm("Delete this story? This cannot be undone.")) return;
     try {
-      await deleteStory(Number(id), story?.audio?.path);
+      await deleteStory(Number(id));
       navigate("/stories");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete story");
@@ -57,66 +49,6 @@ export default function StoryDetail() {
           &larr; Compositions
         </button>
         <div className="story-detail-actions-right">
-          {player.audio ? (
-            <button
-              type="button"
-              className="story-action-btn"
-              onClick={player.handleRegenerate}
-              disabled={player.regenerating || player.loading}
-              title={player.regenerating ? "Regenerating…" : "Regenerate audio"}
-              aria-label="Regenerate audio"
-            >
-              {player.regenerating ? (
-                <span className="playback-spinner" aria-hidden="true" />
-              ) : (
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M13.5 2.5v3.5h-3.5" />
-                  <path d="M13.5 6A5.5 5.5 0 1 0 14 9.5" />
-                </svg>
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="story-action-btn"
-              onClick={player.handlePlayPause}
-              disabled={player.loading}
-              title={player.loading ? "Generating audio…" : "Generate audio"}
-              aria-label="Generate audio"
-            >
-              {player.loading ? (
-                <span className="playback-spinner" aria-hidden="true" />
-              ) : (
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M2 8h0" />
-                  <path d="M5 5v6" />
-                  <path d="M8 3v10" />
-                  <path d="M11 5v6" />
-                  <path d="M14 8h0" />
-                </svg>
-              )}
-            </button>
-          )}
           <button
             type="button"
             className="story-action-btn"
@@ -142,17 +74,11 @@ export default function StoryDetail() {
           </button>
         </div>
       </div>
-      <StoryDisplay
-        story={story}
-        audio={player.audio}
-        activeSegmentIdx={player.activeSegmentIdx}
-        onSentenceClick={player.seekToSegment}
-      />
+      <StoryDisplay story={story} />
       <StoryReadButton
         story={story}
         onChange={(state) => setStory((s) => (s ? { ...s, ...state } : s))}
       />
-      {player.audio && <PlaybackFooter {...player} />}
     </div>
   );
 }
