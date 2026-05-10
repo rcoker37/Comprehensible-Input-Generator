@@ -1,17 +1,33 @@
 import { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect, type ReactNode } from "react";
-import { generateStoryStream } from "../api/client";
+import {
+  startStoryGeneration,
+  getInFlightGeneration,
+  getStory,
+  markStoryFailed,
+  deleteStory,
+} from "../api/client";
 import type { UnknownKanjiTarget } from "../lib/generation";
-import type { ContentType, Formality, Story, StoryReadState, GenerationProgress } from "../types";
+import type { ContentType, Formality } from "../types";
+
+const POLL_INTERVAL_MS = 3000;
+const STALE_THRESHOLD_MS = 3 * 60 * 1000;
+
+interface GenerateParams {
+  contentType: ContentType;
+  paragraphs: number;
+  topic?: string;
+  style?: string;
+  formality: Formality;
+  model: string;
+  prioritizedKanji: string[];
+  unknownKanjiTarget: UnknownKanjiTarget;
+}
 
 interface GenerationContextType {
   loading: boolean;
   error: string | null;
-  story: Story | null;
-  genProgress: GenerationProgress | null;
   startedAt: number | null;
-  generate: (userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[]; unknownKanjiTarget: UnknownKanjiTarget }) => void;
-  clear: () => void;
-  setStoryReadState: (state: StoryReadState) => void;
+  generate: (userId: string, params: GenerateParams) => void;
 }
 
 const GenerationContext = createContext<GenerationContextType | null>(null);
@@ -23,60 +39,143 @@ export function useGeneration() {
 }
 
 export function GenerationProvider({ children }: { children: ReactNode }) {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [story, setStory] = useState<Story | null>(null);
-  const [genProgress, setGenProgress] = useState<GenerationProgress | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  // The id of the failed row, so dismissError() / generate() retry can clean
+  // it up from the DB.
+  const failedIdRef = useRef<number | null>(null);
+  // Each call to startPolling bumps this token; in-flight ticks check it
+  // against their captured copy so a stale chain (cancelled by stopPolling
+  // or replaced by a new generate()) can't update state. We don't gate on a
+  // single boolean because React 18 StrictMode runs cleanups during the
+  // simulated unmount/remount cycle in dev — a permanent "unmounted" flag
+  // would silently kill polling forever.
+  const pollTokenRef = useRef(0);
+  const pollTimerRef = useRef<number | null>(null);
 
-  // Abort any in-flight generation on unmount
+  const stopPolling = useCallback(() => {
+    pollTokenRef.current += 1;
+    if (pollTimerRef.current != null) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
-    return () => { abortRef.current?.abort(); };
+    return () => { stopPolling(); };
+  }, [stopPolling]);
+
+  const startPolling = useCallback((storyId: number, started: number) => {
+    pollTokenRef.current += 1;
+    const myToken = pollTokenRef.current;
+
+    setStartedAt(started);
+    setError(null);
+    failedIdRef.current = null;
+
+    const isStale = () => pollTokenRef.current !== myToken;
+
+    const tick = async () => {
+      pollTimerRef.current = null;
+      if (isStale()) return;
+      try {
+        const fresh = await getStory(storyId);
+        if (isStale()) return;
+        if (fresh.status === "complete") {
+          // Intentionally do not surface the story here — the Generator page
+          // is fire-and-forget; completed stories live on the Compositions
+          // page. We only need to flip loading off so the user can generate
+          // again.
+          setStartedAt(null);
+          return;
+        }
+        if (fresh.status === "failed") {
+          setError(fresh.error_message || "Generation failed");
+          failedIdRef.current = storyId;
+          setStartedAt(null);
+          return;
+        }
+        // Still generating — promote to failed if it's been too long, then
+        // keep polling so the UI flips on the next tick.
+        if (Date.now() - started > STALE_THRESHOLD_MS) {
+          try {
+            await markStoryFailed(storyId, "Generation timed out");
+          } catch (err) {
+            console.warn("Failed to mark story timed out:", err);
+          }
+        }
+        if (isStale()) return;
+        pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
+      } catch (err) {
+        console.warn("Polling error:", err);
+        if (isStale()) return;
+        pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
+      }
+    };
+    pollTimerRef.current = window.setTimeout(tick, POLL_INTERVAL_MS);
   }, []);
 
-  const clear = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setError(null);
-    setStory(null);
-    setGenProgress(null);
-    setStartedAt(null);
-  }, []);
-
-  const generate = useCallback((userId: string, params: { contentType: ContentType; paragraphs: number; topic?: string; style?: string; formality: Formality; model: string; prioritizedKanji: string[]; unknownKanjiTarget: UnknownKanjiTarget }) => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-
-    setLoading(true);
-    setError(null);
-    setStory(null);
-    setGenProgress(null);
-    setStartedAt(Date.now());
-
-    generateStoryStream(userId, params, (progress) => setGenProgress(progress), controller.signal)
-      .then((result) => {
-        setGenProgress(null);
-        setStory(result);
+  // Hydrate on mount: if a generation is in flight (e.g., user reloaded the
+  // page mid-generation), resume polling against that row. Failed rows are
+  // not surfaced on mount — the user already moved on; errors are only shown
+  // for failures observed within the current session via polling.
+  useEffect(() => {
+    let cancelled = false;
+    getInFlightGeneration()
+      .then((existing) => {
+        if (cancelled || !existing) return;
+        if (existing.status === "generating") {
+          startPolling(existing.id, new Date(existing.created_at).getTime());
+        }
       })
-      .catch((err) => {
-        if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : "Generation failed");
-      })
-      .finally(() => {
-        setLoading(false);
+      .catch((err) => console.warn("Hydrate generation failed:", err));
+    return () => { cancelled = true; };
+  }, [startPolling]);
+
+  const generate = useCallback((userId: string, params: GenerateParams) => {
+    stopPolling();
+    setError(null);
+
+    // Best-effort cleanup of the previous failed row before retrying, so it
+    // doesn't accumulate in the DB.
+    if (failedIdRef.current != null) {
+      const id = failedIdRef.current;
+      failedIdRef.current = null;
+      deleteStory(id).catch((err) => console.warn("Failed to clean up failed story row:", err));
+    }
+
+    // Optimistically enter "generating" state so the button locks immediately.
+    const started = Date.now();
+    setStartedAt(started);
+
+    startStoryGeneration(userId, params)
+      .then((res) => startPolling(res.storyId, started))
+      .catch(async (err) => {
+        const message = err instanceof Error ? err.message : "Generation failed";
+        // 409: the Edge Function refused because a generation is already in
+        // flight (e.g., started in another tab). Recover by polling the
+        // existing row instead of erroring out.
+        if (message.toLowerCase().includes("already in progress")) {
+          try {
+            const existing = await getInFlightGeneration();
+            if (existing && existing.status === "generating") {
+              startPolling(existing.id, new Date(existing.created_at).getTime());
+              return;
+            }
+          } catch (e) {
+            console.warn("Hydrate after 409 failed:", e);
+          }
+        }
+        setError(message);
         setStartedAt(null);
       });
-  }, []);
+  }, [startPolling, stopPolling]);
 
-  const setStoryReadState = useCallback((state: StoryReadState) => {
-    setStory((s) => (s ? { ...s, ...state } : s));
-  }, []);
+  const loading = startedAt !== null;
 
   const value = useMemo(
-    () => ({ loading, error, story, genProgress, startedAt, generate, clear, setStoryReadState }),
-    [loading, error, story, genProgress, startedAt, generate, clear, setStoryReadState]
+    () => ({ loading, error, startedAt, generate }),
+    [loading, error, startedAt, generate]
   );
 
   return (

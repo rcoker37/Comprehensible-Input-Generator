@@ -44,6 +44,8 @@ export type WordThreadsByThread = Record<string, WordThread>;
 /** Keyed by `${start_offset}-${end_offset}` (char offsets in the story content). */
 export type StoryWordThreads = Record<string, WordThreadsByThread>;
 
+export type StoryStatus = "generating" | "complete" | "failed";
+
 export interface Story {
   id: number;
   user_id?: string;
@@ -59,6 +61,8 @@ export interface Story {
   read_count: number;
   first_read_at: string | null;
   last_read_at: string | null;
+  status: StoryStatus;
+  error_message: string | null;
   created_at: string;
 }
 
@@ -66,14 +70,6 @@ export interface StoryReadState {
   read_count: number;
   first_read_at: string | null;
   last_read_at: string | null;
-}
-
-export type GenerationPhase = "thinking" | "generating";
-
-export interface GenerationProgress {
-  phase: GenerationPhase;
-  reasoning: string;
-  content: string;
 }
 
 export interface KanjiStats {
