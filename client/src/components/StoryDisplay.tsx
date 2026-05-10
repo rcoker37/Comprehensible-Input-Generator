@@ -1,6 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useKnownKanji } from "../contexts/KanjiContext";
-import { parseAnnotatedText, stripAnnotations } from "../lib/furigana";
+import { useDictionary } from "../contexts/DictionaryContext";
+import {
+  parseAnnotatedText,
+  stripAnnotations,
+  type FuriganaAnnotation,
+} from "../lib/furigana";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { KANJI_REGEX } from "../lib/constants";
 import {
@@ -8,6 +13,7 @@ import {
   type DisplayParagraph,
   type SegmentPart,
 } from "../lib/storySegments";
+import { regroupWords } from "../lib/regroupWords";
 import WordPopover from "./WordPopover";
 import type {
   Story,
@@ -32,11 +38,13 @@ export default function StoryDisplay({
   onSentenceClick,
 }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
+  const { state: dictState } = useDictionary();
   const [wordThreads, setWordThreads] = useState<StoryWordThreads>(
     story.explanations ?? {}
   );
   const [activeTap, setActiveTap] = useState<{
-    offset: number;
+    start: number;
+    end: number;
     el: HTMLElement;
   } | null>(null);
   const [furiganaState, setFuriganaState] = useState("unknown");
@@ -50,10 +58,41 @@ export default function StoryDisplay({
     return { cleanContent: cleanText, rubyAnnotations: annotations };
   }, [story.content]);
 
-  const paragraphs: DisplayParagraph[] = useMemo(
+  // Char-level baseline — every char is its own tap target. Renders immediately.
+  const baseParagraphs: DisplayParagraph[] = useMemo(
     () => buildDisplaySegments(cleanContent, rubyAnnotations),
     [cleanContent, rubyAnnotations]
   );
+
+  // Async regroup pass: once the dict is ready, kuromoji tokenises the text
+  // and we merge consecutive chars into word-shaped tap targets where JMdict
+  // (with deinflection) confirms a span aligned to a kuromoji boundary.
+  // While loading or unavailable, fall through to the char-level baseline so
+  // the story is always interactive. Stale results are filtered out by an
+  // object-identity check on `source` rather than a synchronous reset.
+  const [groupedState, setGroupedState] = useState<{
+    source: DisplayParagraph[];
+    paragraphs: DisplayParagraph[];
+  } | null>(null);
+  useEffect(() => {
+    if (dictState !== "ready") return;
+    let cancelled = false;
+    regroupWords(baseParagraphs, cleanContent, rubyAnnotations).then(
+      (res) => {
+        if (!cancelled) {
+          setGroupedState({ source: baseParagraphs, paragraphs: res });
+        }
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [baseParagraphs, cleanContent, rubyAnnotations, dictState]);
+
+  const paragraphs: DisplayParagraph[] =
+    groupedState?.source === baseParagraphs
+      ? groupedState.paragraphs
+      : baseParagraphs;
 
   const unknownKanji = useMemo(() => {
     if (!knownKanjiLoaded) return new Set<string>();
@@ -96,11 +135,12 @@ export default function StoryDisplay({
 
   const handleWordDoubleClick = (
     e: React.MouseEvent<HTMLButtonElement>,
-    offset: number
+    start: number,
+    end: number
   ) => {
     e.stopPropagation();
     cancelPendingSeek();
-    setActiveTap({ offset, el: e.currentTarget });
+    setActiveTap({ start, end, el: e.currentTarget });
   };
 
   const handleThreadUpdated = (
@@ -114,28 +154,60 @@ export default function StoryDisplay({
     }));
   };
 
+  const decideShowRuby = (subSurface: string): boolean => {
+    switch (furiganaState) {
+      case "all":
+        return true;
+      case "none":
+        return false;
+      case "unknown":
+        return [...subSurface].some(
+          (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
+        );
+      default:
+        return false;
+    }
+  };
+
+  // Split a merged WordPart's surface around its sub-annotations and render
+  // ruby on the annotated sub-spans only. Used when the regroup pass merged
+  // an AnnotatedPart with neighbouring chars (e.g. 「高《たか》」 + 「く」 →
+  // one tap target rendering as `<ruby>高<rt>たか</rt></ruby>く`).
+  const renderRubySegments = (
+    surface: string,
+    surfaceStart: number,
+    rubies: FuriganaAnnotation[]
+  ): ReactNode[] => {
+    const out: ReactNode[] = [];
+    let cursor = 0;
+    for (const r of rubies) {
+      const relStart = r.start - surfaceStart;
+      const relEnd = r.end - surfaceStart;
+      if (relStart > cursor) out.push(surface.slice(cursor, relStart));
+      const sub = surface.slice(relStart, relEnd);
+      out.push(
+        decideShowRuby(sub) ? (
+          <ruby key={relStart}>
+            {sub}
+            <rt>{r.reading}</rt>
+          </ruby>
+        ) : (
+          sub
+        )
+      );
+      cursor = relEnd;
+    }
+    if (cursor < surface.length) out.push(surface.slice(cursor));
+    return out;
+  };
+
   const renderPart = (
     part: SegmentPart,
     sentenceAudioIdx: number,
     key: number
   ) => {
     if (part.kind === "annotated") {
-      const hasUnknown = [...part.surface].some(
-        (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
-      );
-      let showRuby = false;
-      switch (furiganaState) {
-        case "all":
-          showRuby = true;
-          break;
-        case "unknown":
-          showRuby = hasUnknown;
-          break;
-        case "none":
-          showRuby = false;
-          break;
-      }
-      const inner = showRuby ? (
+      const inner = decideShowRuby(part.surface) ? (
         <ruby>
           {part.surface}
           <rt>{part.reading}</rt>
@@ -151,7 +223,26 @@ export default function StoryDisplay({
           data-offset={part.start}
           aria-label={part.surface}
           onClick={(e) => handleWordClick(e, sentenceAudioIdx)}
-          onDoubleClick={(e) => handleWordDoubleClick(e, part.start)}
+          onDoubleClick={(e) => handleWordDoubleClick(e, part.start, part.end)}
+        >
+          {inner}
+        </button>
+      );
+    }
+    if (part.kind === "word") {
+      const inner =
+        part.rubies && part.rubies.length > 0
+          ? renderRubySegments(part.surface, part.start, part.rubies)
+          : part.surface;
+      return (
+        <button
+          key={key}
+          type="button"
+          className="word-token"
+          data-offset={part.start}
+          aria-label={part.surface}
+          onClick={(e) => handleWordClick(e, sentenceAudioIdx)}
+          onDoubleClick={(e) => handleWordDoubleClick(e, part.start, part.end)}
         >
           {inner}
         </button>
@@ -165,7 +256,9 @@ export default function StoryDisplay({
         data-offset={part.offset}
         aria-label={part.char}
         onClick={(e) => handleWordClick(e, sentenceAudioIdx)}
-        onDoubleClick={(e) => handleWordDoubleClick(e, part.offset)}
+        onDoubleClick={(e) =>
+          handleWordDoubleClick(e, part.offset, part.offset + 1)
+        }
       >
         {part.char}
       </button>
@@ -237,7 +330,8 @@ export default function StoryDisplay({
         storyId={story.id}
         cleanText={cleanContent}
         annotations={rubyAnnotations}
-        offset={activeTap?.offset ?? null}
+        start={activeTap?.start ?? null}
+        end={activeTap?.end ?? null}
         wordThreads={wordThreads}
         referenceEl={activeTap?.el ?? null}
         open={activeTap !== null}

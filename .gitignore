@@ -2,3 +2,4 @@ node_modules/
 dist/
 .env.local
 client/.env.local
+client/public/dict/

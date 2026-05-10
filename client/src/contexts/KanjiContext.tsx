@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { getKanji, getKnownKanjiExposures } from "../api/client";
+import { preloadTokenizer } from "../lib/tokenizer";
 
 interface KanjiContextType {
   knownKanji: Set<string>;
@@ -49,6 +50,7 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refreshKnownKanji();
+    preloadTokenizer();
   }, [refreshKnownKanji]);
 
   const value = useMemo(

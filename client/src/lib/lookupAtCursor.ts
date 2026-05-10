@@ -52,7 +52,8 @@ export interface LookupHit {
 export async function lookupAtCursor(
   text: string,
   offset: number,
-  annotations: FuriganaAnnotation[] = []
+  annotations: FuriganaAnnotation[] = [],
+  maxLength?: number
 ): Promise<LookupHit | null> {
   if (offset < 0 || offset >= text.length) return null;
 
@@ -61,8 +62,15 @@ export async function lookupAtCursor(
   // hiragana-equivalent match (the JMdict IDB normalises katakana→hiragana for
   // its lookup index). hira↔kanji mixes freely (kanji+okurigana, prefix お+
   // kanji); katakana runs stay katakana; ASCII / punctuation stop scanning.
+  // `maxLength`, when supplied, further caps the scan — used by the regroup
+  // pass to keep matches inside a single char-run (i.e. not across an
+  // annotation boundary).
   const scanLimit = scanLengthFromCursor(text, offset);
-  const maxLen = Math.min(MAX_LOOKUP_LEN, scanLimit);
+  const maxLen = Math.min(
+    MAX_LOOKUP_LEN,
+    scanLimit,
+    maxLength ?? Number.POSITIVE_INFINITY
+  );
 
   for (let len = maxLen; len >= 1; len--) {
     const prefix = text.slice(offset, offset + len);
@@ -97,6 +105,71 @@ export async function lookupAtCursor(
     start: offset,
     end: offset + 1,
     surface: text.slice(offset, offset + 1),
+    results: [],
+  };
+}
+
+/**
+ * Single-length lookup at a given span: exact JMdict match first, then
+ * deinflection candidates filtered by POS. Used by the regroup pass to test a
+ * specific kuromoji-aligned span without iterating shorter lengths.
+ */
+export async function lookupAtBoundary(
+  text: string,
+  start: number,
+  end: number,
+  annotations: FuriganaAnnotation[] = []
+): Promise<LookupHit | null> {
+  if (start < 0 || end <= start || end > text.length) return null;
+  const prefix = text.slice(start, end);
+
+  const exact = await lookupWord(prefix);
+  if (exact.length > 0) {
+    return applyAnnotatedReading(
+      { start, end, surface: prefix, results: exact },
+      annotations
+    );
+  }
+
+  for (const c of deinflect(prefix)) {
+    const hits = await lookupWord(c.base);
+    const filtered = filterByPos(hits, c);
+    if (filtered.length > 0) {
+      return {
+        start,
+        end,
+        surface: prefix,
+        base: c.base,
+        derivations: c.derivations,
+        results: filtered,
+      };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Look up exactly the span the regroup pass decided was a tap target. Returns
+ * a JMdict hit when one exists; otherwise an empty-results hit so the popover
+ * can still anchor against the surface (single-char tap targets like 「が」 in
+ * 「があります」 have no JMdict-worthy match longer than 1 char and would
+ * previously wander into greedy false positives via lookupAtCursor — e.g.
+ * picking up the 「があ」 interjection by extending past the rendered button).
+ */
+export async function lookupExactSpan(
+  text: string,
+  start: number,
+  end: number,
+  annotations: FuriganaAnnotation[] = []
+): Promise<LookupHit | null> {
+  if (start < 0 || end <= start || end > text.length) return null;
+  const fromBoundary = await lookupAtBoundary(text, start, end, annotations);
+  if (fromBoundary) return fromBoundary;
+  return {
+    start,
+    end,
+    surface: text.slice(start, end),
     results: [],
   };
 }

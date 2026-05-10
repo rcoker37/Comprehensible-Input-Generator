@@ -164,6 +164,22 @@ BEGIN
     NULL,
     '{}'::jsonb,
     now() - interval '6 hours'
+  ),
+  -- Story 7: essay, polite — regroup edge cases. Bundles the original
+  -- 千九百年代 number-compound split, the にし|ます verb-aux split case,
+  -- 食べました multi-token deinflection, には compound particle, te/ta-form
+  -- chains, and several annotated-kanji + okurigana ku-form merges.
+  (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    '千九百年代《せんきゅうひゃくねんだい》の思《おも》い出《で》',
+    E'私《わたし》のおじいさんは千九百年代に生《う》まれました。家族《かぞく》は四《よっ》つの部屋《へや》のある家《いえ》に住《す》んでいました。\n\nある日《ひ》、おじいさんは「もっとよい人《ひと》になります」と決《き》めました。空《そら》は高《たか》くなり、雲《くも》は白《しろ》かったです。家《いえ》に帰《かえ》って、母《はは》が作《つく》ったご飯《はん》を食《た》べました。\n\n日本《にほん》には四《よっ》つの季節《きせつ》があります。冬《ふゆ》には雪《ゆき》が降《ふ》り、夏《なつ》にはとても暑《あつ》くなります。そんな時《とき》のことを思《おも》い出《だ》すと、心《こころ》が温《あたた》かくなります。',
+    'fiction', 3, '思い出', 'polite',
+    '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
+    '千九百年代思出私生家族四部屋住日人決空高雲白帰母作飯食本季節冬雪降夏暑時心温',
+    '{"uniqueKanji": 38, "grade": {"max": 6, "avg": 2.3}, "jlpt": {"min": 2, "avg": 4.0}}'::jsonb,
+    NULL,
+    '{}'::jsonb,
+    now() - interval '1 hours'
   );
 END $$;
 

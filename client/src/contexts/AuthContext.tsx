@@ -65,17 +65,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Use refreshSession instead of getSession to ensure a fresh token
-    // after deploys (getSession returns the cached/possibly-expired token)
-    supabase.auth.refreshSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setLoading(false));
-      } else {
-        setLoading(false);
+    // Prefer a fresh token on mount — defends against JWT signing-key
+    // rotation after a deploy invalidating the cached token. Fall back to
+    // the cached session when the auth server is unreachable (e.g. /token
+    // 502s after a tab has been idle), otherwise the rejected promise
+    // would leave `loading` stuck true and ProtectedRoute would render
+    // the loading screen indefinitely. A stale cached token may still
+    // 401 on the next API call, but that's recoverable; an infinite
+    // spinner isn't.
+    const resolveSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.refreshSession();
+        if (error) throw error;
+        return data.session;
+      } catch (err) {
+        console.warn("refreshSession failed, using cached session:", err);
+        const { data } = await supabase.auth.getSession();
+        return data.session;
       }
-    });
+    };
+
+    resolveSession()
+      .then((session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchProfile(session.user.id).finally(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("Auth init failed:", err);
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },

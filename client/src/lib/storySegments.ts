@@ -32,7 +32,32 @@ export interface CharPart {
   char: string;
 }
 
-export type SegmentPart = AnnotatedPart | CharPart;
+/**
+ * A span the regroup pass merged into one tap target. Emitted by
+ * `regroupWords`; the sync `buildDisplaySegments` only ever produces
+ * `CharPart`s and `AnnotatedPart`s. Tap handlers pass `(start, end)` to
+ * `lookupExactSpan`, so any tap inside the visual word resolves to the same
+ * dictionary entry.
+ */
+export interface WordPart {
+  kind: "word";
+  /** Inclusive char offset in the input text where this word begins. */
+  start: number;
+  /** Exclusive char offset in the input text where this word ends. */
+  end: number;
+  /** Surface form: `cleanText.slice(start, end)`. */
+  surface: string;
+  /**
+   * Sub-annotations within (start, end). Set when the regroup merge crossed
+   * one or more `AnnotatedPart`s — the LLM-supplied per-kanji ruby readings
+   * for the kanji inside the merged span. Undefined when the span is pure
+   * kana (or has no annotations inside it). The renderer splits the surface
+   * on these and shows ruby on the annotated sub-spans only.
+   */
+  rubies?: FuriganaAnnotation[];
+}
+
+export type SegmentPart = AnnotatedPart | CharPart | WordPart;
 
 export interface DisplaySentence {
   /** Index into audio.sentences[] (matches the SSML's sN bookmarks). */
