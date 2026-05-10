@@ -1,8 +1,6 @@
 // Walks (cleanText, annotations) and produces a paragraph/sentence/part
 // structure where every character is its own clickable unit (and every
-// annotated kanji block is a single unit). The same scanning rules are
-// mirrored in supabase/functions/generate-audio so the sentence/paragraph
-// indices line up with the SSML bookmarks Azure embeds in the audio stream.
+// annotated kanji block is a single unit).
 //
 // Sentence boundaries: 。！？ followed by any closer characters (」』）"’).
 // Paragraph boundaries: blank line (two or more newlines).
@@ -60,8 +58,6 @@ export interface WordPart {
 export type SegmentPart = AnnotatedPart | CharPart | WordPart;
 
 export interface DisplaySentence {
-  /** Index into audio.sentences[] (matches the SSML's sN bookmarks). */
-  audioIdx: number;
   /** Character offset where this sentence begins in the input text. */
   start: number;
   parts: SegmentPart[];
@@ -79,22 +75,18 @@ export function buildDisplaySegments(
   let currentPara: DisplaySentence[] = [];
   let currentParts: SegmentPart[] = [];
   let currentSentStart = -1;
-  let currentSentAudioIdx = -1;
   let armed = true;
-  let sentenceCounter = 0;
   let i = 0;
   let annIdx = 0;
 
   const flushSentence = () => {
     if (currentParts.length === 0) return;
     currentPara.push({
-      audioIdx: currentSentAudioIdx,
       start: currentSentStart,
       parts: currentParts,
     });
     currentParts = [];
     currentSentStart = -1;
-    currentSentAudioIdx = -1;
   };
 
   const flushParagraph = () => {
@@ -107,7 +99,6 @@ export function buildDisplaySegments(
     if (!armed) return;
     flushSentence();
     currentSentStart = atOffset;
-    currentSentAudioIdx = sentenceCounter++;
     armed = false;
   };
 

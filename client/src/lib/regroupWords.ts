@@ -186,7 +186,7 @@ async function regroupParts(
  * Build the merged result. When the merge consumed only one part (toRel === 0)
  * we return that part untouched — it's already its own valid tap target and
  * wrapping a single AnnotatedPart in a WordPart would lose the
- * `kind: "annotated"` discriminator the renderer/audio code reads.
+ * `kind: "annotated"` discriminator the renderer reads.
  */
 function buildMergedPart(
   indexed: IndexedPart[],

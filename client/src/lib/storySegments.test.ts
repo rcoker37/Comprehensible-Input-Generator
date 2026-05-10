@@ -61,12 +61,10 @@ describe("buildDisplaySegments", () => {
     expect(paras).toHaveLength(1);
     const sentences = paras[0]!.sentences;
     expect(sentences).toHaveLength(2);
-    expect(sentences[0]!.audioIdx).toBe(0);
     expect(sentences[0]!.start).toBe(0); // 「 starts at 0; closers don't reset start
     // First sentence: 「これは。」 — 5 chars (no trailing 」 dropped)
     expect(sentences[0]!.parts.map((p) => (p.kind === "char" ? p.char : "?")))
       .toEqual(["「", "こ", "れ", "は", "。", "」"]);
-    expect(sentences[1]!.audioIdx).toBe(1);
     expect(sentences[1]!.start).toBe(6); // 明 starts after 「これは。」
     expect(sentences[1]!.parts.map((p) => (p.kind === "char" ? p.char : "?")))
       .toEqual(["明", "日", "も", "来", "る", "！"]);
@@ -76,8 +74,6 @@ describe("buildDisplaySegments", () => {
     const text = "一行目。\n\n二行目。";
     const paras = buildDisplaySegments(text, []);
     expect(paras).toHaveLength(2);
-    expect(paras[0]!.sentences[0]!.audioIdx).toBe(0);
-    expect(paras[1]!.sentences[0]!.audioIdx).toBe(1);
     expect(paras[1]!.sentences[0]!.start).toBe(6); // after "一行目。\n\n"
   });
 

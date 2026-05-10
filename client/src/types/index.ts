@@ -24,25 +24,6 @@ export interface DifficultyEstimate {
   jlpt: { min: number; avg: number };
 }
 
-export interface StoryAudioParagraph {
-  start: number; // character offset (in content) where this paragraph begins
-  t: number;     // offset in ms
-}
-
-export interface StoryAudioSentence {
-  start: number; // character offset (in content) where this sentence begins
-  t: number;     // offset in ms
-}
-
-export interface StoryAudio {
-  path: string;
-  duration_ms: number;
-  voice: string;
-  version: number;
-  paragraphs: StoryAudioParagraph[];
-  sentences?: StoryAudioSentence[];
-}
-
 export type ChatRole = "user" | "assistant";
 
 export interface ChatMessage {
@@ -74,7 +55,6 @@ export interface Story {
   formality: Formality;
   filters: StoryFilters;
   difficulty: DifficultyEstimate;
-  audio: StoryAudio | null;
   explanations: StoryWordThreads | null;
   read_count: number;
   first_read_at: string | null;

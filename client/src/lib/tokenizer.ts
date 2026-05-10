@@ -4,10 +4,6 @@
 // which we then use as a sieve for dictionary-based grouping in regroupWords:
 // only matches that align with a kuromoji boundary are accepted, so JMdict's
 // rare interjections (e.g. があ) can't shadow the obvious が|あります split.
-//
-// Audio sync no longer depends on kuromoji — that uses sentence-level
-// bookmarks. So this file is intentionally smaller than the previous version
-// that produced AudioToken[].
 
 import kuromoji from "@aiktb/kuromoji";
 

@@ -13,7 +13,7 @@
 #      container so no host psql install is required.
 #
 # What it does NOT do:
-#   - Sync storage objects (e.g. story-audio MP3s — different transport).
+#   - Sync storage objects — different transport.
 #   - Decrypt vault secrets (e.g. profiles.openrouter_api_key) — encryption
 #     keys differ per project. Re-add your API key in local Settings after.
 

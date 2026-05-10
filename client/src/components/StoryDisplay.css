@@ -100,22 +100,6 @@
   margin-bottom: 1rem;
 }
 
-.story-sentence {
-  cursor: pointer;
-  border-radius: var(--radius);
-  padding: 0.05rem 0.15rem;
-  margin: 0 -0.05rem;
-  transition: background 0.15s;
-}
-
-.story-sentence:hover {
-  background: var(--surface);
-}
-
-.story-sentence.active {
-  background: var(--surface-2);
-}
-
 .word-token {
   display: inline;
   font: inherit;

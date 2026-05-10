@@ -254,7 +254,7 @@ describe("regroupWords", () => {
     ]);
   });
 
-  it("preserves audioIdx and sentence start offsets across paragraphs", async () => {
+  it("preserves sentence start offsets across paragraphs", async () => {
     const text = "今日は晴れ。\n\n明日は雨。";
     const base = buildDisplaySegments(text, []);
     const out = await regroupWords(
@@ -278,9 +278,7 @@ describe("regroupWords", () => {
       ])
     );
     expect(out).toHaveLength(2);
-    expect(out[0]!.sentences[0]!.audioIdx).toBe(0);
     expect(out[0]!.sentences[0]!.start).toBe(0);
-    expect(out[1]!.sentences[0]!.audioIdx).toBe(1);
     expect(out[1]!.sentences[0]!.start).toBe(8); // after "今日は晴れ。\n\n"
   });
 });
