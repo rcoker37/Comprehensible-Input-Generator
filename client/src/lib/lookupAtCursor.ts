@@ -15,6 +15,15 @@ import {
 
 const MAX_LOOKUP_LEN = 16;
 
+// When the exact-match path returns an entry whose only-matching headword is
+// kana but the entry is "kanji-canonical" (has k forms, no `uk` misc), and a
+// deinflection candidate explains at least this many surface characters as
+// inflection, prefer the deinflection. Catches いきたい (kanji-only entry
+// 生き体, r=いきたい) so it falls through to the -たい rule (consumed=3) and
+// resolves to いく. The threshold protects single-char continuative reductions
+// like いき→いきる (consumed=1) from outranking a real exact match like 息.
+const DEINFLECTION_OVERRIDE_MIN_CONSUMED = 2;
+
 export interface LookupHit {
   /** Inclusive char offset in cleanText where the match starts. */
   start: number;
@@ -76,7 +85,7 @@ export async function lookupAtCursor(
     const prefix = text.slice(offset, offset + len);
 
     const exact = await lookupWord(prefix);
-    if (exact.length > 0) {
+    if (exact.length > 0 && !isKanjiCanonicalKanaMatch(exact, prefix)) {
       return applyAnnotatedReading(
         { start: offset, end: offset + len, surface: prefix, results: exact },
         annotations
@@ -84,6 +93,10 @@ export async function lookupAtCursor(
     }
 
     for (const c of deinflect(prefix)) {
+      if (exact.length > 0 && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) {
+        // Exact match exists; only let a substantive deinflection override it.
+        continue;
+      }
       const hits = await lookupWord(c.base);
       const filtered = filterByPos(hits, c);
       if (filtered.length > 0) {
@@ -96,6 +109,16 @@ export async function lookupAtCursor(
           results: filtered,
         };
       }
+    }
+
+    // Exact match existed but was kanji-canonical AND no deinflection won —
+    // fall back to the exact match rather than letting the loop try a shorter
+    // span (which would mangle 「いきたい」 into 「いき」 alone).
+    if (exact.length > 0) {
+      return applyAnnotatedReading(
+        { start: offset, end: offset + len, surface: prefix, results: exact },
+        annotations
+      );
     }
   }
 
@@ -124,7 +147,7 @@ export async function lookupAtBoundary(
   const prefix = text.slice(start, end);
 
   const exact = await lookupWord(prefix);
-  if (exact.length > 0) {
+  if (exact.length > 0 && !isKanjiCanonicalKanaMatch(exact, prefix)) {
     return applyAnnotatedReading(
       { start, end, surface: prefix, results: exact },
       annotations
@@ -132,6 +155,9 @@ export async function lookupAtBoundary(
   }
 
   for (const c of deinflect(prefix)) {
+    if (exact.length > 0 && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) {
+      continue;
+    }
     const hits = await lookupWord(c.base);
     const filtered = filterByPos(hits, c);
     if (filtered.length > 0) {
@@ -144,6 +170,13 @@ export async function lookupAtBoundary(
         results: filtered,
       };
     }
+  }
+
+  if (exact.length > 0) {
+    return applyAnnotatedReading(
+      { start, end, surface: prefix, results: exact },
+      annotations
+    );
   }
 
   return null;
@@ -249,6 +282,41 @@ export function scanLengthFromCursor(text: string, offset: number): number {
     len++;
   }
   return len;
+}
+
+/**
+ * True when the surface is pure-kana but every candidate `WordResult` is
+ * "kanji-canonical" — i.e. the entry has at least one kanji headword and no
+ * sense is tagged `uk` ("usually written using kana alone"). The match was
+ * therefore on a reading attached to a kanji entry the user is unlikely to
+ * have meant by writing kana (e.g. tapping 「いきたい」 returns 生き体 because
+ * its reading is いきたい, but no one writes 生き体 in kana).
+ *
+ * When this is the case, the caller should let a non-trivial deinflection
+ * candidate take precedence over the exact match.
+ */
+export function isKanjiCanonicalKanaMatch(
+  results: WordResult[],
+  surface: string
+): boolean {
+  if (!isPureKana(surface)) return false;
+  for (const wr of results) {
+    if (!wr.k || wr.k.length === 0) return false;
+    for (const sense of wr.s) {
+      if (sense.misc?.includes("uk")) return false;
+    }
+  }
+  return true;
+}
+
+function isPureKana(s: string): boolean {
+  for (const ch of s) {
+    const c = ch.codePointAt(0) ?? 0;
+    const hira = c >= 0x3040 && c <= 0x309f;
+    const kata = (c >= 0x30a0 && c <= 0x30ff) || (c >= 0xff66 && c <= 0xff9f);
+    if (!hira && !kata) return false;
+  }
+  return s.length > 0;
 }
 
 /**
