@@ -451,9 +451,12 @@ export async function indexStoryWords(
 }
 
 /**
- * Returns the user's read-but-unindexed stories (id + content), oldest first
- * so the backfill processes least-recent stories first. Used by
- * `WordIndexBackfillContext` to populate its queue.
+ * Returns every complete-but-unindexed story for the user (id + content),
+ * oldest first so the backfill processes least-recent stories first. Read
+ * state is intentionally not a gate here — the popover's "other usages"
+ * carousel filters to read stories at the SQL layer (`get_word_usages`),
+ * but we want the index built ahead of time so the carousel is instant the
+ * moment a story is marked read.
  */
 export async function getStoriesNeedingIndex(): Promise<
   { id: number; content: string }[]
@@ -462,7 +465,6 @@ export async function getStoriesNeedingIndex(): Promise<
     .from("stories")
     .select("id, content")
     .eq("status", "complete")
-    .gt("read_count", 0)
     .is("word_index_at", null)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);

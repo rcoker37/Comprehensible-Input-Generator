@@ -127,11 +127,8 @@ function WordIndexBackfillSection() {
   const {
     remaining,
     processing,
-    paused,
     currentStoryId,
     error,
-    setPaused,
-    runNow,
   } = useWordIndexBackfill();
 
   const dictNotReady = dictState !== "ready";
@@ -141,11 +138,9 @@ function WordIndexBackfillSection() {
   if (dictNotReady) {
     statusLine = "Waiting for dictionary to load…";
   } else if (allDone) {
-    statusLine = "All read stories are indexed.";
+    statusLine = "All stories are indexed.";
   } else if (processing && currentStoryId !== null) {
     statusLine = `Indexing story #${currentStoryId} · ${remaining} remaining`;
-  } else if (paused) {
-    statusLine = `${remaining} ${remaining === 1 ? "story" : "stories"} waiting to be indexed.`;
   } else {
     statusLine = `${remaining} ${remaining === 1 ? "story" : "stories"} pending.`;
   }
@@ -158,33 +153,10 @@ function WordIndexBackfillSection() {
         <span>{statusLine}</span>
         <span className="field-hint">
           The word index powers the "other usages" carousel in the word popover.
-          Newly-read stories index automatically; already-read stories get
-          backfilled here in the background.
+          Every story is indexed in the background as soon as it's generated;
+          the popover only surfaces examples from stories you've marked read.
         </span>
       </div>
-      {!allDone && !dictNotReady && (
-        <div className="settings-controls">
-          <button
-            type="button"
-            className="save-btn"
-            onClick={() => setPaused(!paused)}
-            disabled={processing && !paused}
-          >
-            {paused ? "Resume" : "Pause"}
-          </button>
-          {paused && (
-            <button
-              type="button"
-              className="save-btn"
-              onClick={runNow}
-              disabled={processing}
-              style={{ marginLeft: 8 }}
-            >
-              Index now
-            </button>
-          )}
-        </div>
-      )}
       {error && <div className="error">{error}</div>}
     </div>
   );

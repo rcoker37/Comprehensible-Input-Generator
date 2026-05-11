@@ -25,6 +25,16 @@ export interface Rule<TCondition extends string = string> {
   deinflect: (text: string) => string;
   conditionsIn: TCondition[];
   conditionsOut: TCondition[];
+  /**
+   * Number of characters of the matched surface this rule "consumes" as
+   * inflectional evidence — `inflectedSuffix.length` for suffix rules,
+   * `inflectedPrefix.length` for prefix rules, full word length for whole-word
+   * rules. Summed across the chain in `transform()` so callers can prefer
+   * candidates derived from rules that explained more of the input (e.g.
+   * いきます→いく via "polite -ます" consumes 3 chars, beating いきます→いきむ via
+   * "short causative" which consumes only 2).
+   */
+  inflectedLength: number;
 }
 
 export interface Transform<TCondition extends string = string> {
@@ -52,6 +62,8 @@ export interface TransformedText {
   text: string;
   conditions: number;
   trace: Trace;
+  /** Sum of `inflectedLength` across all rules applied along the trace. */
+  consumed: number;
 }
 
 interface CompiledRule {
@@ -60,6 +72,7 @@ interface CompiledRule {
   deinflect: (text: string) => string;
   conditionsIn: number;
   conditionsOut: number;
+  inflectedLength: number;
 }
 
 interface CompiledTransform {
@@ -86,6 +99,7 @@ export function suffixInflection<TCondition extends string>(
       text.slice(0, text.length - inflectedSuffix.length) + deinflectedSuffix,
     conditionsIn,
     conditionsOut,
+    inflectedLength: inflectedSuffix.length,
   };
 }
 
@@ -103,6 +117,7 @@ export function prefixInflection<TCondition extends string>(
       deinflectedPrefix + text.slice(inflectedPrefix.length),
     conditionsIn,
     conditionsOut,
+    inflectedLength: inflectedPrefix.length,
   };
 }
 
@@ -119,6 +134,7 @@ export function wholeWordInflection<TCondition extends string>(
     deinflect: () => deinflectedWord,
     conditionsIn,
     conditionsOut,
+    inflectedLength: inflectedWord.length,
   };
 }
 
@@ -151,6 +167,7 @@ export class LanguageTransformer {
           deinflect: rule.deinflect,
           conditionsIn: inFlags,
           conditionsOut: outFlags,
+          inflectedLength: rule.inflectedLength,
         };
       });
       const heuristic = new RegExp(
@@ -173,13 +190,13 @@ export class LanguageTransformer {
    */
   transform(sourceText: string): TransformedText[] {
     const results: TransformedText[] = [
-      { text: sourceText, conditions: 0, trace: [] },
+      { text: sourceText, conditions: 0, trace: [], consumed: 0 },
     ];
 
     for (let i = 0; i < results.length; i++) {
       const current = results[i];
       if (!current) continue;
-      const { text, conditions, trace } = current;
+      const { text, conditions, trace, consumed } = current;
       for (const transform of this.transforms) {
         if (!transform.heuristic.test(text)) continue;
 
@@ -206,6 +223,7 @@ export class LanguageTransformer {
             text: nextText,
             conditions: rule.conditionsOut,
             trace: nextTrace,
+            consumed: consumed + rule.inflectedLength,
           });
         }
       }

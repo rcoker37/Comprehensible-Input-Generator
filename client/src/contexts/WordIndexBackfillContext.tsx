@@ -6,10 +6,9 @@
 // are logged and skipped — the row stays unstamped so the next session
 // retries.
 //
-// Settings exposes the queue length, the currently-processing story id, and
-// pause/resume + run-now controls. Pause state persists across sessions in
-// localStorage so a user who turned it off doesn't get re-opted-in on
-// reload.
+// Settings exposes the queue length and the currently-processing story id
+// for visibility. There's no pause control: if the dictionary is loaded and
+// there's work to do, we drain.
 import {
   createContext,
   useCallback,
@@ -28,7 +27,6 @@ import {
 } from "../api/client";
 import { extractWordOccurrences } from "../lib/storyWordIndex";
 
-const PAUSED_KEY = "wordIndexBackfill.paused";
 const STORY_GAP_MS = 200;
 
 interface QueuedStory {
@@ -39,11 +37,8 @@ interface QueuedStory {
 interface WordIndexBackfillContextType {
   remaining: number;
   processing: boolean;
-  paused: boolean;
   currentStoryId: number | null;
   error: string | null;
-  setPaused: (paused: boolean) => void;
-  runNow: () => void;
   refresh: () => void;
 }
 
@@ -60,23 +55,6 @@ export function useWordIndexBackfill() {
   return ctx;
 }
 
-function readPaused(): boolean {
-  try {
-    return localStorage.getItem(PAUSED_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function writePaused(paused: boolean): void {
-  try {
-    if (paused) localStorage.setItem(PAUSED_KEY, "1");
-    else localStorage.removeItem(PAUSED_KEY);
-  } catch {
-    // private mode etc.
-  }
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => window.setTimeout(r, ms));
 }
@@ -87,23 +65,15 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
 
   const [remaining, setRemaining] = useState(0);
   const [processing, setProcessing] = useState(false);
-  const [paused, setPausedState] = useState<boolean>(() => readPaused());
   const [currentStoryId, setCurrentStoryId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // The queue lives in a ref because the processing loop reads/writes it in
   // a tight loop and we don't need React to re-render between stories.
   const queueRef = useRef<QueuedStory[]>([]);
-  // Mirror of `paused` for the loop to consult without restarting on each
-  // toggle. Same pattern as pollTokenRef in GenerationContext.
-  const pausedRef = useRef(paused);
   // Identity check so we can cancel a stale loop after sign-out or refresh.
   const runIdRef = useRef(0);
   const loopRunningRef = useRef(false);
-
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
 
   // Queue hydrate — runs whenever the user changes (sign-in / sign-out) or
   // when the dictionary becomes ready. Both gates have to be satisfied
@@ -144,7 +114,6 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
 
     try {
       while (
-        !pausedRef.current &&
         queueRef.current.length > 0 &&
         runIdRef.current === myRunId
       ) {
@@ -175,29 +144,11 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
   }, []);
 
   // Auto-start the loop whenever the gates pass and there's work to do.
-  // Re-fires after pause→resume (state flips trigger this effect).
   useEffect(() => {
-    if (!user || dictState !== "ready" || paused) return;
+    if (!user || dictState !== "ready") return;
     if (queueRef.current.length === 0) return;
     void runLoop();
-  }, [user, dictState, paused, remaining, runLoop]);
-
-  const setPaused = useCallback((next: boolean) => {
-    setPausedState(next);
-    writePaused(next);
-  }, []);
-
-  const runNow = useCallback(() => {
-    // "Index now" — pretend the user un-paused for one drain. We don't flip
-    // the persisted preference; if they paused, they probably want it to
-    // stay paused after this drain completes. The loop reads pausedRef on
-    // every iteration, so setting it false here un-gates without a state
-    // round-trip.
-    pausedRef.current = false;
-    void runLoop().then(() => {
-      pausedRef.current = paused;
-    });
-  }, [paused, runLoop]);
+  }, [user, dictState, remaining, runLoop]);
 
   const refresh = useCallback(() => {
     if (!user || dictState !== "ready") return;
@@ -215,14 +166,11 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
     () => ({
       remaining,
       processing,
-      paused,
       currentStoryId,
       error,
-      setPaused,
-      runNow,
       refresh,
     }),
-    [remaining, processing, paused, currentStoryId, error, setPaused, runNow, refresh]
+    [remaining, processing, currentStoryId, error, refresh]
   );
 
   return (

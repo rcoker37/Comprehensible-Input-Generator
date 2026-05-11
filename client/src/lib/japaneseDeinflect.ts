@@ -24,13 +24,23 @@ export interface DeinflectionCandidate {
    * surface regex (e.g. ひとり deinflecting to a fictitious verb ひとる).
    */
   conditions: number;
+  /**
+   * Total number of surface characters explained by the deinflection chain
+   * (sum of `inflectedLength` across each rule applied). Higher = the chain
+   * accounted for more of the input as inflectional evidence; the caller
+   * uses this to prefer specific rules over greedy ones (e.g. for いきます,
+   * polite "-ます" consumes 3 chars while short causative consumes only 2,
+   * so いく beats いきむ).
+   */
+  consumed: number;
 }
 
 /**
  * Returns every dictionary-form candidate the engine can derive from
- * `surface`, excluding the surface itself. Order is BFS discovery order, so
- * shorter chains come first — callers should still try each candidate against
- * the dictionary and accept the first hit.
+ * `surface`, excluding the surface itself. Sorted by `consumed` descending so
+ * callers iterating "first dictionary hit wins" naturally prefer rules that
+ * explained more of the surface. Ties broken by trace length ascending
+ * (simpler chains first).
  */
 export function deinflect(surface: string): DeinflectionCandidate[] {
   const candidates = transformer.transform(surface);
@@ -41,8 +51,13 @@ export function deinflect(surface: string): DeinflectionCandidate[] {
       base: c.text,
       derivations: c.trace.map((frame) => frame.transform),
       conditions: c.conditions,
+      consumed: c.consumed,
     });
   }
+  out.sort((a, b) => {
+    if (b.consumed !== a.consumed) return b.consumed - a.consumed;
+    return a.derivations.length - b.derivations.length;
+  });
   return out;
 }
 

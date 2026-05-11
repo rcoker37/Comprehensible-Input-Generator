@@ -1,12 +1,28 @@
 import { describe, it, expect } from "vitest";
 import type { WordResult } from "@birchill/jpdict-idb";
-import { applyAnnotatedReading, type LookupHit } from "./lookupAtCursor";
+import {
+  applyAnnotatedReading,
+  isKanjiCanonicalKanaMatch,
+  type LookupHit,
+} from "./lookupAtCursor";
 import type { FuriganaAnnotation } from "./furigana";
 
 // `applyAnnotatedReading` only touches `wr.r[i].ent`; build minimal stand-ins
 // so we don't have to populate the full WordResult shape.
 function wr(...readings: string[]): WordResult {
   return { r: readings.map((ent) => ({ ent })) } as unknown as WordResult;
+}
+
+function wrFull(opts: {
+  k?: string[];
+  r: string[];
+  misc?: string[];
+}): WordResult {
+  return {
+    k: (opts.k ?? []).map((ent) => ({ ent })),
+    r: opts.r.map((ent) => ({ ent })),
+    s: [{ misc: opts.misc }],
+  } as unknown as WordResult;
 }
 
 function hit(over: Partial<LookupHit>): LookupHit {
@@ -112,5 +128,43 @@ describe("applyAnnotatedReading", () => {
     const out = applyAnnotatedReading(h, ann);
     expect(out.preferredReading).toBe("たべる");
     expect(out.results[0]?.r[0]?.ent).toBe("たべる");
+  });
+});
+
+describe("isKanjiCanonicalKanaMatch", () => {
+  it("flags kanji-only entry matched on its kana reading (e.g. いきたい→生き体)", () => {
+    // Surface いきたい matches the reading of the rare noun 生き体. With no
+    // 'uk' tag and a kanji headword, the match is "kanji-canonical" — the
+    // user almost certainly meant 行きたい instead.
+    const r = wrFull({ k: ["生き体"], r: ["いきたい"] });
+    expect(isKanjiCanonicalKanaMatch([r], "いきたい")).toBe(true);
+  });
+
+  it("does not flag entries explicitly tagged uk (usually written in kana)", () => {
+    // ありがとう has kanji 有り難う but is usually written in kana — uk wins.
+    const r = wrFull({
+      k: ["有り難う"],
+      r: ["ありがとう"],
+      misc: ["uk"],
+    });
+    expect(isKanjiCanonicalKanaMatch([r], "ありがとう")).toBe(false);
+  });
+
+  it("does not flag entries with no kanji forms (kana-native)", () => {
+    const r = wrFull({ r: ["こんにちは"] });
+    expect(isKanjiCanonicalKanaMatch([r], "こんにちは")).toBe(false);
+  });
+
+  it("does not flag mixed-script surfaces", () => {
+    // Surface contains kanji — we never override exact match in that case.
+    const r = wrFull({ k: ["生き体"], r: ["いきたい"] });
+    expect(isKanjiCanonicalKanaMatch([r], "生きたい")).toBe(false);
+  });
+
+  it("requires every result to be kanji-canonical", () => {
+    // If any result is uk-tagged or kana-native, exact match is fine.
+    const kanjiOnly = wrFull({ k: ["生き体"], r: ["いきたい"] });
+    const ukEntry = wrFull({ k: ["行く"], r: ["いきたい"], misc: ["uk"] });
+    expect(isKanjiCanonicalKanaMatch([kanjiOnly, ukEntry], "いきたい")).toBe(false);
   });
 });

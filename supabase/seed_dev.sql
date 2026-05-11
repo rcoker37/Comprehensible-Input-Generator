@@ -173,6 +173,23 @@ BEGIN
     '{"uniqueKanji": 38, "grade": {"max": 6, "avg": 2.3}, "jlpt": {"min": 2, "avg": 4.0}}'::jsonb,
     '{}'::jsonb,
     now() - interval '1 hours'
+  ),
+  -- Story 8: deinflection regression — repeated kana-only いきます.
+  -- Tap target for confirming いきます resolves to いく (to go), not
+  -- いきむ (息む, to strain). The short-causative rule (ます→む) used
+  -- to win on first-hit-wins because it appears earlier in the
+  -- transform list; deinflect() now ranks by consumed-suffix length
+  -- so the polite -ます rule (きます→く) wins.
+  (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    'こうえんにいきます',
+    E'明日《あした》、友達《ともだち》と公園《こうえん》にいきます。雨《あめ》がふっても、いきます。\n\n朝《あさ》ごはんを食《た》べてから、駅《えき》までいきます。みんなで元気《げんき》にいきましょう。\n\n弟《おとうと》も「いっしょにいきたい」と言《い》いました。だから、家族《かぞく》みんなでいきます。',
+    'fiction', 3, '日常', 'polite',
+    '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
+    '明日友達公園雨朝食駅元気弟言家族',
+    '{"uniqueKanji": 13, "grade": {"max": 3, "avg": 2.0}, "jlpt": {"min": 4, "avg": 4.5}}'::jsonb,
+    '{}'::jsonb,
+    now() - interval '30 minutes'
   );
 END $$;
 

@@ -21,7 +21,7 @@ describe("LanguageTransformer engine", () => {
     });
     const r = t.transform("hello");
     expect(r).toHaveLength(1);
-    expect(r[0]).toEqual({ text: "hello", conditions: 0, trace: [] });
+    expect(r[0]).toEqual({ text: "hello", conditions: 0, trace: [], consumed: 0 });
   });
 
   it("applies a suffix rule and gates by conditions", () => {
@@ -59,7 +59,7 @@ describe("LanguageTransformer engine", () => {
         identity: {
           name: "identity",
           rules: [
-            { type: "other", isInflected: /.*/, deinflect: (s) => s, conditionsIn: [], conditionsOut: ["v"] },
+            { type: "other", isInflected: /.*/, deinflect: (s) => s, conditionsIn: [], conditionsOut: ["v"], inflectedLength: 0 },
           ],
         },
       },
@@ -139,6 +139,19 @@ describe("japanese deinflect", () => {
     for (const c of candidates) {
       expect(c.conditions).toBeGreaterThan(0);
     }
+  });
+
+  it("ranks polite -ます (consumes きます) above short causative (consumes ます) for いきます", () => {
+    // Regression: short causative ('ます'→'む') with no input gate matched at
+    // root and produced いきむ (息む) before the polite -ます rule produced いく.
+    // The fix is in deinflect()'s sort: prefer candidates whose chain consumed
+    // more of the surface as inflection.
+    const candidates = deinflect("いきます");
+    const iku = candidates.findIndex((c) => c.base === "いく");
+    const ikimu = candidates.findIndex((c) => c.base === "いきむ");
+    expect(iku).toBeGreaterThanOrEqual(0);
+    expect(ikimu).toBeGreaterThanOrEqual(0);
+    expect(iku).toBeLessThan(ikimu);
   });
 });
 
