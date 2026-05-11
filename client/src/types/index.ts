@@ -77,6 +77,27 @@ export interface KanjiStats {
   known: number;
 }
 
+/**
+ * One row of the user's lookup history for a given headword. Returned by the
+ * `get_word_usages` RPC; consumed by the WordPopover carousel to render every
+ * place the user has previously looked up the same dictionary entry, with any
+ * chip threads that already exist at that span.
+ */
+export interface WordUsage {
+  lookupId: number;
+  storyId: number;
+  storyTitle: string;
+  storyContent: string;
+  storyCreatedAt: string;
+  startOffset: number;
+  endOffset: number;
+  surface: string;
+  reading: string | null;
+  threads: WordThreadsByThread;
+  lookedUpAt: string;
+  lookupCount: number;
+}
+
 export interface Profile {
   user_id: string;
   display_name: string | null;

@@ -189,6 +189,53 @@ export type Database = {
           },
         ]
       }
+      word_lookups: {
+        Row: {
+          end_offset: number
+          headword: string
+          id: number
+          looked_up_at: string
+          lookup_count: number
+          reading: string | null
+          start_offset: number
+          story_id: number
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          end_offset: number
+          headword: string
+          id?: never
+          looked_up_at?: string
+          lookup_count?: number
+          reading?: string | null
+          start_offset: number
+          story_id: number
+          surface: string
+          user_id: string
+        }
+        Update: {
+          end_offset?: number
+          headword?: string
+          id?: never
+          looked_up_at?: string
+          lookup_count?: number
+          reading?: string | null
+          start_offset?: number
+          story_id?: number
+          surface?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "word_lookups_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -211,6 +258,23 @@ export type Database = {
           readings_on: string
         }[]
       }
+      get_word_usages: {
+        Args: { p_headword: string }
+        Returns: {
+          end_offset: number
+          looked_up_at: string
+          lookup_count: number
+          lookup_id: number
+          reading: string
+          start_offset: number
+          story_content: string
+          story_created_at: string
+          story_id: number
+          story_title: string
+          surface: string
+          threads: Json
+        }[]
+      }
       mark_story_read: {
         Args: { p_story_id: number }
         Returns: {
@@ -218,6 +282,17 @@ export type Database = {
           last_read_at: string
           read_count: number
         }[]
+      }
+      record_word_lookup: {
+        Args: {
+          p_end: number
+          p_headword: string
+          p_reading: string
+          p_start: number
+          p_story_id: number
+          p_surface: string
+        }
+        Returns: undefined
       }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
       strip_ruby: { Args: { t: string }; Returns: string }
@@ -371,3 +446,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

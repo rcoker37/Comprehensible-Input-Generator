@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase";
 import { KANJI_REGEX_G } from "../lib/constants";
 import { buildPrompt, type UnknownKanjiTarget } from "../lib/generation";
+import { headwordFromHit } from "../lib/headword";
+import type { LookupHit } from "../lib/lookupAtCursor";
 import type {
   ContentType,
   Formality,
@@ -9,6 +11,8 @@ import type {
   Story,
   StoryReadState,
   WordThread,
+  WordThreadsByThread,
+  WordUsage,
 } from "../types";
 
 // Kanji
@@ -353,6 +357,76 @@ export async function askWord(
 
   const { thread } = await response.json();
   return thread as WordThread;
+}
+
+// Stories — word lookup history
+
+/**
+ * Records the user's lookup of a span. No-ops when the hit has no JMdict
+ * results AND no deinflection base — we don't want to populate the history
+ * with single-character "no entry" fallbacks. Errors are swallowed so a
+ * failure here never blocks the popover render.
+ */
+export async function recordWordLookup(
+  storyId: number,
+  hit: LookupHit
+): Promise<void> {
+  const headword = headwordFromHit(hit);
+  if (!headword) return;
+  const { error } = await supabase.rpc("record_word_lookup", {
+    p_story_id: storyId,
+    p_start: hit.start,
+    p_end: hit.end,
+    p_surface: hit.surface,
+    p_headword: headword.headword,
+    p_reading: headword.reading ?? "",
+  });
+  if (error) {
+    // Lookup history is best-effort; log but don't surface to the UI.
+    console.warn("recordWordLookup failed:", error.message);
+  }
+}
+
+/**
+ * Returns every prior lookup of the given headword for the calling user,
+ * most-recent first, including any chip threads stored at that span. Used
+ * by the WordPopover carousel.
+ */
+interface WordUsageRow {
+  lookup_id: number;
+  story_id: number;
+  story_title: string;
+  story_content: string;
+  story_created_at: string;
+  start_offset: number;
+  end_offset: number;
+  surface: string;
+  reading: string | null;
+  threads: WordThreadsByThread | null;
+  looked_up_at: string;
+  lookup_count: number;
+}
+
+export async function getWordUsages(headword: string): Promise<WordUsage[]> {
+  const { data, error } = await supabase.rpc("get_word_usages", {
+    p_headword: headword,
+  });
+  if (error) throw new Error(error.message);
+  const rows = (data as WordUsageRow[] | null) ?? [];
+  return rows.map((r) => ({
+    lookupId: r.lookup_id,
+    storyId: r.story_id,
+    storyTitle: r.story_title,
+    storyContent: r.story_content,
+    storyCreatedAt: r.story_created_at,
+    startOffset: r.start_offset,
+    endOffset: r.end_offset,
+    surface: r.surface,
+    reading: r.reading || null,
+    threads: r.threads ?? {},
+    lookedUpAt: r.looked_up_at,
+    lookupCount: r.lookup_count,
+  }));
 }
 
 // Profiles
