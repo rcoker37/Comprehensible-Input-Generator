@@ -115,6 +115,10 @@
   outline: none;
 }
 
+.story-content--popover-disabled .word-token {
+  cursor: default;
+}
+
 .violations {
   margin-top: 1rem;
   padding: 0.75rem;

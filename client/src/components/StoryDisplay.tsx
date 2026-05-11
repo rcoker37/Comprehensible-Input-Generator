@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { useDictionary } from "../contexts/DictionaryContext";
+import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import {
   parseAnnotatedText,
   stripAnnotations,
@@ -26,6 +27,16 @@ interface Props {
 export default function StoryDisplay({ story, showLink }: Props) {
   const { knownKanji, knownKanjiLoaded } = useKnownKanji();
   const { state: dictState } = useDictionary();
+  const { remaining: backfillRemaining, processing: backfillProcessing } =
+    useWordIndexBackfill();
+  // The popover's carousel pulls from `story_word_occurrences`, which is only
+  // populated for stories that have been indexed. If this story hasn't been
+  // indexed yet, or any indexing is still in flight, the carousel would be
+  // missing cards — so we suppress taps entirely until the index is settled.
+  const popoverDisabled =
+    story.word_index_at === null ||
+    backfillProcessing ||
+    backfillRemaining > 0;
   const [wordThreads, setWordThreads] = useState<StoryWordThreads>(
     story.explanations ?? {}
   );
@@ -38,6 +49,12 @@ export default function StoryDisplay({ story, showLink }: Props) {
   useEffect(() => {
     setWordThreads(story.explanations ?? {});
   }, [story.explanations]);
+
+  // Close any open popover if indexing kicks in mid-view (e.g., the user is
+  // reading and a freshly-generated story enters the backfill queue).
+  useEffect(() => {
+    if (popoverDisabled) setActiveTap(null);
+  }, [popoverDisabled]);
 
   const { cleanContent, rubyAnnotations } = useMemo(() => {
     const raw = stripBold(story.content);
@@ -92,6 +109,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
     end: number
   ) => {
     e.stopPropagation();
+    if (popoverDisabled) return;
     setActiveTap({ start, end, el: e.currentTarget });
   };
 
@@ -236,7 +254,9 @@ export default function StoryDisplay({ story, showLink }: Props) {
           </button>
         </div>
       </div>
-      <div className="story-content">
+      <div
+        className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
+      >
         <div className="story-paragraphs">
           {paragraphs.map((para, pIdx) => (
             <p key={pIdx} className="story-paragraph">
