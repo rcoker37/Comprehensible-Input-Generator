@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
 import { KanjiProvider, useKnownKanji } from "../contexts/KanjiContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
+import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import ThemeToggle from "./ThemeToggle";
 
@@ -34,30 +35,32 @@ export default function AppLayout() {
   return (
     <DictionaryProvider>
       <KanjiProvider>
-        <div className="app">
-          <nav className="nav">
-            <div className="nav-brand">読む練習</div>
-            <div className="nav-links">
-              <NavLink to="/">Generate</NavLink>
-              <NavLink to="/stories">Compositions</NavLink>
-              <NavLink to="/kanji">Kanji</NavLink>
-              <NavLink to="/settings">Settings</NavLink>
-            </div>
-            {user && (
-              <span className="nav-user">
-                <DictionaryStatusChip />
-                <NavTotalScore />
-                <ThemeToggle />
-                <span>{user.email}</span>
-              </span>
-            )}
-          </nav>
-          <main className="main">
-            <GenerationProvider>
-              <Outlet />
-            </GenerationProvider>
-          </main>
-        </div>
+        <WordIndexBackfillProvider>
+          <div className="app">
+            <nav className="nav">
+              <div className="nav-brand">読む練習</div>
+              <div className="nav-links">
+                <NavLink to="/">Generate</NavLink>
+                <NavLink to="/stories">Compositions</NavLink>
+                <NavLink to="/kanji">Kanji</NavLink>
+                <NavLink to="/settings">Settings</NavLink>
+              </div>
+              {user && (
+                <span className="nav-user">
+                  <DictionaryStatusChip />
+                  <NavTotalScore />
+                  <ThemeToggle />
+                  <span>{user.email}</span>
+                </span>
+              )}
+            </nav>
+            <main className="main">
+              <GenerationProvider>
+                <Outlet />
+              </GenerationProvider>
+            </main>
+          </div>
+        </WordIndexBackfillProvider>
       </KanjiProvider>
     </DictionaryProvider>
   );

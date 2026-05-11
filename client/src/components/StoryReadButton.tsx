@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { markStoryRead, undoStoryRead } from "../api/client";
+import { indexStoryWords, markStoryRead, undoStoryRead } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
+import { extractWordOccurrences } from "../lib/storyWordIndex";
 import type { Story, StoryReadState } from "../types";
 
 interface Props {
   story: Story;
   onChange: (state: StoryReadState) => void;
+  onIndexed?: (wordIndexAt: string) => void;
 }
 
 // One mark per session: after the user clicks once, the primary button locks
@@ -13,7 +15,7 @@ interface Props {
 // affordance is therefore only ever wired to a same-session increment, so
 // past-session reads can't be cleared from the UI — only deleting the story
 // removes those. Server-side undo is a safety net (decrements with a floor of 0).
-export default function StoryReadButton({ story, onChange }: Props) {
+export default function StoryReadButton({ story, onChange, onIndexed }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markedThisSession, setMarkedThisSession] = useState(false);
@@ -31,6 +33,13 @@ export default function StoryReadButton({ story, onChange }: Props) {
       onChange(state);
       setMarkedThisSession(true);
       refreshKanjiExposures();
+      // First-time word indexing — fires after the read is recorded and runs
+      // in the background so the UI stays responsive. Re-runs on subsequent
+      // reads as long as `word_index_at` is null (e.g. previous attempt
+      // failed, or the story was read before this feature shipped).
+      if (!story.word_index_at) {
+        void runWordIndex(story, onIndexed);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark as read");
     } finally {
@@ -53,7 +62,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
     }
   };
 
-  const label = !isRead ? "Mark as Read" : count === 1 ? "✓ Read" : `✓ Read ${count}×`;
+  const label = !isRead ? "Mark as Read" : `✓ Read ${count}×`;
 
   const title = markedThisSession
     ? "Already marked as read this session"
@@ -89,4 +98,20 @@ export default function StoryReadButton({ story, onChange }: Props) {
       {error && <div className="story-read-error">{error}</div>}
     </div>
   );
+}
+
+async function runWordIndex(
+  story: Story,
+  onIndexed?: (wordIndexAt: string) => void
+): Promise<void> {
+  try {
+    const occurrences = await extractWordOccurrences(story);
+    const stampedAt = await indexStoryWords(story.id, occurrences);
+    onIndexed?.(stampedAt);
+  } catch (err) {
+    // Indexing is best-effort — surface to the console so it's debuggable
+    // but don't block the user. The next mark-as-read will retry because
+    // `word_index_at` will still be null on the row.
+    console.warn("Word indexing failed for story", story.id, err);
+  }
 }

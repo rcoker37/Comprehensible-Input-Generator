@@ -84,7 +84,7 @@ type CurrentCard = {
 
 type OtherCard = {
   kind: "other";
-  lookupId: number;
+  occurrenceId: number;
   storyId: number;
   storyTitle: string;
   storyCreatedAt: string;
@@ -350,7 +350,7 @@ export default function WordPopover({
         const parsed = parseAnnotatedText(u.storyContent);
         return {
           kind: "other",
-          lookupId: u.lookupId,
+          occurrenceId: u.occurrenceId,
           storyId: u.storyId,
           storyTitle: u.storyTitle,
           storyCreatedAt: u.storyCreatedAt,
@@ -380,8 +380,8 @@ export default function WordPopover({
       return wordThreads[rangeKey(activeCard.startOffset, activeCard.endOffset)] ?? {};
     }
     return (
-      localThreads[activeCard.lookupId] ??
-      usages.find((u) => u.lookupId === activeCard.lookupId)?.threads ??
+      localThreads[activeCard.occurrenceId] ??
+      usages.find((u) => u.occurrenceId === activeCard.occurrenceId)?.threads ??
       {}
     );
   }, [activeCard, wordThreads, localThreads, usages]);
@@ -506,18 +506,19 @@ export default function WordPopover({
           regenerate
         );
         // Update local overlay so re-navigating to this card preserves the
-        // response without a refetch. For "current" cards there's no
-        // lookupId yet (we record but don't read back the row id), so we
-        // bubble through onThreadUpdated and trust the parent's state.
+        // response without a refetch. The "current" card's span doesn't have
+        // a stable occurrence id in this popover lifetime (we may not have
+        // indexed the story yet), so we bubble through onThreadUpdated and
+        // trust the parent's state.
         if (card.kind === "other") {
           setLocalThreads((prev) => {
             const existing =
-              prev[card.lookupId] ??
-              usages.find((u) => u.lookupId === card.lookupId)?.threads ??
+              prev[card.occurrenceId] ??
+              usages.find((u) => u.occurrenceId === card.occurrenceId)?.threads ??
               {};
             return {
               ...prev,
-              [card.lookupId]: { ...existing, [chip.id]: updated },
+              [card.occurrenceId]: { ...existing, [chip.id]: updated },
             };
           });
         }
