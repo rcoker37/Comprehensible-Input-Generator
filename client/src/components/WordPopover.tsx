@@ -254,6 +254,13 @@ export default function WordPopover({
   const [error, setError] = useState<string | null>(null);
   const [frequency, setFrequency] = useState<FrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
+  // Loading flags for the three headword-dependent fetches. The popover body
+  // is gated on these being false so badges/cards don't pop in one at a time
+  // after the initial render. Initialized to true on open so there's no flicker
+  // between the dict lookup resolving and these effects setting them true.
+  const [usagesLoading, setUsagesLoading] = useState(false);
+  const [encountersLoading, setEncountersLoading] = useState(false);
+  const [frequencyLoading, setFrequencyLoading] = useState(false);
   const cardScrollRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const userAskedRef = useRef(false);
@@ -292,6 +299,9 @@ export default function WordPopover({
     setIsRegenerating(false);
     setFrequency(null);
     setEncounters(null);
+    setUsagesLoading(true);
+    setEncountersLoading(true);
+    setFrequencyLoading(true);
     userAskedRef.current = false;
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
   }, [open, tapStart, tapEnd]);
@@ -338,6 +348,9 @@ export default function WordPopover({
       })
       .catch(() => {
         // Carousel just won't show prior usages; current card still renders.
+      })
+      .finally(() => {
+        if (!cancelled) setUsagesLoading(false);
       });
     return () => {
       cancelled = true;
@@ -358,6 +371,9 @@ export default function WordPopover({
       })
       .catch(() => {
         if (!cancelled) setFrequency(null);
+      })
+      .finally(() => {
+        if (!cancelled) setFrequencyLoading(false);
       });
     return () => {
       cancelled = true;
@@ -379,11 +395,30 @@ export default function WordPopover({
       })
       .catch(() => {
         if (!cancelled) setEncounters(null);
+      })
+      .finally(() => {
+        if (!cancelled) setEncountersLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [open, headword]);
+
+  // Hold the popover body behind a unified loading state until the dict
+  // lookup AND the three headword-dependent fetches (usages, encounters,
+  // frequency) have all settled. Without this, header badges and the
+  // carousel pop in one at a time after the senses render, which feels
+  // janky. When there's no headword (no-match fallback), only the lookup
+  // matters since the other fetches don't fire. If the dictionary itself
+  // errored we fall through to ready so the SenseSection can render its
+  // own error message instead of a stuck loader.
+  const contentReady =
+    dictState === "error" ||
+    (dictState === "ready" &&
+      !lookingUp &&
+      hit !== null &&
+      (!headword ||
+        (!usagesLoading && !encountersLoading && !frequencyLoading)));
 
   const cards = useMemo<Card[]>(() => {
     if (!hit) return [];
@@ -685,7 +720,11 @@ export default function WordPopover({
                 <path d="M13 3L3 13" />
               </svg>
             </button>
-            {activeKanji ? (
+            {!contentReady ? (
+              <div className="word-popover__loading">
+                Loading<AnimatedDots />
+              </div>
+            ) : activeKanji ? (
               <div className="word-popover__body">
                 <KanjiInlineDetail
                   char={activeKanji}
