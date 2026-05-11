@@ -121,6 +121,7 @@ export type Database = {
           topic: string | null
           user_id: string
           word_index_at: string | null
+          word_index_version: number | null
         }
         Insert: {
           allowed_kanji: string
@@ -142,6 +143,7 @@ export type Database = {
           topic?: string | null
           user_id: string
           word_index_at?: string | null
+          word_index_version?: number | null
         }
         Update: {
           allowed_kanji?: string
@@ -163,6 +165,7 @@ export type Database = {
           topic?: string | null
           user_id?: string
           word_index_at?: string | null
+          word_index_version?: number | null
         }
         Relationships: []
       }
@@ -290,6 +293,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      get_story_word_encounters: {
+        Args: { p_story_id: number }
+        Returns: {
+          encounters: number
+          end_offset: number
+          start_offset: number
+        }[]
+      }
       get_user_kanji: {
         Args: never
         Returns: {
@@ -302,6 +313,7 @@ export type Database = {
           readings_on: string
         }[]
       }
+      get_word_encounters: { Args: { p_headword: string }; Returns: number }
       get_word_usages: {
         Args: { p_headword: string }
         Returns: {
@@ -320,7 +332,7 @@ export type Database = {
         }[]
       }
       index_story_words: {
-        Args: { p_occurrences: Json; p_story_id: number }
+        Args: { p_occurrences: Json; p_story_id: number; p_version: number }
         Returns: string
       }
       mark_story_read: {

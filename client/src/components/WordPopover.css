@@ -102,6 +102,18 @@
   min-width: 0;
 }
 
+.word-popover__nav-title--link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .word-popover__nav-title--link:hover {
+    text-decoration: underline;
+  }
+}
+
 .word-popover__nav-date {
   font-size: 0.72rem;
   color: var(--text-dim);
@@ -125,12 +137,6 @@
   flex-direction: column;
   gap: 0.6rem;
   touch-action: pan-y;
-}
-
-.word-popover__card-surface {
-  font-size: 1.25rem;
-  line-height: 1.25;
-  color: var(--text);
 }
 
 .word-popover__snippet {
@@ -186,6 +192,13 @@
 
 .word-popover__header {
   display: flex;
+  /* Baseline alignment is robust to ruby: the <ruby>'s baseline is the
+   * kanji baseline, and the rt floats above without shifting it. Center
+   * alignment would include the rt's vertical space and push the chip up
+   * out of alignment with the kanji glyph. The freq chip below applies a
+   * small translateY to compensate for the difference between the chip's
+   * text baseline and its visual center, so the chip's center lines up
+   * with the kanji's visual center. */
   align-items: baseline;
   gap: 0.5rem;
   border-bottom: 1px solid var(--border);
@@ -202,22 +215,83 @@
   color: var(--text-dim);
 }
 
+.word-popover__freq {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  line-height: 1;
+  /* The header uses baseline alignment so the chip's text baseline sits
+   * on the kanji baseline. Without this nudge, the chip's visual center
+   * lands below the kanji's visual center (the chip is small, so its
+   * baseline-to-center distance is small, while the kanji's is ~0.56rem).
+   * Shift up so both centers line up. */
+  transform: translateY(-0.35rem);
+}
+
+.word-popover__freq-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.25rem;
+  padding: 0 0.45rem;
+  border-radius: var(--radius);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.word-popover__freq-rank {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.65rem;
+}
+
+.word-popover__encounters {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  /* Same baseline-compensation as .word-popover__freq so the chip and the
+   * encounter tag both line up with the kanji's visual center. */
+  transform: translateY(-0.35rem);
+}
+
+.word-popover__freq--very-common .word-popover__freq-badge {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.word-popover__freq--common .word-popover__freq-badge {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  border-color: var(--warning-fg);
+}
+
+.word-popover__freq--uncommon .word-popover__freq-badge {
+  background: var(--bg-dim);
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.word-popover__freq--rare .word-popover__freq-badge {
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-color: var(--error-fg);
+}
+
+.word-popover__freq--very-rare .word-popover__freq-badge {
+  background: var(--error-fg);
+  color: #fff;
+  border-color: var(--error-fg);
+}
+
 .word-popover__inflection {
   font-size: 0.78rem;
   color: var(--text-dim);
   line-height: 1.35;
   margin-top: -0.35rem;
-}
-
-.word-popover__inflection-base {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.word-popover__inflection-base rt {
-  font-size: 0.75em;
-  font-weight: 400;
-  color: var(--text-dim);
 }
 
 .word-popover__senses {

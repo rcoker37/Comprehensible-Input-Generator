@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
+import { getStoryWordEncounters } from "../api/client";
 import {
   parseAnnotatedText,
   stripAnnotations,
@@ -71,9 +72,8 @@ export default function StoryDisplay({ story, showLink }: Props) {
   // Async regroup pass: once the dict is ready, kuromoji tokenises the text
   // and we merge consecutive chars into word-shaped tap targets where JMdict
   // (with deinflection) confirms a span aligned to a kuromoji boundary.
-  // While loading or unavailable, fall through to the char-level baseline so
-  // the story is always interactive. Stale results are filtered out by an
-  // object-identity check on `source` rather than a synchronous reset.
+  // Stale results are filtered out by an object-identity check on `source`
+  // rather than a synchronous reset.
   const [groupedState, setGroupedState] = useState<{
     source: DisplayParagraph[];
     paragraphs: DisplayParagraph[];
@@ -93,10 +93,46 @@ export default function StoryDisplay({ story, showLink }: Props) {
     };
   }, [baseParagraphs, cleanContent, rubyAnnotations, dictState]);
 
-  const paragraphs: DisplayParagraph[] =
+  // Hold off rendering until kuromoji + JMdict have produced merged
+  // word-shaped tap targets — char-level baseline buttons reflow noticeably
+  // when the merged spans swap in, which is jarring. On dict load failure
+  // fall back to the baseline so the story stays readable (just without
+  // word-level taps).
+  const paragraphs: DisplayParagraph[] | null =
     groupedState?.source === baseParagraphs
       ? groupedState.paragraphs
-      : baseParagraphs;
+      : dictState === "error"
+        ? baseParagraphs
+        : null;
+
+  // Per-span encounter counts so we can mark zero-encounter spans as new
+  // (accent underline). Fetched after the story is indexed; absent spans
+  // (not yet indexed, or hit an error) leave the word untreated. Refetched
+  // when the backfill stops processing so a freshly-indexed story picks
+  // up its underlines without a reload.
+  const [encounters, setEncounters] = useState<Map<string, number>>(
+    () => new Map()
+  );
+  useEffect(() => {
+    if (story.word_index_at === null) {
+      setEncounters(new Map());
+      return;
+    }
+    let cancelled = false;
+    getStoryWordEncounters(story.id)
+      .then((m) => {
+        if (!cancelled) setEncounters(m);
+      })
+      .catch(() => {
+        if (!cancelled) setEncounters(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+    // `read_count` triggers a refetch when the user hits the read button —
+    // marking a story read changes its read_count weighting and most of
+    // its words flip from zero-encounter (new-underlined) to seen.
+  }, [story.id, story.word_index_at, story.read_count, backfillProcessing]);
 
   const unknownKanji = useMemo(() => {
     if (!knownKanjiLoaded) return new Set<string>();
@@ -171,6 +207,15 @@ export default function StoryDisplay({ story, showLink }: Props) {
     return out;
   };
 
+  // Spans whose headword has zero global encounters get the accent underline.
+  // Missing entries (span not in the index yet, indexing pending, or the
+  // headword lookup miss) read as undefined and are left untreated.
+  const isNew = (start: number, end: number): boolean =>
+    encounters.get(`${start}-${end}`) === 0;
+
+  const tokenClass = (start: number, end: number): string =>
+    `word-token${isNew(start, end) ? " word-token--new" : ""}`;
+
   const renderPart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
       const inner = decideShowRuby(part.surface) ? (
@@ -185,7 +230,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
         <button
           key={key}
           type="button"
-          className="word-token"
+          className={tokenClass(part.start, part.end)}
           data-offset={part.start}
           aria-label={part.surface}
           onClick={(e) => handleWordClick(e, part.start, part.end)}
@@ -203,7 +248,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
         <button
           key={key}
           type="button"
-          className="word-token"
+          className={tokenClass(part.start, part.end)}
           data-offset={part.start}
           aria-label={part.surface}
           onClick={(e) => handleWordClick(e, part.start, part.end)}
@@ -216,7 +261,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
       <button
         key={key}
         type="button"
-        className="word-token"
+        className={tokenClass(part.offset, part.offset + 1)}
         data-offset={part.offset}
         aria-label={part.char}
         onClick={(e) => handleWordClick(e, part.offset, part.offset + 1)}
@@ -257,17 +302,21 @@ export default function StoryDisplay({ story, showLink }: Props) {
       <div
         className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
-        <div className="story-paragraphs">
-          {paragraphs.map((para, pIdx) => (
-            <p key={pIdx} className="story-paragraph">
-              {para.sentences.map((sent) => (
-                <span key={sent.start} className="story-sentence">
-                  {sent.parts.map((part, i) => renderPart(part, i))}
-                </span>
-              ))}
-            </p>
-          ))}
-        </div>
+        {paragraphs === null ? (
+          <div className="story-content__loading">Preparing story…</div>
+        ) : (
+          <div className="story-paragraphs">
+            {paragraphs.map((para, pIdx) => (
+              <p key={pIdx} className="story-paragraph">
+                {para.sentences.map((sent) => (
+                  <span key={sent.start} className="story-sentence">
+                    {sent.parts.map((part, i) => renderPart(part, i))}
+                  </span>
+                ))}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
       <WordPopover
         storyId={story.id}

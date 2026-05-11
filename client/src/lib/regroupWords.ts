@@ -60,6 +60,13 @@ export async function regroupWords(
     }
   }
 
+  // Per-token POS keyed by token start offset. Passed to lookupAtBoundary so
+  // it can disambiguate cases like 「赤くなり、」 where kuromoji says なり is
+  // 動詞 (continuative of なる) but JMdict has an unrelated noun entry that
+  // would otherwise short-circuit deinflection.
+  const posByStart = new Map<number, string>();
+  for (const tok of tokens) posByStart.set(tok.start, tok.pos);
+
   const result: DisplayParagraph[] = [];
   for (const para of paragraphs) {
     const newSentences: DisplaySentence[] = [];
@@ -70,7 +77,8 @@ export async function regroupWords(
         annotations,
         lookup,
         boundaries,
-        auxAfterVerbBoundaries
+        auxAfterVerbBoundaries,
+        posByStart
       );
       newSentences.push({ ...sent, parts: newParts });
     }
@@ -91,7 +99,8 @@ async function regroupParts(
   annotations: FuriganaAnnotation[],
   lookup: LookupAtBoundaryFn,
   boundaries: number[],
-  auxAfterVerbBoundaries: Set<number>
+  auxAfterVerbBoundaries: Set<number>,
+  posByStart: Map<number, string>
 ): Promise<SegmentPart[]> {
   if (parts.length === 0) return [];
 
@@ -142,7 +151,7 @@ async function regroupParts(
       if (len < 2) continue;
       if (!isAligned(b)) continue;
       if (auxAfterVerbBoundaries.has(b)) continue;
-      const hit = await lookup(cleanText, start, b, annotations);
+      const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
       if (hit) {
         mergedTo = pi;
         break;
@@ -160,7 +169,7 @@ async function regroupParts(
         if (len < 2) continue;
         if (isAligned(b)) continue;
         if (!hasKanji(cleanText, start, b)) continue;
-        const hit = await lookup(cleanText, start, b, annotations);
+        const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
         if (hit) {
           mergedTo = pi;
           break;

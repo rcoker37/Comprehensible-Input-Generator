@@ -1,28 +1,13 @@
 export type AskChip = { id: string; label: string; prompt: string };
 
+// `id` is the persisted thread key in stories.explanations JSONB and must not
+// change once shipped, otherwise threads from older sessions become orphaned.
+// `label` and `prompt` can evolve freely.
 export const ASK_CHIPS: readonly AskChip[] = [
   {
-    id: "meaning-in-context",
-    label: "Meaning in Context",
-    prompt:
-      "Give a short English gloss of this word, then explain how this sentence narrows or shades that meaning.",
-  },
-  {
     id: "alternatives",
-    label: "Alternatives",
+    label: "Alternative Word Choices",
     prompt:
-      "Give a numbered list of exactly 5 word choices that could fill this position in the sentence. Item 1 is the original word — explain its specific nuance in this context. Items 2–5 are alternate words that would also fit; for each, explain how using it would shift the meaning or nuance of the sentence compared to the original.",
-  },
-  {
-    id: "common-mistakes",
-    label: "Common Mistakes",
-    prompt:
-      "Give a numbered list of exactly 5 common mistakes learners make with this word, including situations where its use sounds unnatural.",
-  },
-  {
-    id: "examples",
-    label: "Examples",
-    prompt:
-      "Give a numbered list of exactly 5 example sentences using this word in different contexts. After each Japanese sentence, put the English translation on the next line.",
+      "List exactly 5 word choices that could fill the bracketed word's slot in the sentence while keeping it grammatical — match the part of speech and inflection class so the surrounding particles and conjugation still work. Item 1 is the bracketed word itself; in one sentence, explain what it means in this particular sentence — the precise sense it carries given the surrounding context (not a generic dictionary gloss). Items 2–5 are realistic alternates a Japanese learner would actually encounter — avoid obscure or archaic synonyms unless the original is itself literary. For each alternate, give one short sentence describing how it would shift the sentence compared to item 1: in meaning (broader, narrower, a different angle), in register (more casual, more polite, more literary), or in emotional tone (warmer, harsher, more neutral).",
   },
 ] as const;

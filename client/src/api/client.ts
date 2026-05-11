@@ -3,6 +3,7 @@ import { KANJI_REGEX_G } from "../lib/constants";
 import { buildPrompt, type UnknownKanjiTarget } from "../lib/generation";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
+import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import type {
   ContentType,
   Formality,
@@ -432,11 +433,48 @@ export async function getWordUsages(headword: string): Promise<WordUsage[]> {
 }
 
 /**
+ * Total read-count-weighted encounters of `headword` across the user's
+ * read stories (every read counts separately, mirroring kanji exposures).
+ * Returns 0 when the user has never read a story containing it.
+ */
+export async function getWordEncounters(headword: string): Promise<number> {
+  const { data, error } = await supabase.rpc("get_word_encounters", {
+    p_headword: headword,
+  });
+  if (error) throw new Error(error.message);
+  const n = typeof data === "number" ? data : Number(data ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Per-occurrence encounter counts for a single story — one row per indexed
+ * span. Used by StoryDisplay to mark zero-encounter spans as new. Spans
+ * that haven't been indexed yet are absent, so the caller defaults to
+ * "unknown / don't highlight" for missing entries.
+ */
+export async function getStoryWordEncounters(
+  storyId: number
+): Promise<Map<string, number>> {
+  const { data, error } = await supabase.rpc("get_story_word_encounters", {
+    p_story_id: storyId,
+  });
+  if (error) throw new Error(error.message);
+  const rows =
+    (data as { start_offset: number; end_offset: number; encounters: number }[] | null) ?? [];
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    map.set(`${r.start_offset}-${r.end_offset}`, Number(r.encounters));
+  }
+  return map;
+}
+
+/**
  * Bulk-replace the calling user's word-occurrence index for a story. Server
  * deletes existing rows for the story, inserts the new set, and stamps
- * `stories.word_index_at` so the indexer doesn't re-run on subsequent reads.
- * Returns the timestamp the row was stamped with so the client can update its
- * local Story state without a refetch.
+ * `stories.word_index_at` + `word_index_version` so the indexer doesn't
+ * re-run on subsequent reads unless `WORD_INDEX_VERSION` has since moved
+ * past the stamped value. Returns the timestamp the row was stamped with
+ * so the client can update its local Story state without a refetch.
  */
 export async function indexStoryWords(
   storyId: number,
@@ -445,18 +483,20 @@ export async function indexStoryWords(
   const { data, error } = await supabase.rpc("index_story_words", {
     p_story_id: storyId,
     p_occurrences: occurrences,
+    p_version: WORD_INDEX_VERSION,
   });
   if (error) throw new Error(error.message);
   return data as string;
 }
 
 /**
- * Returns every complete-but-unindexed story for the user (id + content),
- * oldest first so the backfill processes least-recent stories first. Read
- * state is intentionally not a gate here — the popover's "other usages"
- * carousel filters to read stories at the SQL layer (`get_word_usages`),
- * but we want the index built ahead of time so the carousel is instant the
- * moment a story is marked read.
+ * Returns every complete story whose word index is missing OR was stamped
+ * against an older `WORD_INDEX_VERSION` — oldest first so the backfill
+ * processes least-recent stories first. Read state is intentionally not a
+ * gate here — the popover's "other usages" carousel filters to read
+ * stories at the SQL layer (`get_word_usages`), but we want the index
+ * built ahead of time so the carousel is instant the moment a story is
+ * marked read.
  */
 export async function getStoriesNeedingIndex(): Promise<
   { id: number; content: string }[]
@@ -465,7 +505,9 @@ export async function getStoriesNeedingIndex(): Promise<
     .from("stories")
     .select("id, content")
     .eq("status", "complete")
-    .is("word_index_at", null)
+    .or(
+      `word_index_at.is.null,word_index_version.is.null,word_index_version.lt.${WORD_INDEX_VERSION}`
+    )
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data as { id: number; content: string }[]) || [];

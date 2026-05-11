@@ -51,6 +51,25 @@ function mockLookup(words: Set<string>): LookupAtBoundaryFn {
   };
 }
 
+// Records every (substring, posHint) pair the regrouper queries against the
+// mock. Used to assert that the kuromoji POS for the span's start token is
+// being plumbed through to lookupAtBoundary.
+function recordingLookup(
+  words: Set<string>
+): { fn: LookupAtBoundaryFn; calls: Array<{ sub: string; posHint?: string }> } {
+  const calls: Array<{ sub: string; posHint?: string }> = [];
+  const fn: LookupAtBoundaryFn = async (text, start, end, _ann, posHint) => {
+    if (start < 0 || end <= start || end > text.length) return null;
+    const sub = text.slice(start, end);
+    calls.push({ sub, posHint });
+    if (words.has(sub)) {
+      return { start, end, surface: sub, results: [{} as never] };
+    }
+    return null;
+  };
+  return { fn, calls };
+}
+
 describe("regroupWords", () => {
   it("groups 千九百年代 as [千][九百][年代] when kuromoji + dict line up", async () => {
     // Motivating bug from the original report. With kuromoji as boundary
@@ -252,6 +271,32 @@ describe("regroupWords", () => {
       { kind: "word", start: 0, end: 2, surface: "日本" },
       { kind: "word", start: 2, end: 4, surface: "には" },
     ]);
+  });
+
+  it("plumbs the kuromoji POS at the span start into lookupAtBoundary", async () => {
+    // Motivating case: 「赤くなり、」 — kuromoji tags なり (start=2) as 動詞
+    // (continuative of なる). The regrouper passes that POS to the lookup so
+    // it can prefer the verb deinflection over an unrelated noun exact match
+    // for なり. We assert the pass-through; the deinflection preference itself
+    // is exercised in lookupAtCursor's tests.
+    const text = "赤くなり、";
+    const base = buildDisplaySegments(text, []);
+    const { fn, calls } = recordingLookup(new Set(["なり"]));
+    await regroupWords(
+      base,
+      text,
+      [],
+      fn,
+      tokens([
+        { surface: "赤", pos: "形容詞" },
+        { surface: "く", pos: "形容詞" },
+        { surface: "なり", pos: "動詞" },
+        { surface: "、", pos: "記号" },
+      ])
+    );
+    const nariCall = calls.find((c) => c.sub === "なり");
+    expect(nariCall).toBeDefined();
+    expect(nariCall!.posHint).toBe("動詞");
   });
 
   it("preserves sentence start offsets across paragraphs", async () => {

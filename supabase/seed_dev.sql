@@ -190,6 +190,23 @@ BEGIN
     '{"uniqueKanji": 13, "grade": {"max": 3, "avg": 2.0}, "jlpt": {"min": 4, "avg": 4.5}}'::jsonb,
     '{}'::jsonb,
     now() - interval '30 minutes'
+  ),
+  -- Story 9: continuative + comma chains. Every paragraph stacks several
+  -- 連用形 verbs before commas (降り、吹き、向かい、止み、消え、なり、
+  -- 帰り、飲み、読み、…) — including the canonical 〜くなり、 pattern
+  -- where JMdict has unrelated kana entries for なり that used to shadow
+  -- the deinflection to なる. lookupAtBoundary's kuromoji-POS-hinted
+  -- path should now resolve every one of these to its dictionary form.
+  (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    '秋《あき》の一日《いちにち》',
+    E'ある朝《あさ》、雨《あめ》が降《ふ》り、風《かぜ》が吹《ふ》き、空《そら》は灰色《はいいろ》になりました。木《き》の葉《は》は赤《あか》くなり、黄色《きいろ》くなり、下《した》に落《お》ちました。\n\n私《わたし》は家《いえ》を出《で》て、駅《えき》に向《む》かい、電車《でんしゃ》に乗《の》り、町《まち》に行《い》きました。\n\n午後《ごご》、雨《あめ》が止《や》み、雲《くも》が消《き》え、空《そら》は青《あお》くなり、心《こころ》も明《あか》るくなりました。\n\n家《いえ》に帰《かえ》り、お茶《ちゃ》を飲《の》み、本《ほん》を読《よ》み、静《しず》かな夜《よる》を過《す》ごしました。',
+    'fiction', 4, '一日', 'polite',
+    '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
+    '秋一日朝雨降風吹空灰色木葉赤黄下落私家出駅向電車乗町行午後止雲消青心明帰茶飲本読静夜過',
+    '{"uniqueKanji": 41, "grade": {"max": 6, "avg": 2.5}, "jlpt": {"min": 2, "avg": 4.1}}'::jsonb,
+    '{}'::jsonb,
+    now() - interval '10 minutes'
   );
 END $$;
 
