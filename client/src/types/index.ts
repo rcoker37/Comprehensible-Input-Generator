@@ -63,6 +63,7 @@ export interface Story {
   last_read_at: string | null;
   status: StoryStatus;
   error_message: string | null;
+  word_index_at: string | null;
   created_at: string;
 }
 
@@ -78,13 +79,14 @@ export interface KanjiStats {
 }
 
 /**
- * One row of the user's lookup history for a given headword. Returned by the
- * `get_word_usages` RPC; consumed by the WordPopover carousel to render every
- * place the user has previously looked up the same dictionary entry, with any
- * chip threads that already exist at that span.
+ * One occurrence of a headword in one of the user's tokenized stories. Returned
+ * by `get_word_usages` and consumed by the WordPopover carousel to render every
+ * place the headword appears across the user's library, with any chip threads
+ * stored at that span. `lookedUpAt` / `lookupCount` come from the optional
+ * `word_lookups` join — null/0 when the user has never tapped this span.
  */
 export interface WordUsage {
-  lookupId: number;
+  occurrenceId: number;
   storyId: number;
   storyTitle: string;
   storyContent: string;
@@ -94,7 +96,7 @@ export interface WordUsage {
   surface: string;
   reading: string | null;
   threads: WordThreadsByThread;
-  lookedUpAt: string;
+  lookedUpAt: string | null;
   lookupCount: number;
 }
 

@@ -78,6 +78,9 @@ export default function StoryDetail() {
       <StoryReadButton
         story={story}
         onChange={(state) => setStory((s) => (s ? { ...s, ...state } : s))}
+        onIndexed={(at) =>
+          setStory((s) => (s ? { ...s, word_index_at: at } : s))
+        }
       />
     </div>
   );

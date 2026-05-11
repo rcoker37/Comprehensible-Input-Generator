@@ -254,7 +254,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, read_count, first_read_at, last_read_at, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, read_count, first_read_at, last_read_at, word_index_at, created_at"
     )
     .eq("status", "complete")
     .order("created_at", { ascending: false });
@@ -388,12 +388,14 @@ export async function recordWordLookup(
 }
 
 /**
- * Returns every prior lookup of the given headword for the calling user,
- * most-recent first, including any chip threads stored at that span. Used
- * by the WordPopover carousel.
+ * Returns every occurrence of the given headword across the user's tokenized
+ * stories (newest stories first, in-text order within each story). Each row
+ * carries any chip threads stored at that span; `lookedUpAt` / `lookupCount`
+ * are populated when the user has previously tapped the span (LEFT JOIN over
+ * `word_lookups`) and otherwise null / 0.
  */
 interface WordUsageRow {
-  lookup_id: number;
+  occurrence_id: number;
   story_id: number;
   story_title: string;
   story_content: string;
@@ -403,7 +405,7 @@ interface WordUsageRow {
   surface: string;
   reading: string | null;
   threads: WordThreadsByThread | null;
-  looked_up_at: string;
+  looked_up_at: string | null;
   lookup_count: number;
 }
 
@@ -414,7 +416,7 @@ export async function getWordUsages(headword: string): Promise<WordUsage[]> {
   if (error) throw new Error(error.message);
   const rows = (data as WordUsageRow[] | null) ?? [];
   return rows.map((r) => ({
-    lookupId: r.lookup_id,
+    occurrenceId: r.occurrence_id,
     storyId: r.story_id,
     storyTitle: r.story_title,
     storyContent: r.story_content,
@@ -427,6 +429,44 @@ export async function getWordUsages(headword: string): Promise<WordUsage[]> {
     lookedUpAt: r.looked_up_at,
     lookupCount: r.lookup_count,
   }));
+}
+
+/**
+ * Bulk-replace the calling user's word-occurrence index for a story. Server
+ * deletes existing rows for the story, inserts the new set, and stamps
+ * `stories.word_index_at` so the indexer doesn't re-run on subsequent reads.
+ * Returns the timestamp the row was stamped with so the client can update its
+ * local Story state without a refetch.
+ */
+export async function indexStoryWords(
+  storyId: number,
+  occurrences: { start: number; end: number; surface: string; headword: string; reading: string }[]
+): Promise<string> {
+  const { data, error } = await supabase.rpc("index_story_words", {
+    p_story_id: storyId,
+    p_occurrences: occurrences,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+/**
+ * Returns the user's read-but-unindexed stories (id + content), oldest first
+ * so the backfill processes least-recent stories first. Used by
+ * `WordIndexBackfillContext` to populate its queue.
+ */
+export async function getStoriesNeedingIndex(): Promise<
+  { id: number; content: string }[]
+> {
+  const { data, error } = await supabase
+    .from("stories")
+    .select("id, content")
+    .eq("status", "complete")
+    .gt("read_count", 0)
+    .is("word_index_at", null)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as { id: number; content: string }[]) || [];
 }
 
 // Profiles

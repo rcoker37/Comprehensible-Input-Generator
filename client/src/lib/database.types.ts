@@ -120,6 +120,7 @@ export type Database = {
           title: string
           topic: string | null
           user_id: string
+          word_index_at: string | null
         }
         Insert: {
           allowed_kanji: string
@@ -140,6 +141,7 @@ export type Database = {
           title: string
           topic?: string | null
           user_id: string
+          word_index_at?: string | null
         }
         Update: {
           allowed_kanji?: string
@@ -160,8 +162,50 @@ export type Database = {
           title?: string
           topic?: string | null
           user_id?: string
+          word_index_at?: string | null
         }
         Relationships: []
+      }
+      story_word_occurrences: {
+        Row: {
+          end_offset: number
+          headword: string
+          id: number
+          reading: string | null
+          start_offset: number
+          story_id: number
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          end_offset: number
+          headword: string
+          id?: never
+          reading?: string | null
+          start_offset: number
+          story_id: number
+          surface: string
+          user_id: string
+        }
+        Update: {
+          end_offset?: number
+          headword?: string
+          id?: never
+          reading?: string | null
+          start_offset?: number
+          story_id?: number
+          surface?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_word_occurrences_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_kanji: {
         Row: {
@@ -264,7 +308,7 @@ export type Database = {
           end_offset: number
           looked_up_at: string
           lookup_count: number
-          lookup_id: number
+          occurrence_id: number
           reading: string
           start_offset: number
           story_content: string
@@ -274,6 +318,10 @@ export type Database = {
           surface: string
           threads: Json
         }[]
+      }
+      index_story_words: {
+        Args: { p_occurrences: Json; p_story_id: number }
+        Returns: string
       }
       mark_story_read: {
         Args: { p_story_id: number }
