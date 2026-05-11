@@ -136,17 +136,47 @@ export async function lookupAtCursor(
  * Single-length lookup at a given span: exact JMdict match first, then
  * deinflection candidates filtered by POS. Used by the regroup pass to test a
  * specific kuromoji-aligned span without iterating shorter lengths.
+ *
+ * `posHint` is the kuromoji top-level POS for the token starting at `start`,
+ * supplied by callers that have tokenizer context (the regroup pass; the
+ * popover via a cached re-tokenisation). When kuromoji classifies the span as
+ * 動詞 (verb) but the exact JMdict match has no (modern) verb POS — which
+ * happens for continuative forms whose surface coincides with an unrelated
+ * noun entry, e.g. 「赤くなり、」 → なり (particle) instead of なる, or
+ * 「電車に乗り、」 → 乗り (n, "ride") instead of 乗る — we let a deinflection
+ * candidate that produces a verb result override the exact match. Applies to
+ * both pure-kana and mixed-script surfaces; the only gate is the POS hint
+ * plus the absence of a modern verb POS in the exact match.
  */
 export async function lookupAtBoundary(
   text: string,
   start: number,
   end: number,
-  annotations: FuriganaAnnotation[] = []
+  annotations: FuriganaAnnotation[] = [],
+  posHint?: string
 ): Promise<LookupHit | null> {
   if (start < 0 || end <= start || end > text.length) return null;
   const prefix = text.slice(start, end);
 
   const exact = await lookupWord(prefix);
+
+  if (posHint === "動詞" && !hasVerbPos(exact)) {
+    for (const c of deinflect(prefix)) {
+      const hits = await lookupWord(c.base);
+      const filtered = filterByPos(hits, c);
+      if (filtered.length > 0 && hasVerbPos(filtered)) {
+        return {
+          start,
+          end,
+          surface: prefix,
+          base: c.base,
+          derivations: c.derivations,
+          results: filtered,
+        };
+      }
+    }
+  }
+
   if (exact.length > 0 && !isKanjiCanonicalKanaMatch(exact, prefix)) {
     return applyAnnotatedReading(
       { start, end, surface: prefix, results: exact },
@@ -194,10 +224,17 @@ export async function lookupExactSpan(
   text: string,
   start: number,
   end: number,
-  annotations: FuriganaAnnotation[] = []
+  annotations: FuriganaAnnotation[] = [],
+  posHint?: string
 ): Promise<LookupHit | null> {
   if (start < 0 || end <= start || end > text.length) return null;
-  const fromBoundary = await lookupAtBoundary(text, start, end, annotations);
+  const fromBoundary = await lookupAtBoundary(
+    text,
+    start,
+    end,
+    annotations,
+    posHint
+  );
   if (fromBoundary) return fromBoundary;
   return {
     start,
@@ -307,6 +344,29 @@ export function isKanjiCanonicalKanaMatch(
     }
   }
   return true;
+}
+
+/**
+ * True iff any sense's POS tags include an inflecting-verb class (v1/v5/vs/vk/
+ * vz and their subtype tags). Excludes `vi`/`vt` which are valence markers, not
+ * conjugation classes. Also skips senses tagged `arch` (archaic) or `obs`
+ * (obsolete) — classical entries like 也 (なり, the literary copula tagged
+ * `aux-v`/`vr`/`cop`) would otherwise satisfy this check and block modern
+ * deinflection of 「赤くなり、」 → なる. Used by the kuromoji-POS-hinted
+ * deinflection path: if an exact match already contains a modern verb sense,
+ * kuromoji's 動詞 hint is already satisfied — no need to override.
+ */
+export function hasVerbPos(results: WordResult[]): boolean {
+  for (const wr of results) {
+    for (const sense of wr.s ?? []) {
+      if (sense.misc?.some((m) => m === "arch" || m === "obs")) continue;
+      for (const tag of sense.pos ?? []) {
+        if (tag === "vi" || tag === "vt") continue;
+        if (tag[0] === "v") return true;
+      }
+    }
+  }
+  return false;
 }
 
 function isPureKana(s: string): boolean {

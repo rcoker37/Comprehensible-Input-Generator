@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { WordResult } from "@birchill/jpdict-idb";
 import {
   applyAnnotatedReading,
+  hasVerbPos,
   isKanjiCanonicalKanaMatch,
   type LookupHit,
 } from "./lookupAtCursor";
@@ -22,6 +23,24 @@ function wrFull(opts: {
     k: (opts.k ?? []).map((ent) => ({ ent })),
     r: opts.r.map((ent) => ({ ent })),
     s: [{ misc: opts.misc }],
+  } as unknown as WordResult;
+}
+
+function wrWithPos(pos: string[]): WordResult {
+  return {
+    k: [],
+    r: [{ ent: "x" }],
+    s: [{ pos }],
+  } as unknown as WordResult;
+}
+
+function wrWithSenses(
+  senses: Array<{ pos?: string[]; misc?: string[] }>
+): WordResult {
+  return {
+    k: [],
+    r: [{ ent: "x" }],
+    s: senses,
   } as unknown as WordResult;
 }
 
@@ -128,6 +147,65 @@ describe("applyAnnotatedReading", () => {
     const out = applyAnnotatedReading(h, ann);
     expect(out.preferredReading).toBe("たべる");
     expect(out.results[0]?.r[0]?.ent).toBe("たべる");
+  });
+});
+
+describe("hasVerbPos", () => {
+  it("detects v5 / v1 conjugation classes", () => {
+    expect(hasVerbPos([wrWithPos(["v5r"])])).toBe(true);
+    expect(hasVerbPos([wrWithPos(["v1"])])).toBe(true);
+    expect(hasVerbPos([wrWithPos(["vs-i"])])).toBe(true);
+    expect(hasVerbPos([wrWithPos(["vk"])])).toBe(true);
+  });
+
+  it("ignores valence markers vi / vt (which aren't conjugation classes)", () => {
+    // A pure intransitive/transitive tag without a v* conjugation class would
+    // be malformed JMdict data, but we still don't want the marker alone to
+    // count as "verb".
+    expect(hasVerbPos([wrWithPos(["vi"])])).toBe(false);
+    expect(hasVerbPos([wrWithPos(["vt"])])).toBe(false);
+  });
+
+  it("returns false for noun / particle / interjection entries", () => {
+    expect(hasVerbPos([wrWithPos(["n"])])).toBe(false);
+    expect(hasVerbPos([wrWithPos(["prt"])])).toBe(false);
+    expect(hasVerbPos([wrWithPos(["int"])])).toBe(false);
+    expect(hasVerbPos([wrWithPos(["aux-v"])])).toBe(false);
+  });
+
+  it("returns true when ANY sense across ANY result has a verb POS", () => {
+    // なり in JMdict: 形 (n), 鳴り (n), なり (aux-v). All non-verb → false.
+    // Adding any v* entry would flip it.
+    const noun = wrWithPos(["n"]);
+    const aux = wrWithPos(["aux-v"]);
+    expect(hasVerbPos([noun, aux])).toBe(false);
+    const verb = wrWithPos(["v5r"]);
+    expect(hasVerbPos([noun, aux, verb])).toBe(true);
+  });
+
+  it("handles empty results / missing senses defensively", () => {
+    expect(hasVerbPos([])).toBe(false);
+    expect(hasVerbPos([{ s: [] } as unknown as WordResult])).toBe(false);
+  });
+
+  it("skips senses tagged arch / obs so classical verb entries don't block deinflection", () => {
+    // JMdict 也 (なり) — classical copula tagged aux-v/vr/cop with misc=['uk','arch'].
+    // Non-arch sense is just n+suf. The entry shouldn't satisfy hasVerbPos
+    // because the verb POS only appears on archaic senses.
+    const classical = wrWithSenses([
+      { pos: ["aux-v", "vr", "cop"], misc: ["uk", "arch"] },
+      { pos: ["aux-v", "vr"], misc: ["uk", "arch"] },
+      { pos: ["n", "suf"] },
+    ]);
+    expect(hasVerbPos([classical])).toBe(false);
+
+    // But if a MODERN sense (no arch misc) carries the verb POS, we still
+    // consider it satisfied.
+    const modern = wrWithSenses([
+      { pos: ["v5r"], misc: undefined },
+      { pos: ["aux-v"], misc: ["arch"] },
+    ]);
+    expect(hasVerbPos([modern])).toBe(true);
   });
 });
 

@@ -130,7 +130,6 @@ export default function Generator() {
             <span>Topic <span className="optional">(optional)</span></span>
             <input
               type="text"
-              placeholder="e.g., cooking, school life, travel..."
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
             />
@@ -139,7 +138,6 @@ export default function Generator() {
             <span>Style <span className="optional">(optional)</span></span>
             <input
               type="text"
-              placeholder="e.g., noir, slice of life, Haruki Murakami..."
               value={style}
               onChange={(e) => setStyle(e.target.value)}
             />

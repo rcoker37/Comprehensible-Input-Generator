@@ -4,11 +4,12 @@
 // `story_word_occurrences` index on first read — see migration
 // `20260510400000_story_word_occurrences.sql` for the schema.
 //
-// Single-kanji CharParts are looked up (they're standalone kanji words like
-// 「水」「猫」 that regroupWords couldn't merge into anything longer). Pure
-// hiragana / katakana CharParts are skipped — they're particles, fillers,
-// or characters that didn't merge, none of which produce useful headwords
-// the user would want to revisit.
+// Every CharPart is looked up: single-kanji words (「水」「猫」), single-
+// kana particles (「が」「を」「に」), and the rest. The lookup itself is
+// the filter — JMdict returns no hit for punctuation, whitespace, or
+// non-word characters, and those rows are skipped. Indexing particles
+// lets the popover surface "N encounters" and the new-word accent
+// underline applies to them consistently.
 //
 // The work is duplicated from StoryDisplay's regroup pass; the kuromoji
 // tokenizer and JMdict IDB are both cached, so the dominant cost is the
@@ -22,7 +23,7 @@ import { parseAnnotatedText } from "./furigana";
 import { regroupWords } from "./regroupWords";
 import { buildDisplaySegments } from "./storySegments";
 import { stripBold } from "./text";
-import { KANJI_REGEX } from "./constants";
+import { posHintAtOffset } from "./tokenizer";
 import type { Story } from "../types";
 
 export interface WordOccurrence {
@@ -32,6 +33,21 @@ export interface WordOccurrence {
   headword: string;
   reading: string;
 }
+
+/**
+ * Bump whenever the regroup / deinflection / lookup pipeline produces
+ * materially different headwords for existing stories. The backfill context
+ * treats every story whose stamped `word_index_version` is null or below
+ * this constant as out-of-date and re-indexes it.
+ *
+ * History:
+ *   1 — initial. POS-hinted continuative deinflection (なり → なる, etc.)
+ *       lands; bump from a null/legacy version forces a full re-index.
+ *   2 — pure-kana single-char CharParts (particles like が / を / は, etc.)
+ *       are now also indexed so encounter counts and the new-word
+ *       underline cover them.
+ */
+export const WORD_INDEX_VERSION = 2;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -71,8 +87,9 @@ export async function extractWordOccurrences(
           start = part.start;
           end = part.end;
         } else {
-          // CharPart — only worth a lookup when it's a standalone kanji.
-          if (!KANJI_REGEX.test(part.char)) continue;
+          // CharPart — look it up regardless of script. JMdict will return
+          // empty for punctuation / whitespace / non-Japanese, which the
+          // headwordFromHit guard turns into a skip below.
           start = part.offset;
           end = part.offset + 1;
         }
@@ -80,7 +97,14 @@ export async function extractWordOccurrences(
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const hit = await lookupAtBoundary(cleanText, start, end, annotations);
+        const posHint = await posHintAtOffset(cleanText, start);
+        const hit = await lookupAtBoundary(
+          cleanText,
+          start,
+          end,
+          annotations,
+          posHint
+        );
         if (!hit) continue;
         const headword = headwordFromHit(hit);
         if (!headword) continue;

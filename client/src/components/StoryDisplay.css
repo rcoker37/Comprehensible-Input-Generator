@@ -111,12 +111,33 @@
   cursor: pointer;
 }
 
+/* Zero-encounters word — never seen by the user across any read story.
+ * Accent underline to call it out as new (matches the chrome accent so it
+ * reads as informational rather than an error). text-underline-offset
+ * keeps the underline clear of the kanji/kana descenders. */
+.word-token--new {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+}
+
 .word-token:focus {
   outline: none;
 }
 
 .story-content--popover-disabled .word-token {
   cursor: default;
+}
+
+.story-content__loading {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  letter-spacing: normal;
+  color: var(--text-dim);
+  font-style: italic;
+  padding: 1rem 0;
 }
 
 .violations {

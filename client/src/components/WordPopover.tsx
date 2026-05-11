@@ -15,8 +15,14 @@ import {
   FloatingFocusManager,
   FloatingOverlay,
 } from "@floating-ui/react";
+import { Link } from "react-router-dom";
 import { useDictionary } from "../contexts/DictionaryContext";
-import { askWord, getWordUsages, recordWordLookup } from "../api/client";
+import {
+  askWord,
+  getWordEncounters,
+  getWordUsages,
+  recordWordLookup,
+} from "../api/client";
 import { ASK_CHIPS, type AskChip } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
 import {
@@ -26,7 +32,13 @@ import {
 } from "../lib/furigana";
 import { stripBold } from "../lib/text";
 import { headwordFromHit } from "../lib/headword";
+import {
+  lookupFrequency,
+  TIER_LABEL,
+  type FrequencyResult,
+} from "../lib/frequency";
 import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
+import { posHintAtOffset } from "../lib/tokenizer";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
@@ -240,6 +252,8 @@ export default function WordPopover({
   const [pending, setPending] = useState<boolean>(false);
   const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [frequency, setFrequency] = useState<FrequencyResult | null>(null);
+  const [encounters, setEncounters] = useState<number | null>(null);
   const cardScrollRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const userAskedRef = useRef(false);
@@ -276,19 +290,27 @@ export default function WordPopover({
     setActiveChipId(null);
     setPending(false);
     setIsRegenerating(false);
+    setFrequency(null);
+    setEncounters(null);
     userAskedRef.current = false;
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
   }, [open, tapStart, tapEnd]);
 
   // Run the lookup against the tap target's span whenever we open against a
   // new range. Constrained to the rendered span so the popover doesn't reach
-  // past the button the user actually clicked.
+  // past the button the user actually clicked. The kuromoji POS hint at
+  // `tapStart` is plumbed through so the lookup can prefer verb deinflection
+  // over an unrelated noun exact match (e.g. 「赤くなり、」 → なる, not なり).
   useEffect(() => {
     if (!open || tapStart === null || tapEnd === null) return;
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    lookupExactSpan(cleanText, tapStart, tapEnd, annotations)
+    posHintAtOffset(cleanText, tapStart)
+      .catch(() => undefined)
+      .then((posHint) =>
+        lookupExactSpan(cleanText, tapStart, tapEnd, annotations, posHint)
+      )
       .then((result) => {
         if (cancelled) return;
         setHit(result);
@@ -321,6 +343,47 @@ export default function WordPopover({
       cancelled = true;
     };
   }, [open, hit, headword, storyId]);
+
+  // Resolve JPDB frequency for the headword. Best-effort — if the asset
+  // fails to load (offline, 404 in dev), the header just omits the badge.
+  useEffect(() => {
+    if (!open || !headword) {
+      setFrequency(null);
+      return;
+    }
+    let cancelled = false;
+    void lookupFrequency(headword.headword, headword.reading)
+      .then((res) => {
+        if (!cancelled) setFrequency(res);
+      })
+      .catch(() => {
+        if (!cancelled) setFrequency(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, headword]);
+
+  // Total read-count-weighted encounters for the headword across the user's
+  // read stories. Same shape as kanji exposures — every read of a story
+  // contributes a fresh count. Best-effort; the badge just hides on error.
+  useEffect(() => {
+    if (!open || !headword) {
+      setEncounters(null);
+      return;
+    }
+    let cancelled = false;
+    void getWordEncounters(headword.headword)
+      .then((n) => {
+        if (!cancelled) setEncounters(n);
+      })
+      .catch(() => {
+        if (!cancelled) setEncounters(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, headword]);
 
   const cards = useMemo<Card[]>(() => {
     if (!hit) return [];
@@ -572,7 +635,6 @@ export default function WordPopover({
 
   if (!open || !referenceEl) return null;
 
-  const primary = hit?.results[0];
   const stickyHeadword = headword?.headword ?? hit?.surface ?? "";
   const stickyReading = headword?.reading ?? null;
 
@@ -593,7 +655,6 @@ export default function WordPopover({
       activeCard.endOffset
     );
 
-  const baseReading = activeCard?.base ? primary?.r?.[0]?.ent : undefined;
   const showCarouselNav = cards.length > 1;
 
   return (
@@ -647,6 +708,30 @@ export default function WordPopover({
                     ) : (
                       <span className="word-popover__surface">{stickyHeadword}</span>
                     )}
+                    {frequency && (
+                      <span
+                        className={`word-popover__freq word-popover__freq--${frequency.tier}`}
+                        title="JPDB frequency"
+                      >
+                        <span className="word-popover__freq-badge">
+                          {TIER_LABEL[frequency.tier]}
+                        </span>
+                        {frequency.rank !== null && (
+                          <span className="word-popover__freq-rank">
+                            #{frequency.rank.toLocaleString()}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {encounters !== null && (
+                      <span
+                        className="word-popover__encounters"
+                        title="Total reads across your read stories (re-reads counted)"
+                      >
+                        {encounters.toLocaleString()}{" "}
+                        {encounters === 1 ? "encounter" : "encounters"}
+                      </span>
+                    )}
                   </header>
                   <section className="word-popover__senses">
                     <SenseSection
@@ -690,15 +775,23 @@ export default function WordPopover({
                       </svg>
                     </button>
                     <div className="word-popover__nav-meta">
-                      <span className="word-popover__nav-title">
-                        {activeCard.kind === "current"
-                          ? "This story"
-                          : stripAnnotations(stripBold(activeCard.storyTitle))}
-                      </span>
-                      {activeCard.kind === "other" && (
-                        <span className="word-popover__nav-date">
-                          {formatStoryDate(activeCard.storyCreatedAt)}
-                        </span>
+                      {activeCard.storyId === storyId ? (
+                        <span className="word-popover__nav-title">This story</span>
+                      ) : (
+                        <>
+                          <Link
+                            to={`/stories/${activeCard.storyId}`}
+                            className="word-popover__nav-title word-popover__nav-title--link"
+                            onClick={() => onOpenChange(false)}
+                          >
+                            {stripAnnotations(stripBold(activeCard.storyTitle ?? ""))}
+                          </Link>
+                          {activeCard.storyCreatedAt && (
+                            <span className="word-popover__nav-date">
+                              {formatStoryDate(activeCard.storyCreatedAt)}
+                            </span>
+                          )}
+                        </>
                       )}
                       <span className="word-popover__nav-indicator">
                         {cardIndex + 1} / {cards.length}
@@ -726,25 +819,10 @@ export default function WordPopover({
                 >
                   {activeCard && (
                     <>
-                      <div className="word-popover__card-surface">
-                        {activeCard.surface}
-                      </div>
                       {activeCard.base &&
                         activeCard.derivations &&
                         activeCard.derivations.length > 0 && (
                           <div className="word-popover__inflection">
-                            from{" "}
-                            <span className="word-popover__inflection-base">
-                              {baseReading && baseReading !== activeCard.base ? (
-                                <ruby>
-                                  {activeCard.base}
-                                  <rt>{baseReading}</rt>
-                                </ruby>
-                              ) : (
-                                activeCard.base
-                              )}
-                            </span>
-                            {" · "}
                             {activeCard.derivations.join(" → ")}
                           </div>
                         )}

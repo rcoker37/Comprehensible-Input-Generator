@@ -9,7 +9,7 @@ import type { Story } from "../types";
 import "./Stories.css";
 
 type ReadFilter = "all" | "unread" | "read";
-type SortMode = "newest" | "score" | "scorePerParagraph";
+type SortMode = "newest" | "score" | "adjustedScore";
 
 export default function Stories() {
   const [stories, setStories] = useState<Story[]>([]);
@@ -58,14 +58,16 @@ export default function Stories() {
   });
 
   const scoreFor = (s: Story) => deltaById.get(s.id) ?? 0;
-  const scorePerParagraphFor = (s: Story) =>
-    s.paragraphs > 0 ? scoreFor(s) / s.paragraphs : 0;
+  const adjustedScoreFor = (s: Story) => {
+    const chars = stripAnnotations(s.content).length;
+    return chars > 0 ? scoreFor(s) / chars : 0;
+  };
 
   const visibleStories =
     sortMode === "score"
       ? [...filtered].sort((a, b) => scoreFor(b) - scoreFor(a))
-      : sortMode === "scorePerParagraph"
-      ? [...filtered].sort((a, b) => scorePerParagraphFor(b) - scorePerParagraphFor(a))
+      : sortMode === "adjustedScore"
+      ? [...filtered].sort((a, b) => adjustedScoreFor(b) - adjustedScoreFor(a))
       : filtered;
 
   return (
@@ -95,7 +97,7 @@ export default function Stories() {
               {([
                 ["newest", "Newest"],
                 ["score", "Score"],
-                ["scorePerParagraph", "Score per Paragraph"],
+                ["adjustedScore", "Adjusted Score"],
               ] as const).map(([v, label]) => (
                 <button
                   key={v}

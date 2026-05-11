@@ -73,3 +73,32 @@ export async function tokenizeText(text: string): Promise<KuromojiTokenInfo[]> {
   }
   return out;
 }
+
+// Small per-cleanText cache so the popover can repeatedly fetch the kuromoji
+// POS at a tap offset without re-tokenising. The regroup pass already
+// tokenised this story's text once; this cache makes the popover's reuse
+// effectively free. Bounded to avoid retaining tokens for stories the user
+// has long since closed.
+const tokenCache = new Map<string, Promise<KuromojiTokenInfo[]>>();
+const MAX_TOKEN_CACHE = 16;
+
+export function tokenizeTextCached(text: string): Promise<KuromojiTokenInfo[]> {
+  const cached = tokenCache.get(text);
+  if (cached) return cached;
+  if (tokenCache.size >= MAX_TOKEN_CACHE) {
+    const oldest = tokenCache.keys().next().value;
+    if (oldest !== undefined) tokenCache.delete(oldest);
+  }
+  const p = tokenizeText(text);
+  tokenCache.set(text, p);
+  return p;
+}
+
+/** POS of the kuromoji token starting at `offset`, or undefined if none. */
+export async function posHintAtOffset(
+  text: string,
+  offset: number
+): Promise<string | undefined> {
+  const tokens = await tokenizeTextCached(text);
+  return tokens.find((t) => t.start === offset)?.pos;
+}
