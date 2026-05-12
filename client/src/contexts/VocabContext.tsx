@@ -9,11 +9,9 @@ import {
 } from "react";
 import { useAuth } from "./AuthContext";
 import { getUserWordEncounters } from "../api/client";
-import { loadFrequencyIndex, lookupFrequencySync } from "../lib/frequency";
-import type { VocabEncounter } from "../lib/vocabScore";
 
 interface VocabContextType {
-  vocabEncounters: Map<string, VocabEncounter>;
+  vocabEncounters: Map<string, number>;
   vocabEncountersLoaded: boolean;
   refreshVocabEncounters: () => Promise<void>;
 }
@@ -28,23 +26,15 @@ export function useVocab() {
 
 export function VocabProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [vocabEncounters, setVocabEncounters] = useState<
-    Map<string, VocabEncounter>
-  >(new Map());
+  const [vocabEncounters, setVocabEncounters] = useState<Map<string, number>>(
+    new Map()
+  );
   const [vocabEncountersLoaded, setVocabEncountersLoaded] = useState(false);
 
   const refreshVocabEncounters = useCallback(async () => {
     if (!user) return;
-    // The JPDB index needs to be loaded before we can resolve tiers
-    // synchronously. The fetch is shared with the popover's frequency
-    // badges so this usually warm-hits the in-memory cache.
-    const [counts] = await Promise.all([getUserWordEncounters(), loadFrequencyIndex()]);
-    const map = new Map<string, VocabEncounter>();
-    for (const [headword, encounters] of counts) {
-      const { tier } = lookupFrequencySync(headword, null);
-      map.set(headword, { encounters, tier });
-    }
-    setVocabEncounters(map);
+    const counts = await getUserWordEncounters();
+    setVocabEncounters(counts);
     setVocabEncountersLoaded(true);
   }, [user]);
 

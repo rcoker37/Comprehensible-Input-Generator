@@ -7,7 +7,6 @@ import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
-import { lookupFrequencySync } from "../lib/frequency";
 import type { Story } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
@@ -55,19 +54,13 @@ export default function Stories() {
   };
 
   const deltaById = useMemo(() => {
-    // The vocab delta needs JPDB tier resolution for headwords the user
-    // hasn't yet encountered (otherwise they'd default to very-rare and
-    // dramatically over-predict). VocabContext awaits loadFrequencyIndex
-    // before flipping vocabEncountersLoaded, so once that's true the sync
-    // lookup is safe.
-    const resolveTier = (h: string) => lookupFrequencySync(h, null).tier;
     const m = new Map<number, number>();
     for (const s of stories) {
       const kanji = readingScoreDelta(s.content, kanjiExposures);
       const occMap = storyOccurrences.get(s.id);
       const vocab =
         occMap && vocabEncountersLoaded
-          ? vocabScoreDelta(occMap, vocabEncounters, resolveTier)
+          ? vocabScoreDelta(occMap, vocabEncounters)
           : 0;
       m.set(s.id, kanji + vocab);
     }
