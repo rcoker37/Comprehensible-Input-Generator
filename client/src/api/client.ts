@@ -469,6 +469,43 @@ export async function getStoryWordEncounters(
 }
 
 /**
+ * Per-headword read-count-weighted encounter totals across the user's read
+ * stories. Powers the vocab side of the header total score (see
+ * VocabContext + lib/vocabScore.ts).
+ */
+export async function getUserWordEncounters(): Promise<Map<string, number>> {
+  const { data, error } = await supabase.rpc("get_user_word_encounters");
+  if (error) throw new Error(error.message);
+  const rows = (data as { headword: string; encounters: number }[] | null) ?? [];
+  return new Map(rows.map((r) => [r.headword, Number(r.encounters)]));
+}
+
+/**
+ * Per-story per-headword raw within-story occurrence counts (NOT
+ * read_count-weighted). Used by Compositions to compute the vocab payout
+ * for each story card. Returns one Map per story keyed by headword.
+ */
+export async function getPerStoryWordOccurrences(): Promise<
+  Map<number, Map<string, number>>
+> {
+  const { data, error } = await supabase.rpc("get_per_story_word_occurrences");
+  if (error) throw new Error(error.message);
+  const rows =
+    (data as { story_id: number; headword: string; occurrences: number }[] | null) ??
+    [];
+  const out = new Map<number, Map<string, number>>();
+  for (const r of rows) {
+    let inner = out.get(r.story_id);
+    if (!inner) {
+      inner = new Map<string, number>();
+      out.set(r.story_id, inner);
+    }
+    inner.set(r.headword, Number(r.occurrences));
+  }
+  return out;
+}
+
+/**
  * Bulk-replace the calling user's word-occurrence index for a story. Server
  * deletes existing rows for the story, inserts the new set, and stamps
  * `stories.word_index_at` + `word_index_version` so the indexer doesn't

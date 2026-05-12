@@ -12,6 +12,7 @@ const Generator = lazy(() => import("./pages/Generator"));
 const Stories = lazy(() => import("./pages/Stories"));
 const StoryDetail = lazy(() => import("./pages/StoryDetail"));
 const KanjiManager = lazy(() => import("./pages/KanjiManager"));
+const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 
 function App() {
@@ -58,6 +59,16 @@ function App() {
                   <ErrorBoundary>
                     <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <KanjiManager />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/stats"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                      <Stats />
                     </Suspense>
                   </ErrorBoundary>
                 }

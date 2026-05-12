@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { markStoryRead, undoStoryRead } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
+import { useVocab } from "../contexts/VocabContext";
 import type { Story, StoryReadState } from "../types";
 
 interface Props {
@@ -18,6 +19,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [markedThisSession, setMarkedThisSession] = useState(false);
   const { refreshKanjiExposures } = useKnownKanji();
+  const { refreshVocabEncounters } = useVocab();
 
   const count = story.read_count;
   const isRead = count > 0;
@@ -31,6 +33,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
       onChange(state);
       setMarkedThisSession(true);
       refreshKanjiExposures();
+      refreshVocabEncounters();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark as read");
     } finally {
@@ -46,6 +49,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
       onChange(state);
       setMarkedThisSession(false);
       refreshKanjiExposures();
+      refreshVocabEncounters();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to undo");
     } finally {

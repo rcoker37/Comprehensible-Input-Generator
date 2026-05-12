@@ -293,6 +293,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: string
       }
+      get_per_story_word_occurrences: {
+        Args: never
+        Returns: {
+          headword: string
+          occurrences: number
+          story_id: number
+        }[]
+      }
       get_story_word_encounters: {
         Args: { p_story_id: number }
         Returns: {
@@ -311,6 +319,13 @@ export type Database = {
           meanings: string
           readings_kun: string
           readings_on: string
+        }[]
+      }
+      get_user_word_encounters: {
+        Args: never
+        Returns: {
+          encounters: number
+          headword: string
         }[]
       }
       get_word_encounters: { Args: { p_headword: string }; Returns: number }
