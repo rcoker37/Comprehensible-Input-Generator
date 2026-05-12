@@ -33,7 +33,7 @@ import {
 import { stripBold } from "../lib/text";
 import { headwordFromHit } from "../lib/headword";
 import {
-  lookupFrequency,
+  lookupBestFrequency,
   TIER_LABEL,
   type FrequencyResult,
 } from "../lib/frequency";
@@ -359,13 +359,20 @@ export default function WordPopover({
 
   // Resolve JPDB frequency for the headword. Best-effort — if the asset
   // fails to load (offline, 404 in dev), the header just omits the badge.
+  // We pass every kanji variant of the primary JMdict entry plus the tapped
+  // surface, because JPDB indexes orthographies separately: 御供え isn't in
+  // the index at all but お供え is, and the canonical k[0] for that entry
+  // happens to be 御供え, so a single-form lookup would lose the real rank.
   useEffect(() => {
-    if (!open || !headword) {
+    if (!open || !hit || !headword) {
       setFrequency(null);
       return;
     }
     let cancelled = false;
-    void lookupFrequency(headword.headword, headword.reading)
+    const candidates = [headword.headword];
+    if (!hit.base) candidates.push(hit.surface);
+    for (const k of hit.results[0]?.k ?? []) candidates.push(k.ent);
+    void lookupBestFrequency(candidates, headword.reading)
       .then((res) => {
         if (!cancelled) setFrequency(res);
       })
@@ -378,7 +385,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, headword]);
+  }, [open, hit, headword]);
 
   // Total read-count-weighted encounters for the headword across the user's
   // read stories. Same shape as kanji exposures — every read of a story

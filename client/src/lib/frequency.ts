@@ -81,3 +81,31 @@ export async function lookupFrequency(
   const best = entries[0]!;
   return { rank: best[1], tier: rankToTier(best[1]) };
 }
+
+/**
+ * Lookup the best (lowest rank) JPDB frequency across multiple candidate
+ * orthographies of the same word. A JMdict entry can list several kanji
+ * variants (e.g. 御供え / お供え) that share a reading; JPDB indexes them
+ * separately and the kanji-heaviest variant is often vastly rarer than the
+ * common form the user is actually seeing in the wild. Caller-supplied order
+ * doesn't matter — we pick the lowest rank among all candidates.
+ *
+ * Returns `{rank: null, tier: "very-rare"}` when none of the candidates
+ * resolve. Deduplicates candidates internally.
+ */
+export async function lookupBestFrequency(
+  headwords: string[],
+  reading: string | null
+): Promise<FrequencyResult> {
+  const unique = Array.from(new Set(headwords.filter((h) => h.length > 0)));
+  if (unique.length === 0) return { rank: null, tier: "very-rare" };
+  const results = await Promise.all(
+    unique.map((h) => lookupFrequency(h, reading))
+  );
+  let best: FrequencyResult = { rank: null, tier: "very-rare" };
+  for (const r of results) {
+    if (r.rank === null) continue;
+    if (best.rank === null || r.rank < best.rank) best = r;
+  }
+  return best;
+}
