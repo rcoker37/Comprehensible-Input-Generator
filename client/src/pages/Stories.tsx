@@ -47,6 +47,7 @@ export default function Stories() {
 
   const error = deleteError ?? contextError;
   const loading = !storiesLoaded;
+  const scoresReady = vocabEncountersLoaded && storyOccurrencesLoaded;
 
   // Wait for BOTH halves of the payout to load before computing any
   // deltas — otherwise the score tag (and score-sort) would flash a
@@ -119,16 +120,22 @@ export default function Stories() {
                 ["newest", "Newest"],
                 ["score", "Score"],
                 ["adjustedScore", "Adjusted Score"],
-              ] as const).map(([v, label]) => (
-                <button
-                  key={v}
-                  className={`chip ${sortMode === v ? "active" : ""}`}
-                  onClick={() => setSortMode(v)}
-                  aria-pressed={sortMode === v}
-                >
-                  {label}
-                </button>
-              ))}
+              ] as const).map(([v, label]) => {
+                const scoreSort = v === "score" || v === "adjustedScore";
+                const isDisabled = scoreSort && !scoresReady;
+                return (
+                  <button
+                    key={v}
+                    className={`chip ${sortMode === v ? "active" : ""}`}
+                    onClick={() => setSortMode(v)}
+                    aria-pressed={sortMode === v}
+                    disabled={isDisabled}
+                    title={isDisabled ? "Loading scores…" : undefined}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </>

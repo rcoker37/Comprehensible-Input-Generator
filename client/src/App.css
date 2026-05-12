@@ -193,6 +193,16 @@ h1 {
   color: var(--bg);
 }
 
+.chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.chip:disabled:hover {
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
 @media (max-width: 400px) {
   .chip {
     padding: 0.2rem 0.6rem;
