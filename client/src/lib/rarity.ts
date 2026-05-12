@@ -1,7 +1,9 @@
 import { stripAnnotations } from "./furigana";
 
-// Per-kanji raw score caps near ~9.9 (saturating curve up to c=10, slow log
-// tail past it). SCORE_MULTIPLIER scales the raw curve before display.
+// Per-exposure raw score caps near ~9.9 (saturating curve up to c=10, slow
+// log tail past it). SCORE_MULTIPLIER scales the raw curve before display.
+// Shared with vocabScore.ts so the kanji and per-word curves have the same
+// shape — vocabScore tunes them with frequency-tier multipliers instead.
 export const SCORE_MULTIPLIER = 1;
 
 const TAU = 3.5;
@@ -11,14 +13,14 @@ const TAIL_COEF = 0.1;
 
 // f(0) = 0, strictly increasing, diminishing throughout, sharper diminishing
 // past KINK, never zero marginal. See PR notes for derivation.
-function rawF(c: number): number {
+export function rawScore(c: number): number {
   if (c <= 0) return 0;
   if (c <= KINK) return 10 * (1 - Math.exp(-c / TAU));
   return F_KINK + TAIL_COEF * Math.log(c - KINK + 1);
 }
 
 export function kanjiScore(c: number): number {
-  return rawF(c) * SCORE_MULTIPLIER;
+  return rawScore(c) * SCORE_MULTIPLIER;
 }
 
 export function totalScore(exposures: Map<string, number>): number {

@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { getStories, deleteStory } from "../api/client";
+import { getStories, deleteStory, getPerStoryWordOccurrences } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
+import { useVocab } from "../contexts/VocabContext";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
+import { vocabScoreDelta } from "../lib/vocabScore";
+import { lookupFrequencySync } from "../lib/frequency";
 import type { Story } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
@@ -19,6 +22,10 @@ export default function Stories() {
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const { knownKanji, kanjiExposures } = useKnownKanji();
+  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
+  const [storyOccurrences, setStoryOccurrences] = useState<
+    Map<number, Map<string, number>>
+  >(new Map());
 
   const unknownCount = (text?: string | null) => {
     if (!text) return 0;
@@ -30,6 +37,11 @@ export default function Stories() {
       .then(setStories)
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load compositions"))
       .finally(() => setLoading(false));
+    getPerStoryWordOccurrences()
+      .then(setStoryOccurrences)
+      .catch(() => {
+        // Vocab payout is best-effort; the kanji delta still lands.
+      });
   }, []);
 
   const handleDelete = async (id: number) => {
@@ -43,12 +55,24 @@ export default function Stories() {
   };
 
   const deltaById = useMemo(() => {
+    // The vocab delta needs JPDB tier resolution for headwords the user
+    // hasn't yet encountered (otherwise they'd default to very-rare and
+    // dramatically over-predict). VocabContext awaits loadFrequencyIndex
+    // before flipping vocabEncountersLoaded, so once that's true the sync
+    // lookup is safe.
+    const resolveTier = (h: string) => lookupFrequencySync(h, null).tier;
     const m = new Map<number, number>();
     for (const s of stories) {
-      m.set(s.id, readingScoreDelta(s.content, kanjiExposures));
+      const kanji = readingScoreDelta(s.content, kanjiExposures);
+      const occMap = storyOccurrences.get(s.id);
+      const vocab =
+        occMap && vocabEncountersLoaded
+          ? vocabScoreDelta(occMap, vocabEncounters, resolveTier)
+          : 0;
+      m.set(s.id, kanji + vocab);
     }
     return m;
-  }, [stories, kanjiExposures]);
+  }, [stories, kanjiExposures, storyOccurrences, vocabEncounters, vocabEncountersLoaded]);
 
   if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;
 

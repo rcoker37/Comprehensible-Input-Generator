@@ -59,16 +59,20 @@ export const TIER_LABEL: Record<FrequencyTier, string> = {
 };
 
 /**
- * Lookup the JPDB frequency rank for a headword. Prefers an exact
- * (headword, reading) match; falls back to the lowest rank for any reading
- * of the headword. Returns `{rank: null, tier: "very-rare"}` for terms
- * outside the rank cap or absent from JPDB.
+ * Triggers (and waits for) the one-time JPDB index fetch so subsequent
+ * `lookupFrequencySync` calls are free. Idempotent — call as many times as
+ * you like; resolves immediately once cached.
  */
-export async function lookupFrequency(
+export async function loadFrequencyIndex(): Promise<void> {
+  if (cached) return;
+  await load();
+}
+
+function lookupInIndex(
+  index: RawIndex,
   headword: string,
   reading: string | null
-): Promise<FrequencyResult> {
-  const index = await load();
+): FrequencyResult {
   const entries = index[headword];
   if (!entries || entries.length === 0) {
     return { rank: null, tier: "very-rare" };
@@ -80,6 +84,37 @@ export async function lookupFrequency(
   // Sorted asc by rank at build time, so [0] is the most common reading.
   const best = entries[0]!;
   return { rank: best[1], tier: rankToTier(best[1]) };
+}
+
+/**
+ * Lookup the JPDB frequency rank for a headword. Prefers an exact
+ * (headword, reading) match; falls back to the lowest rank for any reading
+ * of the headword. Returns `{rank: null, tier: "very-rare"}` for terms
+ * outside the rank cap or absent from JPDB.
+ */
+export async function lookupFrequency(
+  headword: string,
+  reading: string | null
+): Promise<FrequencyResult> {
+  const index = await load();
+  return lookupInIndex(index, headword, reading);
+}
+
+/**
+ * Synchronous variant for callers that have already awaited
+ * `loadFrequencyIndex()`. Throws if the index hasn't been fetched yet —
+ * use the async `lookupFrequency` if you can't guarantee load order.
+ */
+export function lookupFrequencySync(
+  headword: string,
+  reading: string | null
+): FrequencyResult {
+  if (!cached) {
+    throw new Error(
+      "lookupFrequencySync called before loadFrequencyIndex resolved"
+    );
+  }
+  return lookupInIndex(cached, headword, reading);
 }
 
 /**
