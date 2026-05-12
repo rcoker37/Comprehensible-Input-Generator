@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { getStories, deleteStory, getPerStoryWordOccurrences } from "../api/client";
+import { deleteStory } from "../api/client";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
+import { useStories } from "../contexts/StoriesContext";
 import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
@@ -15,46 +16,37 @@ type ReadFilter = "all" | "unread" | "read";
 type SortMode = "newest" | "score" | "adjustedScore";
 
 export default function Stories() {
-  const [stories, setStories] = useState<Story[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    stories,
+    storiesLoaded,
+    storyOccurrences,
+    storyOccurrencesLoaded,
+    error: contextError,
+    removeStory,
+  } = useStories();
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const { knownKanji, kanjiExposures } = useKnownKanji();
   const { vocabEncounters, vocabEncountersLoaded } = useVocab();
-  const [storyOccurrences, setStoryOccurrences] = useState<
-    Map<number, Map<string, number>>
-  >(new Map());
-  const [storyOccurrencesLoaded, setStoryOccurrencesLoaded] = useState(false);
 
   const unknownCount = (text?: string | null) => {
     if (!text) return 0;
     return getUnknownKanji(text, knownKanji).size;
   };
 
-  useEffect(() => {
-    getStories()
-      .then(setStories)
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load compositions"))
-      .finally(() => setLoading(false));
-    getPerStoryWordOccurrences()
-      .then(setStoryOccurrences)
-      .catch(() => {
-        // Vocab payout is best-effort; if it fails we fall back to
-        // kanji-only payouts once the loaded gate flips.
-      })
-      .finally(() => setStoryOccurrencesLoaded(true));
-  }, []);
-
   const handleDelete = async (id: number) => {
     if (!window.confirm("Delete this composition? This cannot be undone.")) return;
     try {
       await deleteStory(id);
-      setStories((prev) => prev.filter((s) => s.id !== id));
+      removeStory(id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete composition");
+      setDeleteError(err instanceof Error ? err.message : "Failed to delete composition");
     }
   };
+
+  const error = deleteError ?? contextError;
+  const loading = !storiesLoaded;
 
   // Wait for BOTH halves of the payout to load before computing any
   // deltas — otherwise the score tag (and score-sort) would flash a

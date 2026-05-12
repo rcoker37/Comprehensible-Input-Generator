@@ -6,6 +6,7 @@ import { KanjiProvider, useKnownKanji } from "../contexts/KanjiContext";
 import { VocabProvider, useVocab } from "../contexts/VocabContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
+import { StoriesProvider } from "../contexts/StoriesContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
 import AnimatedDots from "./AnimatedDots";
@@ -54,31 +55,33 @@ export default function AppLayout() {
       <KanjiProvider>
         <VocabProvider>
           <WordIndexBackfillProvider>
-            <div className="app">
-              <nav className="nav">
-                <div className="nav-brand">読む練習</div>
-                <div className="nav-links">
-                  <NavLink to="/">Generate</NavLink>
-                  <NavLink to="/stories">Compositions</NavLink>
-                  <NavLink to="/kanji">Kanji</NavLink>
-                  <NavLink to="/stats">Stats</NavLink>
-                  <NavLink to="/settings">Settings</NavLink>
-                </div>
-                {user && (
-                  <span className="nav-user">
-                    <DictionaryStatusChip />
-                    <NavTotalScore />
-                    <ThemeToggle />
-                    <span>{user.email}</span>
-                  </span>
-                )}
-              </nav>
-              <main className="main">
-                <GenerationProvider>
-                  <Outlet />
-                </GenerationProvider>
-              </main>
-            </div>
+            <StoriesProvider>
+              <div className="app">
+                <nav className="nav">
+                  <div className="nav-brand">読む練習</div>
+                  <div className="nav-links">
+                    <NavLink to="/">Generate</NavLink>
+                    <NavLink to="/stories">Compositions</NavLink>
+                    <NavLink to="/kanji">Kanji</NavLink>
+                    <NavLink to="/stats">Stats</NavLink>
+                    <NavLink to="/settings">Settings</NavLink>
+                  </div>
+                  {user && (
+                    <span className="nav-user">
+                      <DictionaryStatusChip />
+                      <NavTotalScore />
+                      <ThemeToggle />
+                      <span>{user.email}</span>
+                    </span>
+                  )}
+                </nav>
+                <main className="main">
+                  <GenerationProvider>
+                    <Outlet />
+                  </GenerationProvider>
+                </main>
+              </div>
+            </StoriesProvider>
           </WordIndexBackfillProvider>
         </VocabProvider>
       </KanjiProvider>
