@@ -2,7 +2,6 @@ export interface Kanji {
   character: string;
   grade: number;
   jlpt: number | null;
-  known: boolean;
   meanings: string;
   readings_on: string;
   readings_kun: string;
@@ -11,12 +10,6 @@ export interface Kanji {
 export type Formality = "impolite" | "casual" | "polite" | "keigo";
 
 export type ContentType = "fiction" | "nonfiction";
-
-export interface StoryFilters {
-  knownOnly: boolean;
-  jlptLevels: number[];
-  grades: number[];
-}
 
 export interface DifficultyEstimate {
   uniqueKanji: number;
@@ -55,7 +48,6 @@ export interface Story {
   paragraphs: number;
   topic: string | null;
   formality: Formality;
-  filters: StoryFilters;
   difficulty: DifficultyEstimate;
   explanations: StoryWordThreads | null;
   read_count: number;
@@ -71,11 +63,6 @@ export interface StoryReadState {
   read_count: number;
   first_read_at: string | null;
   last_read_at: string | null;
-}
-
-export interface KanjiStats {
-  total: number;
-  known: number;
 }
 
 /**
@@ -108,7 +95,8 @@ export interface Profile {
   preferred_formality: string | null;
   preferred_paragraphs: number | null;
   preferred_content_type: string | null;
+  // DB column kept its legacy name "unknown" — the UI labels it "Unseen kanji"
+  // since the meaning is "kanji not in the user's allowed list".
   preferred_unknown_kanji_target: string | null;
-  preferred_prioritize_rare_kanji: boolean | null;
   created_at: string;
 }

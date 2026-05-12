@@ -51,33 +51,6 @@
   color: var(--text);
 }
 
-.kanji-inline__toggle {
-  margin-top: 0.25rem;
-  padding: 0.4rem 0.75rem;
-  background: var(--bg-dim);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.kanji-inline__toggle:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.kanji-inline__toggle.is-known {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.kanji-inline__toggle:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .kanji-inline__status,
 .kanji-inline__error {
   text-align: center;

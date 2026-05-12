@@ -309,18 +309,6 @@ export type Database = {
           start_offset: number
         }[]
       }
-      get_user_kanji: {
-        Args: never
-        Returns: {
-          character: string
-          grade: number
-          jlpt: number
-          known: boolean
-          meanings: string
-          readings_kun: string
-          readings_on: string
-        }[]
-      }
       get_user_word_encounters: {
         Args: never
         Returns: {

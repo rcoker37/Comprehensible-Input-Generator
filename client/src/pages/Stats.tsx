@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useKnownKanji } from "../contexts/KanjiContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
@@ -7,7 +7,7 @@ import AnimatedDots from "../components/AnimatedDots";
 import "./Stats.css";
 
 export default function Stats() {
-  const { kanjiExposures, kanjiExposuresLoaded } = useKnownKanji();
+  const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded } = useVocab();
 
   const kanjiTotal = useMemo(() => totalScore(kanjiExposures), [kanjiExposures]);

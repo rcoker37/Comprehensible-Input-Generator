@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { markStoryRead, undoStoryRead } from "../api/client";
-import { useKnownKanji } from "../contexts/KanjiContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import type { Story, StoryReadState } from "../types";
 
@@ -18,7 +18,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markedThisSession, setMarkedThisSession] = useState(false);
-  const { refreshKanjiExposures } = useKnownKanji();
+  const { refreshKanjiExposures } = useSeenKanji();
   const { refreshVocabEncounters } = useVocab();
 
   const count = story.read_count;

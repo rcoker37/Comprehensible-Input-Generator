@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripBold, cleanGeneratedText, getUnknownKanji } from "./text";
+import { stripBold, cleanGeneratedText } from "./text";
 
 describe("stripBold", () => {
   it("returns empty string unchanged", () => {
@@ -60,41 +60,5 @@ describe("cleanGeneratedText", () => {
 
   it("preserves Aozora ruby annotations untouched", () => {
     expect(cleanGeneratedText("# 二人《ふたり》")).toBe("二人《ふたり》");
-  });
-});
-
-describe("getUnknownKanji", () => {
-  it("returns empty set for empty text", () => {
-    const result = getUnknownKanji("", new Set());
-    expect(result.size).toBe(0);
-  });
-
-  it("returns empty set for hiragana-only text", () => {
-    const result = getUnknownKanji("こんにちは", new Set());
-    expect(result.size).toBe(0);
-  });
-
-  it("returns empty set when all kanji are known", () => {
-    const known = new Set(["日", "本"]);
-    const result = getUnknownKanji("日本", known);
-    expect(result.size).toBe(0);
-  });
-
-  it("returns unknown kanji not in the known set", () => {
-    const known = new Set(["日"]);
-    const result = getUnknownKanji("日本語", known);
-    expect(result).toEqual(new Set(["本", "語"]));
-  });
-
-  it("does not duplicate kanji that appear multiple times", () => {
-    const known = new Set<string>();
-    const result = getUnknownKanji("日日日", known);
-    expect(result).toEqual(new Set(["日"]));
-  });
-
-  it("ignores katakana and punctuation", () => {
-    const known = new Set<string>();
-    const result = getUnknownKanji("カタカナ！？。", known);
-    expect(result.size).toBe(0);
   });
 });

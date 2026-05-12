@@ -1,14 +1,11 @@
 import { supabase } from "../lib/supabase";
-import { KANJI_REGEX_G } from "../lib/constants";
-import { buildPrompt, type UnknownKanjiTarget } from "../lib/generation";
+import { buildPrompt, type UnseenKanjiTarget } from "../lib/generation";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import type {
   ContentType,
   Formality,
-  Kanji,
-  KanjiStats,
   Story,
   StoryReadState,
   WordThread,
@@ -18,138 +15,19 @@ import type {
 
 // Kanji
 
-export async function getKanji(_userId: string): Promise<Kanji[]> {
-  const PAGE_SIZE = 1000;
-  let results: Kanji[] = [];
-  let offset = 0;
-  while (true) {
-    const { data, error } = await supabase
-      .rpc("get_user_kanji")
-      .range(offset, offset + PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    const page = (data as Kanji[]) || [];
-    results = results.concat(page);
-    if (page.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-  }
-  return results;
-}
-
-export function filterKanji(
-  kanji: Kanji[],
-  params: { search?: string; jlpt?: number[]; grade?: number[] }
-): Kanji[] {
-  let results = kanji;
-  const jlptFilter = params.jlpt;
-  if (jlptFilter && jlptFilter.length > 0) {
-    results = results.filter((k) => k.jlpt !== null && jlptFilter.includes(Number(k.jlpt)));
-  }
-  const gradeFilter = params.grade;
-  if (gradeFilter && gradeFilter.length > 0) {
-    results = results.filter((k) => gradeFilter.includes(Number(k.grade)));
-  }
-  if (params.search) {
-    const s = params.search.toLowerCase();
-    const kanjiInSearch = s.match(KANJI_REGEX_G);
-    if (kanjiInSearch && kanjiInSearch.length > 1) {
-      const kanjiSet = new Set(kanjiInSearch);
-      results = results.filter((k) => kanjiSet.has(k.character));
-    } else {
-      results = results.filter(
-        (k) =>
-          k.character.includes(s) ||
-          k.meanings.toLowerCase().includes(s) ||
-          k.readings_on.includes(s) ||
-          k.readings_kun.includes(s)
-      );
-    }
-  }
-  return results;
-}
-
-export async function getKanjiStats(userId: string): Promise<KanjiStats> {
-  const [{ count: total }, { count: known }] = await Promise.all([
-    supabase.from("kanji").select("*", { count: "exact", head: true }),
-    supabase
-      .from("user_kanji")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("known", true),
-  ]);
-
-  return { total: total || 0, known: known || 0 };
-}
-
-export async function toggleKanji(
-  userId: string,
-  character: string,
-  currentlyKnown: boolean
-): Promise<boolean> {
-  const newKnown = !currentlyKnown;
-
-  if (newKnown) {
-    // Upsert as known
-    const { error } = await supabase
-      .from("user_kanji")
-      .upsert({ user_id: userId, character, known: true });
-    if (error) throw new Error(error.message);
-  } else {
-    // Delete the row (absence = unknown)
-    const { error } = await supabase
-      .from("user_kanji")
-      .delete()
-      .eq("user_id", userId)
-      .eq("character", character);
-    if (error) throw new Error(error.message);
-  }
-
-  return newKnown;
-}
-
-export async function bulkUpdateKanji(
-  userId: string,
-  action: "markKnown" | "markUnknown",
-  filter: { grades?: number[]; jlptLevels?: number[] }
-): Promise<number> {
-  // Get matching kanji characters
-  let query = supabase.from("kanji").select("character");
-  if (filter.grades && filter.grades.length > 0) {
-    query = query.in("grade", filter.grades);
-  }
-  if (filter.jlptLevels && filter.jlptLevels.length > 0) {
-    query = query.in("jlpt", filter.jlptLevels);
-  }
-
-  const { data: kanjiRows, error } = await query;
+// Baseline kanji set the LLM is always allowed to use, regardless of what
+// the user has read. JLPT N5 (the easiest level) — small, common, and
+// sufficient to write something readable for a brand-new user.
+let n5KanjiCache: Set<string> | null = null;
+export async function getJlptN5Kanji(): Promise<Set<string>> {
+  if (n5KanjiCache) return n5KanjiCache;
+  const { data, error } = await supabase
+    .from("kanji")
+    .select("character")
+    .eq("jlpt", 5);
   if (error) throw new Error(error.message);
-  if (!kanjiRows || kanjiRows.length === 0) return 0;
-
-  const characters = kanjiRows.map((r) => r.character);
-
-  if (action === "markKnown") {
-    // Batch upsert in chunks of 500
-    const CHUNK = 500;
-    for (let i = 0; i < characters.length; i += CHUNK) {
-      const chunk = characters.slice(i, i + CHUNK);
-      const rows = chunk.map((character) => ({
-        user_id: userId,
-        character,
-        known: true,
-      }));
-      const { error } = await supabase.from("user_kanji").upsert(rows);
-      if (error) throw new Error(error.message);
-    }
-  } else {
-    // Delete rows (absence = unknown)
-    const { error } = await supabase
-      .from("user_kanji")
-      .delete()
-      .eq("user_id", userId)
-      .in("character", characters);
-    if (error) throw new Error(error.message);
-  }
-
-  return characters.length;
+  n5KanjiCache = new Set((data ?? []).map((r) => r.character));
+  return n5KanjiCache;
 }
 
 // Stories — generation
@@ -161,7 +39,7 @@ export async function bulkUpdateKanji(
 // row flips to 'complete' or 'failed'.
 
 export async function startStoryGeneration(
-  userId: string,
+  _userId: string,
   params: {
     contentType: ContentType;
     paragraphs: number;
@@ -169,20 +47,17 @@ export async function startStoryGeneration(
     style?: string;
     formality: Formality;
     model: string;
+    seenKanji: Set<string>;
     prioritizedKanji: string[];
-    unknownKanjiTarget: UnknownKanjiTarget;
+    unseenKanjiTarget: UnseenKanjiTarget;
   }
 ): Promise<{ storyId: number }> {
-  const allKanji = await getKanji(userId);
-  const filtered = allKanji.filter((k) => k.known);
-
-  if (filtered.length === 0) {
-    throw new Error(
-      "You haven't marked any kanji as known yet. Go to Kanji Manager to mark some kanji."
-    );
-  }
-
-  const allowedKanji = [...new Set(filtered.map((k) => k.character))].join("");
+  // Allowed kanji = (kanji the user has seen in any read story)
+  //               ∪ (JLPT N5 baseline, so a brand-new user still has
+  //                  enough kanji to produce a readable story).
+  const n5 = await getJlptN5Kanji();
+  const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
+  const allowedKanji = [...allowedSet].join("");
   const prompt = buildPrompt(
     params.contentType,
     params.paragraphs,
@@ -191,7 +66,7 @@ export async function startStoryGeneration(
     params.topic,
     params.style,
     params.prioritizedKanji,
-    params.unknownKanjiTarget
+    params.unseenKanjiTarget
   );
 
   const { data: sessionData } = await supabase.auth.getSession();
@@ -255,7 +130,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, filters, difficulty, read_count, first_read_at, last_read_at, word_index_at, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, difficulty, explanations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, created_at"
     )
     .eq("status", "complete")
     .order("created_at", { ascending: false });
@@ -305,10 +180,10 @@ export async function getUnderusedKanji(limit = 20): Promise<string[]> {
   return ((data as { kanji: string }[]) || []).map((r) => r.kanji);
 }
 
-// Returns exposure counts (read_count-weighted) for every known kanji. Used by
-// rarity-based story sorting. The RPC orders by exposure ASC, so passing a
-// limit larger than the joyo set returns the full known-kanji exposure map.
-export async function getKnownKanjiExposures(): Promise<Map<string, number>> {
+// Returns exposure counts (read_count-weighted) for every kanji the user has
+// seen in a read story. Powers the header total score, per-story score
+// sorting, and the derived "seen kanji" set in KanjiContext.
+export async function getKanjiExposures(): Promise<Map<string, number>> {
   const { data, error } = await supabase.rpc("user_underused_kanji", { p_limit: 10000 });
   if (error) throw new Error(error.message);
   const rows = (data as { kanji: string; exposures: number }[]) || [];
@@ -587,7 +462,6 @@ export async function updateProfile(
     preferred_formality?: string;
     preferred_paragraphs?: number;
     preferred_unknown_kanji_target?: string;
-    preferred_prioritize_rare_kanji?: boolean;
   }
 ): Promise<void> {
   const { error } = await supabase

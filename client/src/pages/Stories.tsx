@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { deleteStory } from "../api/client";
-import { useKnownKanji } from "../contexts/KanjiContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import { useStories } from "../contexts/StoriesContext";
-import { stripBold, getUnknownKanji } from "../lib/text";
+import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
@@ -27,12 +27,22 @@ export default function Stories() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
-  const { knownKanji, kanjiExposures } = useKnownKanji();
+  const { kanjiExposures } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded } = useVocab();
 
-  const unknownCount = (text?: string | null) => {
-    if (!text) return 0;
-    return getUnknownKanji(text, knownKanji).size;
+  // Number of distinct headwords in the story that the user has never
+  // encountered in a read story. Returns null until both halves of the
+  // lookup (per-story occurrences + global vocab counts) have loaded so
+  // the UI doesn't flash "0 unseen" before the data arrives.
+  const unseenWordCount = (storyId: number): number | null => {
+    if (!storyOccurrencesLoaded || !vocabEncountersLoaded) return null;
+    const occMap = storyOccurrences.get(storyId);
+    if (!occMap) return 0;
+    let n = 0;
+    for (const headword of occMap.keys()) {
+      if ((vocabEncounters.get(headword) ?? 0) === 0) n += 1;
+    }
+    return n;
   };
 
   const handleDelete = async (id: number) => {
@@ -178,9 +188,15 @@ export default function Stories() {
                 <span className="date">
                   {new Date(story.created_at).toLocaleDateString()}
                 </span>
-                <span className={`unknown-tag ${unknownCount(story.content) === 0 ? "none" : ""}`}>
-                  {unknownCount(story.content)} unknown kanji
-                </span>
+                {(() => {
+                  const n = unseenWordCount(story.id);
+                  if (n === null) return null;
+                  return (
+                    <span className={`unknown-tag ${n === 0 ? "none" : ""}`}>
+                      {n} unseen {n === 1 ? "word" : "words"}
+                    </span>
+                  );
+                })()}
                 {(deltaById.get(story.id) ?? 0) > 0 && (
                   <span className="score-tag" title="Score gain if read once more">
                     +{formatScore(deltaById.get(story.id) ?? 0)}
