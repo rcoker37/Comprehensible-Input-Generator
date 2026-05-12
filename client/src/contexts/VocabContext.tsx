@@ -9,10 +9,16 @@ import {
 } from "react";
 import { useAuth } from "./AuthContext";
 import { getUserWordEncounters } from "../api/client";
+import { loadFrequencyIndex, lookupFrequencySync } from "../lib/frequency";
 
 interface VocabContextType {
   vocabEncounters: Map<string, number>;
+  // Flips true only once both the encounter RPC and the JPDB frequency
+  // index have resolved — scoring depends on rank weighting, so callers
+  // that compute totals/deltas should gate on this to avoid a visible
+  // jump when JPDB lands.
   vocabEncountersLoaded: boolean;
+  getWordRank: (headword: string) => number | null;
   refreshVocabEncounters: () => Promise<void>;
 }
 
@@ -33,7 +39,10 @@ export function VocabProvider({ children }: { children: ReactNode }) {
 
   const refreshVocabEncounters = useCallback(async () => {
     if (!user) return;
-    const counts = await getUserWordEncounters();
+    const [counts] = await Promise.all([
+      getUserWordEncounters(),
+      loadFrequencyIndex(),
+    ]);
     setVocabEncounters(counts);
     setVocabEncountersLoaded(true);
   }, [user]);
@@ -42,9 +51,22 @@ export function VocabProvider({ children }: { children: ReactNode }) {
     refreshVocabEncounters();
   }, [refreshVocabEncounters]);
 
+  const getWordRank = useCallback(
+    (headword: string): number | null => {
+      if (!vocabEncountersLoaded) return null;
+      return lookupFrequencySync(headword, null).rank;
+    },
+    [vocabEncountersLoaded]
+  );
+
   const value = useMemo(
-    () => ({ vocabEncounters, vocabEncountersLoaded, refreshVocabEncounters }),
-    [vocabEncounters, vocabEncountersLoaded, refreshVocabEncounters]
+    () => ({
+      vocabEncounters,
+      vocabEncountersLoaded,
+      getWordRank,
+      refreshVocabEncounters,
+    }),
+    [vocabEncounters, vocabEncountersLoaded, getWordRank, refreshVocabEncounters]
   );
 
   return <VocabContext.Provider value={value}>{children}</VocabContext.Provider>;

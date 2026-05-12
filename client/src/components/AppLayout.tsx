@@ -31,18 +31,26 @@ function DictionaryStatusChip() {
 
 function NavTotalScore() {
   const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
-  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
+  const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
   const kanji = useMemo(() => totalScore(kanjiExposures), [kanjiExposures]);
-  const vocab = useMemo(() => totalVocabScore(vocabEncounters), [vocabEncounters]);
-  // Show whatever's loaded — a vocab fetch hiccup shouldn't blank out the
-  // whole header. If neither has loaded yet, render nothing.
+  const vocab = useMemo(
+    () => totalVocabScore(vocabEncounters, getWordRank),
+    [vocabEncounters, getWordRank]
+  );
   if (!kanjiExposuresLoaded && !vocabEncountersLoaded) return null;
+  const kanjiPortion = kanjiExposuresLoaded ? kanji : 0;
+  const total = vocabEncountersLoaded ? kanjiPortion + vocab : kanjiPortion;
   return (
     <span
       className="nav-score"
-      title={`Kanji ${formatScore(kanji)} + vocab ${formatScore(vocab)}`}
+      title={
+        vocabEncountersLoaded
+          ? `Kanji ${formatScore(kanji)} + vocab ${formatScore(vocab)}`
+          : `Kanji ${formatScore(kanji)}, vocab loading…`
+      }
     >
-      ★ {formatScore(kanji + vocab)}
+      ★ {formatScore(total)}
+      {!vocabEncountersLoaded && <AnimatedDots />}
     </span>
   );
 }

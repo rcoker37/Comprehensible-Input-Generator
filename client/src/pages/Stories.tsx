@@ -28,7 +28,7 @@ export default function Stories() {
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const { kanjiExposures } = useSeenKanji();
-  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
+  const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
 
   // Number of distinct headwords in the story that the user has never
   // encountered in a read story. Returns null until both halves of the
@@ -68,7 +68,9 @@ export default function Stories() {
     for (const s of stories) {
       const kanji = readingScoreDelta(s.content, kanjiExposures);
       const occMap = storyOccurrences.get(s.id);
-      const vocab = occMap ? vocabScoreDelta(occMap, vocabEncounters) : 0;
+      const vocab = occMap
+        ? vocabScoreDelta(occMap, vocabEncounters, getWordRank)
+        : 0;
       m.set(s.id, kanji + vocab);
     }
     return m;
@@ -79,6 +81,7 @@ export default function Stories() {
     storyOccurrencesLoaded,
     vocabEncounters,
     vocabEncountersLoaded,
+    getWordRank,
   ]);
 
   if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;

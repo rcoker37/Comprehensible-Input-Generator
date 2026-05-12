@@ -8,12 +8,12 @@ import "./Stats.css";
 
 export default function Stats() {
   const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
-  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
+  const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
 
   const kanjiTotal = useMemo(() => totalScore(kanjiExposures), [kanjiExposures]);
   const vocabTotal = useMemo(
-    () => totalVocabScore(vocabEncounters),
-    [vocabEncounters]
+    () => totalVocabScore(vocabEncounters, getWordRank),
+    [vocabEncounters, getWordRank]
   );
 
   const kanjiSeenAtLeastOnce = useMemo(() => {
