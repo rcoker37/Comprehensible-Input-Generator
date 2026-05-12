@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getStory, deleteStory } from "../api/client";
+import { useStories } from "../contexts/StoriesContext";
 import type { Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import StoryReadButton from "../components/StoryReadButton";
@@ -11,6 +12,7 @@ import "./StoryDetail.css";
 export default function StoryDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { removeStory, applyStoryUpdate } = useStories();
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +31,7 @@ export default function StoryDetail() {
     if (!window.confirm("Delete this story? This cannot be undone.")) return;
     try {
       await deleteStory(Number(id));
+      removeStory(Number(id));
       navigate("/stories");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete story");
@@ -78,7 +81,10 @@ export default function StoryDetail() {
       <StoryDisplay story={story} />
       <StoryReadButton
         story={story}
-        onChange={(state) => setStory((s) => (s ? { ...s, ...state } : s))}
+        onChange={(state) => {
+          setStory((s) => (s ? { ...s, ...state } : s));
+          applyStoryUpdate(story.id, state);
+        }}
       />
     </div>
   );

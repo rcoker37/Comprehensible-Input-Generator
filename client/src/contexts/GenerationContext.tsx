@@ -9,6 +9,7 @@ import {
 import type { UnknownKanjiTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import { useWordIndexBackfill } from "./WordIndexBackfillContext";
+import { useStories } from "./StoriesContext";
 
 const POLL_INTERVAL_MS = 3000;
 const STALE_THRESHOLD_MS = 3 * 60 * 1000;
@@ -43,12 +44,17 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const { refresh: refreshBackfill } = useWordIndexBackfill();
-  // Mirror in a ref so the polling tick (captured inside a useCallback with
-  // empty deps) reads the latest refresh fn without rebuilding the callback.
+  const { addStory, removeStory } = useStories();
+  // Mirror in refs so the polling tick (captured inside a useCallback with
+  // empty deps) reads the latest fns without rebuilding the callback.
   const refreshBackfillRef = useRef(refreshBackfill);
+  const addStoryRef = useRef(addStory);
+  const removeStoryRef = useRef(removeStory);
   useEffect(() => {
     refreshBackfillRef.current = refreshBackfill;
-  }, [refreshBackfill]);
+    addStoryRef.current = addStory;
+    removeStoryRef.current = removeStory;
+  }, [refreshBackfill, addStory, removeStory]);
   // The id of the failed row, so dismissError() / generate() retry can clean
   // it up from the DB.
   const failedIdRef = useRef<number | null>(null);
@@ -95,6 +101,9 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
           // page. We only need to flip loading off so the user can generate
           // again.
           setStartedAt(null);
+          // Insert the row into the cached Compositions list so the user
+          // sees it on next navigation without forcing a refetch.
+          addStoryRef.current(fresh);
           // Pull the freshly-completed story into the word-index backfill
           // queue so its tap-spans are precomputed in the background. The
           // queue is hydrated on auth-ready and wouldn't otherwise see this
@@ -154,6 +163,7 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
     if (failedIdRef.current != null) {
       const id = failedIdRef.current;
       failedIdRef.current = null;
+      removeStoryRef.current(id);
       deleteStory(id).catch((err) => console.warn("Failed to clean up failed story row:", err));
     }
 
