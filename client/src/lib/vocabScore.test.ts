@@ -8,38 +8,51 @@ import {
 import { rawScore } from "./rarity";
 
 describe("frequencyWeight", () => {
-  it("hits the top anchor at rank 1", () => {
-    expect(frequencyWeight(1)).toBeCloseTo(3.0, 6);
+  it("sits at the peak for rank 1", () => {
+    expect(frequencyWeight(1)).toBeCloseTo(4.0, 6);
   });
 
-  it("hits the floor at the rank cap and beyond", () => {
-    expect(frequencyWeight(100_000)).toBeCloseTo(0.25, 6);
-    expect(frequencyWeight(1_000_000)).toBeCloseTo(0.25, 6);
+  it("approaches the floor far past MID_RANK", () => {
+    // The sigmoid asymptotes at FLOOR_WEIGHT — at very high finite rank
+    // it's near but not exactly equal to the floor.
+    expect(frequencyWeight(1_000_000)).toBeGreaterThan(0.15);
+    expect(frequencyWeight(1_000_000)).toBeLessThan(0.16);
   });
 
-  it("returns the floor for null (unranked)", () => {
-    expect(frequencyWeight(null)).toBeCloseTo(0.25, 6);
+  it("returns exactly the floor for null (unranked)", () => {
+    expect(frequencyWeight(null)).toBeCloseTo(0.15, 6);
   });
 
-  it("clamps rank<1 to the top weight", () => {
-    expect(frequencyWeight(0)).toBeCloseTo(3.0, 6);
+  it("clamps rank<1 to the peak", () => {
+    expect(frequencyWeight(0)).toBeCloseTo(4.0, 6);
   });
 
   it("decreases monotonically across the ranked range", () => {
     let prev = frequencyWeight(1);
-    for (const r of [10, 100, 1000, 5000, 30000, 100000]) {
+    for (const r of [10, 100, 1000, 5000, 10000, 30000, 100000]) {
       const w = frequencyWeight(r);
       expect(w).toBeLessThan(prev);
       prev = w;
     }
   });
 
+  it("hits the half-weight point at MID_RANK", () => {
+    // At rank = MID_RANK the sigmoid sits exactly at (peak + floor) / 2.
+    expect(frequencyWeight(10_000)).toBeCloseTo((4.0 + 0.15) / 2, 6);
+  });
+
   it("matches the expected curve at sample ranks", () => {
-    // Verifies the chosen anchor pair (3.0 at rank 1, 0.25 at rank 100k).
-    expect(frequencyWeight(100)).toBeCloseTo(1.9, 1);
-    expect(frequencyWeight(1000)).toBeCloseTo(1.35, 1);
-    expect(frequencyWeight(5000)).toBeCloseTo(0.96, 1);
-    expect(frequencyWeight(30000)).toBeCloseTo(0.54, 1);
+    expect(frequencyWeight(2_000)).toBeCloseTo(3.85, 1);
+    expect(frequencyWeight(5_000)).toBeCloseTo(3.23, 1);
+    expect(frequencyWeight(20_000)).toBeCloseTo(0.92, 1);
+    expect(frequencyWeight(50_000)).toBeCloseTo(0.30, 1);
+  });
+
+  it("stays near the peak through the top 'core vocabulary' plateau", () => {
+    // The whole point of the sigmoid plateau: top-few-thousand ranks
+    // should be nearly indistinguishable from rank 1.
+    expect(frequencyWeight(500)).toBeGreaterThan(3.95);
+    expect(frequencyWeight(1_000)).toBeGreaterThan(3.9);
   });
 });
 
