@@ -373,14 +373,17 @@ button {
   color: var(--text-dim);
 }
 
-@media (max-width: 804px) {
+@media (max-width: 880px) {
   .nav {
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
   }
+  .nav-links {
+    gap: 0.25rem;
+  }
   .nav-links a {
-    padding: 0.3rem 0.55rem;
+    padding: 0.3rem 0.4rem;
     font-size: 0.85rem;
   }
   .main {
