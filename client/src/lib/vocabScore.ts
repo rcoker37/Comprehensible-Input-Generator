@@ -1,32 +1,31 @@
 import { rawScore, SCORE_MULTIPLIER } from "./rarity";
 
 // Frequency weighting: a word's contribution to the vocab score is scaled
-// by a smooth function of its JPDB rank, so learning common words pays
-// more than learning rare ones. The curve is linear in ln(rank), clamped
-// at both ends. With the default anchors:
+// by a smooth sigmoid in rank, so the "core vocabulary" (top several
+// thousand JPDB ranks) all pay near-peak, then the weight drops off as
+// rank grows. Shape: `floor + (peak - floor) / (1 + (rank / MID_RANK)^K)`.
 //
-//   rank 1        → 3.00  (の／は, the most common words)
-//   rank 100      → 1.90  (top everyday vocabulary)
-//   rank 1,000    → 1.35  (common)
-//   rank 5,000    → 0.96  (mid-common)
-//   rank 30,000   → 0.54  (rare)
-//   rank 100,000+ → 0.25  (very rare / unranked)
+//   rank 1        → 4.00  (の／は, the most common words)
+//   rank 2,000    → 3.85  (still in the plateau)
+//   rank 5,000    → 3.23
+//   rank 10,000   → 2.08  (the midpoint between peak and floor)
+//   rank 20,000   → 0.92
+//   rank 50,000   → 0.30
+//   rank null     → 0.15  (unranked / outside JPDB's 100k cap)
 //
 // `rank` is null when the headword falls outside the JPDB v2 cap (built
 // at rank ≤ 100,000) or isn't in the dict at all — both collapse to the
-// floor weight.
-const WEIGHT_AT_TOP = 3.0;
-const WEIGHT_AT_CAP = 0.25;
-const RANK_CAP = 100_000;
-const SLOPE = (WEIGHT_AT_TOP - WEIGHT_AT_CAP) / Math.log(RANK_CAP);
+// floor weight directly.
+const PEAK_WEIGHT = 4.0;
+const FLOOR_WEIGHT = 0.15;
+const MID_RANK = 10_000;
+const K = 2;
 
 export function frequencyWeight(rank: number | null): number {
-  if (rank === null) return WEIGHT_AT_CAP;
+  if (rank === null) return FLOOR_WEIGHT;
   const r = rank < 1 ? 1 : rank;
-  const w = WEIGHT_AT_TOP - SLOPE * Math.log(r);
-  if (w > WEIGHT_AT_TOP) return WEIGHT_AT_TOP;
-  if (w < WEIGHT_AT_CAP) return WEIGHT_AT_CAP;
-  return w;
+  const ratio = r / MID_RANK;
+  return FLOOR_WEIGHT + (PEAK_WEIGHT - FLOOR_WEIGHT) / (1 + Math.pow(ratio, K));
 }
 
 // Per-word score: the saturating-and-capped exposure curve (see rarity.ts)
