@@ -4,6 +4,7 @@ import { getStory, deleteStory } from "../api/client";
 import type { Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import StoryReadButton from "../components/StoryReadButton";
+import AnimatedDots from "../components/AnimatedDots";
 import "../components/StoryActions.css";
 import "./StoryDetail.css";
 
@@ -34,7 +35,7 @@ export default function StoryDetail() {
     }
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading">Loading<AnimatedDots /></div>;
   if (error) return <div className="error">{error}</div>;
   if (!story) return <div className="error">Story not found</div>;
 

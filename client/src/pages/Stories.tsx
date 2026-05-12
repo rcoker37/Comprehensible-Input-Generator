@@ -6,6 +6,7 @@ import { stripBold, getUnknownKanji } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import type { Story } from "../types";
+import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
 
 type ReadFilter = "all" | "unread" | "read";
@@ -49,7 +50,7 @@ export default function Stories() {
     return m;
   }, [stories, kanjiExposures]);
 
-  if (loading) return <div className="loading">Loading compositions...</div>;
+  if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;
 
   const filtered = stories.filter((s) => {
     if (readFilter === "unread") return s.read_count === 0;

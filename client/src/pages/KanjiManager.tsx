@@ -11,6 +11,7 @@ import {
 } from "../api/client";
 import { KANJI_REGEX_G } from "../lib/constants";
 import type { Kanji, KanjiStats } from "../types";
+import AnimatedDots from "../components/AnimatedDots";
 import "./KanjiManager.css";
 
 const JLPT_LEVELS = [5, 4, 3, 2, 1];
@@ -237,7 +238,7 @@ export default function KanjiManager() {
       </div>
 
       {loading ? (
-        <div className="loading">Loading kanji...</div>
+        <div className="loading">Loading kanji<AnimatedDots /></div>
       ) : kanji.length === 0 ? (
         <div className="empty">No kanji match your filters.</div>
       ) : (

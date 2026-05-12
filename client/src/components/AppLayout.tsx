@@ -5,18 +5,24 @@ import { KanjiProvider, useKnownKanji } from "../contexts/KanjiContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
 import { formatScore, totalScore } from "../lib/rarity";
+import AnimatedDots from "./AnimatedDots";
 import ThemeToggle from "./ThemeToggle";
 
 function DictionaryStatusChip() {
   const { state, error } = useDictionary();
   if (state === "ready" || state === "idle") return null;
-  const label =
-    state === "loading"
-      ? "Loading dictionary…"
-      : state === "error"
-        ? `Dictionary error${error ? `: ${error}` : ""}`
-        : "";
-  return <span className={`nav-dict-status nav-dict-status--${state}`}>{label}</span>;
+  const content =
+    state === "loading" ? (
+      <>
+        Loading dictionary
+        <AnimatedDots />
+      </>
+    ) : state === "error" ? (
+      `Dictionary error${error ? `: ${error}` : ""}`
+    ) : (
+      ""
+    );
+  return <span className={`nav-dict-status nav-dict-status--${state}`}>{content}</span>;
 }
 
 function NavTotalScore() {

@@ -981,13 +981,13 @@ function SenseSection({
   onToggleShowAll: () => void;
 }) {
   if (state === "loading" || state === "idle") {
-    return <div className="word-popover__status">Loading dictionary…</div>;
+    return <div className="word-popover__status">Loading dictionary<AnimatedDots /></div>;
   }
   if (state === "error") {
     return <div className="word-popover__error">Dictionary unavailable</div>;
   }
   if (lookingUp || !hit) {
-    return <div className="word-popover__status">Looking up…</div>;
+    return <div className="word-popover__status">Looking up<AnimatedDots /></div>;
   }
   const primary = hit.results[0];
   if (!primary) {
