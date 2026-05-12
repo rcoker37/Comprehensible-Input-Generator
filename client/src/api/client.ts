@@ -468,16 +468,33 @@ export async function getStoryWordEncounters(
   return map;
 }
 
+// PostgREST caps RPC responses at `db-max-rows` (1000 on Supabase Cloud)
+// regardless of the query's actual size. Both vocab RPCs can exceed that
+// once a user has a healthy reading history, so we page through with an
+// ORDER BY (for stable pagination) and stop when we get a short page.
+const VOCAB_PAGE_SIZE = 1000;
+
 /**
  * Per-headword read-count-weighted encounter totals across the user's read
  * stories. Powers the vocab side of the header total score (see
  * VocabContext + lib/vocabScore.ts).
  */
 export async function getUserWordEncounters(): Promise<Map<string, number>> {
-  const { data, error } = await supabase.rpc("get_user_word_encounters");
-  if (error) throw new Error(error.message);
-  const rows = (data as { headword: string; encounters: number }[] | null) ?? [];
-  return new Map(rows.map((r) => [r.headword, Number(r.encounters)]));
+  const map = new Map<string, number>();
+  for (let from = 0; ; ) {
+    const { data, error } = await supabase
+      .rpc("get_user_word_encounters")
+      .order("headword")
+      .range(from, from + VOCAB_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows =
+      (data as { headword: string; encounters: number }[] | null) ?? [];
+    if (rows.length === 0) break;
+    for (const r of rows) map.set(r.headword, Number(r.encounters));
+    from += rows.length;
+    if (rows.length < VOCAB_PAGE_SIZE) break;
+  }
+  return map;
 }
 
 /**
@@ -488,19 +505,29 @@ export async function getUserWordEncounters(): Promise<Map<string, number>> {
 export async function getPerStoryWordOccurrences(): Promise<
   Map<number, Map<string, number>>
 > {
-  const { data, error } = await supabase.rpc("get_per_story_word_occurrences");
-  if (error) throw new Error(error.message);
-  const rows =
-    (data as { story_id: number; headword: string; occurrences: number }[] | null) ??
-    [];
   const out = new Map<number, Map<string, number>>();
-  for (const r of rows) {
-    let inner = out.get(r.story_id);
-    if (!inner) {
-      inner = new Map<string, number>();
-      out.set(r.story_id, inner);
+  for (let from = 0; ; ) {
+    const { data, error } = await supabase
+      .rpc("get_per_story_word_occurrences")
+      .order("story_id")
+      .order("headword")
+      .range(from, from + VOCAB_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows =
+      (data as
+        | { story_id: number; headword: string; occurrences: number }[]
+        | null) ?? [];
+    if (rows.length === 0) break;
+    for (const r of rows) {
+      let inner = out.get(r.story_id);
+      if (!inner) {
+        inner = new Map<string, number>();
+        out.set(r.story_id, inner);
+      }
+      inner.set(r.headword, Number(r.occurrences));
     }
-    inner.set(r.headword, Number(r.occurrences));
+    from += rows.length;
+    if (rows.length < VOCAB_PAGE_SIZE) break;
   }
   return out;
 }
