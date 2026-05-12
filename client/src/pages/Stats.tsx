@@ -16,12 +16,21 @@ export default function Stats() {
     [vocabEncounters]
   );
 
-  const kanjiKnown = kanjiExposures.size;
   const kanjiSeenAtLeastOnce = useMemo(() => {
     let n = 0;
     for (const c of kanjiExposures.values()) if (c > 0) n += 1;
     return n;
   }, [kanjiExposures]);
+  const kanjiAtCap = useMemo(() => {
+    let n = 0;
+    for (const c of kanjiExposures.values()) if (c >= 10) n += 1;
+    return n;
+  }, [kanjiExposures]);
+  const vocabAtCap = useMemo(() => {
+    let n = 0;
+    for (const c of vocabEncounters.values()) if (c >= 10) n += 1;
+    return n;
+  }, [vocabEncounters]);
 
   if (!kanjiExposuresLoaded || !vocabEncountersLoaded) {
     return (
@@ -58,16 +67,20 @@ export default function Stats() {
         <h2>Coverage</h2>
         <div className="coverage-grid">
           <div className="coverage-cell">
-            <div className="coverage-value">{kanjiKnown.toLocaleString()}</div>
-            <div className="coverage-label">Kanji marked known</div>
-          </div>
-          <div className="coverage-cell">
             <div className="coverage-value">{kanjiSeenAtLeastOnce.toLocaleString()}</div>
             <div className="coverage-label">Unique kanji read</div>
           </div>
           <div className="coverage-cell">
             <div className="coverage-value">{vocabEncounters.size.toLocaleString()}</div>
             <div className="coverage-label">Unique words read</div>
+          </div>
+          <div className="coverage-cell">
+            <div className="coverage-value">{kanjiAtCap.toLocaleString()}</div>
+            <div className="coverage-label">Kanji read 10+ times</div>
+          </div>
+          <div className="coverage-cell">
+            <div className="coverage-value">{vocabAtCap.toLocaleString()}</div>
+            <div className="coverage-label">Words read 10+ times</div>
           </div>
         </div>
       </section>
