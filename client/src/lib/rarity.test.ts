@@ -12,19 +12,23 @@ describe("kanjiScore", () => {
     expect(kanjiScore(0)).toBe(0);
   });
 
-  it("is strictly increasing", () => {
+  it("is strictly increasing up to the cap and flat past it", () => {
     let prev = -Infinity;
-    for (const c of [0, 1, 2, 5, 9, 10, 11, 20, 100, 1000]) {
+    for (const c of [0, 1, 2, 5, 9, 10]) {
       const s = kanjiScore(c);
       expect(s).toBeGreaterThan(prev);
       prev = s;
     }
+    const cap = kanjiScore(10);
+    for (const c of [11, 20, 100, 1000]) {
+      expect(kanjiScore(c)).toBe(cap);
+    }
   });
 
-  it("has strictly diminishing marginal returns through and past the kink", () => {
+  it("has strictly diminishing marginal returns up to the cap", () => {
     let prevDelta = Infinity;
     let prev = kanjiScore(0);
-    for (let c = 1; c <= 30; c++) {
+    for (let c = 1; c <= 10; c++) {
       const s = kanjiScore(c);
       const delta = s - prev;
       expect(delta).toBeGreaterThan(0);
@@ -32,6 +36,11 @@ describe("kanjiScore", () => {
       prevDelta = delta;
       prev = s;
     }
+  });
+
+  it("contributes nothing past c=10", () => {
+    expect(kanjiScore(11) - kanjiScore(10)).toBe(0);
+    expect(kanjiScore(1000) - kanjiScore(10)).toBe(0);
   });
 
   it("scales by SCORE_MULTIPLIER", () => {
