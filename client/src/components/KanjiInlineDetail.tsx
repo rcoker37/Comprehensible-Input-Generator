@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useKnownKanji } from "../contexts/KanjiContext";
 import { supabase } from "../lib/supabase";
 import { toggleKanji } from "../api/client";
+import AnimatedDots from "./AnimatedDots";
 import "./KanjiInlineDetail.css";
 
 export interface KanjiRow {
@@ -81,7 +82,7 @@ export default function KanjiInlineDetail({
         ← Back
       </button>
       <div className="kanji-inline__char">{char}</div>
-      {loading && <div className="kanji-inline__status">Loading…</div>}
+      {loading && <div className="kanji-inline__status">Loading<AnimatedDots /></div>}
       {error && <div className="kanji-inline__error">{error}</div>}
       {row && (
         <>
@@ -114,7 +115,7 @@ export default function KanjiInlineDetail({
             onClick={handleToggle}
             disabled={toggling}
           >
-            {toggling ? "…" : known ? "Mark unknown" : "Mark known"}
+            {toggling ? <AnimatedDots /> : known ? "Mark unknown" : "Mark known"}
           </button>
         </>
       )}

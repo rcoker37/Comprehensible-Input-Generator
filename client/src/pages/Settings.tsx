@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { setOpenRouterApiKey, clearOpenRouterApiKey } from "../api/client";
+import AnimatedDots from "../components/AnimatedDots";
 import "./Settings.css";
 
 export default function Settings() {
@@ -134,9 +135,14 @@ function WordIndexBackfillSection() {
   const dictNotReady = dictState !== "ready";
   const allDone = remaining === 0;
 
-  let statusLine: string;
+  let statusLine: ReactNode;
   if (dictNotReady) {
-    statusLine = "Waiting for dictionary to load…";
+    statusLine = (
+      <>
+        Waiting for dictionary to load
+        <AnimatedDots />
+      </>
+    );
   } else if (allDone) {
     statusLine = "All stories are indexed.";
   } else if (processing && currentStoryId !== null) {

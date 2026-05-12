@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
+import AnimatedDots from "./components/AnimatedDots";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
 import "./App.css";
@@ -25,7 +26,7 @@ function App() {
                 path="/"
                 element={
                   <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading...</div>}>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <Generator />
                     </Suspense>
                   </ErrorBoundary>
@@ -35,7 +36,7 @@ function App() {
                 path="/stories"
                 element={
                   <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading...</div>}>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <Stories />
                     </Suspense>
                   </ErrorBoundary>
@@ -45,7 +46,7 @@ function App() {
                 path="/stories/:id"
                 element={
                   <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading...</div>}>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <StoryDetail />
                     </Suspense>
                   </ErrorBoundary>
@@ -55,7 +56,7 @@ function App() {
                 path="/kanji"
                 element={
                   <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading...</div>}>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <KanjiManager />
                     </Suspense>
                   </ErrorBoundary>
@@ -65,7 +66,7 @@ function App() {
                 path="/settings"
                 element={
                   <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading...</div>}>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <Settings />
                     </Suspense>
                   </ErrorBoundary>

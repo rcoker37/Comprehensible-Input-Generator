@@ -17,6 +17,7 @@ import {
 } from "../lib/storySegments";
 import { regroupWords } from "../lib/regroupWords";
 import WordPopover from "./WordPopover";
+import AnimatedDots from "./AnimatedDots";
 import type { Story, StoryWordThreads, WordThread } from "../types";
 import "./StoryDisplay.css";
 
@@ -303,7 +304,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
         className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
         {paragraphs === null ? (
-          <div className="story-content__loading">Preparing story…</div>
+          <div className="story-content__loading">Preparing story<AnimatedDots /></div>
         ) : (
           <div className="story-paragraphs">
             {paragraphs.map((para, pIdx) => (
