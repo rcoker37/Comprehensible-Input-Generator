@@ -67,23 +67,31 @@ describe("buildPrompt", () => {
     expect(result).toContain("at least 3–5 of them");
   });
 
-  it("uses the strict avoid-unknown rules when target is 'none' (default)", () => {
+  it("instructs the model to minimize usage of non-allowed kanji", () => {
     const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).toContain("minimizing usage of kanji not in the list");
+  });
+
+  it("omits the stretch-kanji rule when unseenKanjiTarget is 'none'", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "none");
     expect(result).not.toContain("stretch kanji");
   });
 
-  it("includes the stretch-kanji range when target is set", () => {
+  it("includes a stretch-kanji rule when unseenKanjiTarget is set", () => {
     const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "3-5");
-    expect(result).toContain('Include 3–5 unique kanji that are NOT in the allowed list ("stretch kanji")');
-    expect(result).toContain("Beyond those stretch kanji");
-    expect(result).not.toContain("minimizing usage of kanji not in the list");
+    expect(result).toContain("Include 3–5 unique kanji that are NOT in the allowed list");
+    expect(result).toContain("stretch kanji");
   });
 
-  it("emits the right range for each target bucket", () => {
-    expect(buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "1-2"))
-      .toContain("Include 1–2 unique kanji");
-    expect(buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "5-10"))
-      .toContain("Include 5–10 unique kanji");
+  it("uses the matching range for each unseenKanjiTarget value", () => {
+    const r12 = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "1-2");
+    expect(r12).toContain("Include 1–2 unique kanji");
+    const r510 = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "5-10");
+    expect(r510).toContain("Include 5–10 unique kanji");
+  });
+
+  it("drops the 'minimize non-allowed' rule when stretch kanji are requested", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, undefined, "1-2");
+    expect(result).not.toContain("minimizing usage of kanji not in the list");
   });
 });

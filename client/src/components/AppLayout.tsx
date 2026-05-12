@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
-import { KanjiProvider, useKnownKanji } from "../contexts/KanjiContext";
+import { KanjiProvider, useSeenKanji } from "../contexts/KanjiContext";
 import { VocabProvider, useVocab } from "../contexts/VocabContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
@@ -30,7 +30,7 @@ function DictionaryStatusChip() {
 }
 
 function NavTotalScore() {
-  const { kanjiExposures, kanjiExposuresLoaded } = useKnownKanji();
+  const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded } = useVocab();
   const kanji = useMemo(() => totalScore(kanjiExposures), [kanjiExposures]);
   const vocab = useMemo(() => totalVocabScore(vocabEncounters), [vocabEncounters]);
@@ -62,7 +62,6 @@ export default function AppLayout() {
                   <div className="nav-links">
                     <NavLink to="/">Generate</NavLink>
                     <NavLink to="/stories">Compositions</NavLink>
-                    <NavLink to="/kanji">Kanji</NavLink>
                     <NavLink to="/stats">Stats</NavLink>
                     <NavLink to="/settings">Settings</NavLink>
                   </div>

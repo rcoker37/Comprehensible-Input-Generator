@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useKnownKanji } from "../contexts/KanjiContext";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { getStoryWordEncounters } from "../api/client";
@@ -8,8 +7,7 @@ import {
   stripAnnotations,
   type FuriganaAnnotation,
 } from "../lib/furigana";
-import { stripBold, getUnknownKanji } from "../lib/text";
-import { KANJI_REGEX } from "../lib/constants";
+import { stripBold } from "../lib/text";
 import {
   buildDisplaySegments,
   type DisplayParagraph,
@@ -27,7 +25,6 @@ interface Props {
 }
 
 export default function StoryDisplay({ story, showLink }: Props) {
-  const { knownKanji, knownKanjiLoaded } = useKnownKanji();
   const { state: dictState } = useDictionary();
   const { remaining: backfillRemaining, processing: backfillProcessing } =
     useWordIndexBackfill();
@@ -47,7 +44,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
     end: number;
     el: HTMLElement;
   } | null>(null);
-  const [furiganaState, setFuriganaState] = useState("unknown");
+  const [furiganaState, setFuriganaState] = useState<"unseen" | "all" | "none">("unseen");
   useEffect(() => {
     setWordThreads(story.explanations ?? {});
   }, [story.explanations]);
@@ -135,11 +132,6 @@ export default function StoryDisplay({ story, showLink }: Props) {
     // its words flip from zero-encounter (new-underlined) to seen.
   }, [story.id, story.word_index_at, story.read_count, backfillProcessing]);
 
-  const unknownKanji = useMemo(() => {
-    if (!knownKanjiLoaded) return new Set<string>();
-    return getUnknownKanji(cleanContent, knownKanji);
-  }, [cleanContent, knownKanji, knownKanjiLoaded]);
-
   const handleWordClick = (
     e: React.MouseEvent<HTMLButtonElement>,
     start: number,
@@ -161,16 +153,19 @@ export default function StoryDisplay({ story, showLink }: Props) {
     }));
   };
 
-  const decideShowRuby = (subSurface: string): boolean => {
+  // "Unseen" = the whole word's headword has zero encounters across the
+  // user's read stories. Decision is per-word (the tap-target span), not
+  // per-character — a word is shown with ruby iff it's new to the reader.
+  // Falls back to "no ruby" when the encounters lookup is missing
+  // (unindexed story, indexing pending, or the headword lookup missed).
+  const decideShowRuby = (start: number, end: number): boolean => {
     switch (furiganaState) {
       case "all":
         return true;
       case "none":
         return false;
-      case "unknown":
-        return [...subSurface].some(
-          (ch) => KANJI_REGEX.test(ch) && unknownKanji.has(ch)
-        );
+      case "unseen":
+        return encounters.get(`${start}-${end}`) === 0;
       default:
         return false;
     }
@@ -179,13 +174,17 @@ export default function StoryDisplay({ story, showLink }: Props) {
   // Split a merged WordPart's surface around its sub-annotations and render
   // ruby on the annotated sub-spans only. Used when the regroup pass merged
   // an AnnotatedPart with neighbouring chars (e.g. 「高《たか》」 + 「く」 →
-  // one tap target rendering as `<ruby>高<rt>たか</rt></ruby>く`).
+  // one tap target rendering as `<ruby>高<rt>たか</rt></ruby>く`). Ruby
+  // visibility is decided once for the whole word (the tap-target span),
+  // not per sub-span.
   const renderRubySegments = (
     surface: string,
     surfaceStart: number,
+    surfaceEnd: number,
     rubies: FuriganaAnnotation[]
   ): ReactNode[] => {
     const out: ReactNode[] = [];
+    const showRuby = decideShowRuby(surfaceStart, surfaceEnd);
     let cursor = 0;
     for (const r of rubies) {
       const relStart = r.start - surfaceStart;
@@ -193,7 +192,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
       if (relStart > cursor) out.push(surface.slice(cursor, relStart));
       const sub = surface.slice(relStart, relEnd);
       out.push(
-        decideShowRuby(sub) ? (
+        showRuby ? (
           <ruby key={relStart}>
             {sub}
             <rt>{r.reading}</rt>
@@ -219,7 +218,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
 
   const renderPart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
-      const inner = decideShowRuby(part.surface) ? (
+      const inner = decideShowRuby(part.start, part.end) ? (
         <ruby>
           {part.surface}
           <rt>{part.reading}</rt>
@@ -243,7 +242,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
     if (part.kind === "word") {
       const inner =
         part.rubies && part.rubies.length > 0
-          ? renderRubySegments(part.surface, part.start, part.rubies)
+          ? renderRubySegments(part.surface, part.start, part.end, part.rubies)
           : part.surface;
       return (
         <button
@@ -288,14 +287,14 @@ export default function StoryDisplay({ story, showLink }: Props) {
             className="furigana-toggle"
             onClick={() =>
               setFuriganaState((s) =>
-                s === "unknown" ? "all" : s === "all" ? "none" : "unknown"
+                s === "unseen" ? "all" : s === "all" ? "none" : "unseen"
               )
             }
           >
             {furiganaState === "all"
               ? "all"
-              : furiganaState === "unknown"
-                ? "unknown"
+              : furiganaState === "unseen"
+                ? "unseen"
                 : "off"}
           </button>
         </div>
@@ -333,12 +332,6 @@ export default function StoryDisplay({ story, showLink }: Props) {
         }}
         onThreadUpdated={handleThreadUpdated}
       />
-      {furiganaState === "unknown" && unknownKanji.size > 0 && (
-        <div className="violations">
-          {unknownKanji.size} unknown kanji marked with readings:{" "}
-          {[...unknownKanji].join(", ")}
-        </div>
-      )}
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">
           View full story

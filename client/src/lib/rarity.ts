@@ -1,4 +1,5 @@
 import { stripAnnotations } from "./furigana";
+import { KANJI_REGEX } from "./constants";
 
 // Per-exposure raw score saturates near ~9.43 (the curve's value at c=10)
 // and is hard-capped there: further encounters of the same kanji/word
@@ -30,26 +31,27 @@ export function totalScore(exposures: Map<string, number>): number {
 
 // Score delta if the user reads this story once: each kanji's count rises by
 // its occurrence count in the story; the contribution shifts from
-// kanjiScore(old) to kanjiScore(old + occ). Kanji not in the exposures map
-// (i.e. not known) contribute 0 — only known-kanji practice is rewarded.
+// kanjiScore(old) to kanjiScore(old + occ). Unseen kanji (not in the
+// exposures map) start from 0, so reading a story with new kanji rewards
+// the introduction.
 export function readingScoreDelta(content: string, exposures: Map<string, number>): number {
   const stripped = stripAnnotations(content);
   const occ = new Map<string, number>();
   for (const ch of stripped) {
-    if (!exposures.has(ch)) continue;
+    if (!KANJI_REGEX.test(ch)) continue;
     occ.set(ch, (occ.get(ch) ?? 0) + 1);
   }
   let delta = 0;
   for (const [ch, n] of occ) {
-    const c = exposures.get(ch)!;
+    const c = exposures.get(ch) ?? 0;
     delta += kanjiScore(c + n) - kanjiScore(c);
   }
   return delta;
 }
 
-// Display formatter: any positive score below 1 collapses to "<1"; otherwise
-// a locale-formatted integer. Never shows decimals.
+// Display formatter: any score below 1 collapses to "0"; otherwise a
+// locale-formatted integer. Never shows decimals.
 export function formatScore(score: number): string {
-  if (score < 1) return "<1";
+  if (score < 1) return "0";
   return Math.round(score).toLocaleString();
 }

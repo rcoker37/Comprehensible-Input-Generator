@@ -51,10 +51,10 @@ describe("kanjiScore", () => {
 });
 
 describe("formatScore", () => {
-  it("returns '<1' for values below 1", () => {
-    expect(formatScore(0)).toBe("<1");
-    expect(formatScore(0.001)).toBe("<1");
-    expect(formatScore(0.999)).toBe("<1");
+  it("returns '0' for values below 1", () => {
+    expect(formatScore(0)).toBe("0");
+    expect(formatScore(0.001)).toBe("0");
+    expect(formatScore(0.999)).toBe("0");
   });
 
   it("returns a rounded integer string for values >= 1", () => {
@@ -84,15 +84,14 @@ describe("totalScore", () => {
 });
 
 describe("readingScoreDelta", () => {
-  it("returns 0 when no known kanji appear", () => {
-    expect(readingScoreDelta("猫が魚を食べる", new Map())).toBe(0);
+  it("ignores hiragana/katakana/punctuation", () => {
+    expect(readingScoreDelta("ねこがさかなをたべる", new Map())).toBe(0);
   });
 
-  it("treats kanji not in the map as unknown (no contribution)", () => {
-    const exposures = new Map([["猫", 0]]);
-    // 魚 missing → 0 contribution; 猫 contributes one increment 0→1
-    expect(readingScoreDelta("猫魚", exposures)).toBeCloseTo(
-      kanjiScore(1) - kanjiScore(0),
+  it("treats kanji not in the exposures map as unseen (count starts at 0)", () => {
+    // Empty exposures: every kanji jumps from 0 to its occurrence count.
+    expect(readingScoreDelta("猫魚", new Map())).toBeCloseTo(
+      2 * (kanjiScore(1) - kanjiScore(0)),
       6,
     );
   });

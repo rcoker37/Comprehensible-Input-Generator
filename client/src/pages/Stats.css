@@ -19,6 +19,15 @@
   gap: 0.75rem;
 }
 
+@media (max-width: 600px) {
+  .score-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .score-cell--total {
+    grid-column: 1 / -1;
+  }
+}
+
 .score-cell {
   background: var(--surface);
   border: 1px solid var(--border);

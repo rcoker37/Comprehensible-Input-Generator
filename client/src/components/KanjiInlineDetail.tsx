@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { useKnownKanji } from "../contexts/KanjiContext";
 import { supabase } from "../lib/supabase";
-import { toggleKanji } from "../api/client";
 import AnimatedDots from "./AnimatedDots";
 import "./KanjiInlineDetail.css";
 
@@ -24,15 +21,12 @@ export default function KanjiInlineDetail({
   initialRow?: KanjiRow;
   onBack: () => void;
 }) {
-  const { user } = useAuth();
-  const { knownKanji, refreshKnownKanji } = useKnownKanji();
   const [row, setRow] = useState<KanjiRow | null>(
     initialRow && initialRow.character === char ? initialRow : null
   );
   const [loading, setLoading] = useState(
     !(initialRow && initialRow.character === char)
   );
-  const [toggling, setToggling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -60,21 +54,6 @@ export default function KanjiInlineDetail({
       cancelled = true;
     };
   }, [char, initialRow]);
-
-  const known = knownKanji.has(char);
-
-  const handleToggle = async () => {
-    if (!user || toggling) return;
-    setToggling(true);
-    try {
-      await toggleKanji(user.id, char, known);
-      await refreshKnownKanji();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Toggle failed");
-    } finally {
-      setToggling(false);
-    }
-  };
 
   return (
     <div className="kanji-inline">
@@ -109,14 +88,6 @@ export default function KanjiInlineDetail({
               </>
             )}
           </dl>
-          <button
-            type="button"
-            className={`kanji-inline__toggle ${known ? "is-known" : ""}`}
-            onClick={handleToggle}
-            disabled={toggling}
-          >
-            {toggling ? <AnimatedDots /> : known ? "Mark unknown" : "Mark known"}
-          </button>
         </>
       )}
     </div>

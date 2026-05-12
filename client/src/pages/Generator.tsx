@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
 import { updateProfile, getUnderusedKanji } from "../api/client";
-import type { UnknownKanjiTarget } from "../lib/generation";
+import type { UnseenKanjiTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Generator.css";
@@ -23,7 +24,7 @@ function ElapsedTimer({ startedAt }: { startedAt: number }) {
 
 const MODEL = "anthropic/claude-opus-4.7";
 
-const UNKNOWN_KANJI_OPTIONS: { value: UnknownKanjiTarget; label: string }[] = [
+const UNSEEN_KANJI_OPTIONS: { value: UnseenKanjiTarget; label: string }[] = [
   { value: "none", label: "None" },
   { value: "1-2", label: "1–2" },
   { value: "3-5", label: "3–5" },
@@ -33,16 +34,16 @@ const UNKNOWN_KANJI_OPTIONS: { value: UnknownKanjiTarget; label: string }[] = [
 export default function Generator() {
   const { user, profile, refreshProfile } = useAuth();
   const { loading, error, startedAt, generate } = useGeneration();
+  const { seenKanji } = useSeenKanji();
   const [contentType, setContentType] = useState<ContentType>((profile?.preferred_content_type as ContentType) ?? "fiction");
   const [paragraphs, setParagraphs] = useState(profile?.preferred_paragraphs ?? 5);
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>((profile?.preferred_formality as Formality) ?? "polite");
-  const [unknownKanjiTarget, setUnknownKanjiTarget] = useState<UnknownKanjiTarget>(
-    (profile?.preferred_unknown_kanji_target as UnknownKanjiTarget) ?? "none"
+  const [unseenKanjiTarget, setUnseenKanjiTarget] = useState<UnseenKanjiTarget>(
+    (profile?.preferred_unknown_kanji_target as UnseenKanjiTarget) ?? "none"
   );
   const [underusedKanji, setUnderusedKanji] = useState<string[]>([]);
-  const [prioritizeRare, setPrioritizeRare] = useState(profile?.preferred_prioritize_rare_kanji ?? true);
 
   useEffect(() => {
     const userId = user?.id;
@@ -69,15 +70,15 @@ export default function Generator() {
       style: style.trim() || undefined,
       formality,
       model: MODEL,
-      prioritizedKanji: prioritizeRare ? underusedKanji : [],
-      unknownKanjiTarget,
+      seenKanji,
+      prioritizedKanji: underusedKanji,
+      unseenKanjiTarget,
     });
     updateProfile(user!.id, {
       preferred_content_type: contentType,
       preferred_formality: formality,
       preferred_paragraphs: paragraphs,
-      preferred_unknown_kanji_target: unknownKanjiTarget,
-      preferred_prioritize_rare_kanji: prioritizeRare,
+      preferred_unknown_kanji_target: unseenKanjiTarget,
     })
       .then(() => refreshProfile())
       .catch((err) => console.warn("Failed to save preferences:", err));
@@ -161,33 +162,20 @@ export default function Generator() {
         </div>
 
         <div className="form-group">
-          <label>Unknown kanji</label>
-          <div className="chip-group" role="radiogroup" aria-label="Unknown kanji target">
-            {UNKNOWN_KANJI_OPTIONS.map((opt) => (
+          <label>Unseen kanji</label>
+          <div className="chip-group" role="radiogroup" aria-label="Unseen kanji target">
+            {UNSEEN_KANJI_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                className={`chip ${unknownKanjiTarget === opt.value ? "active" : ""}`}
-                onClick={() => setUnknownKanjiTarget(opt.value)}
-                aria-pressed={unknownKanjiTarget === opt.value}
+                className={`chip ${unseenKanjiTarget === opt.value ? "active" : ""}`}
+                onClick={() => setUnseenKanjiTarget(opt.value)}
+                aria-pressed={unseenKanjiTarget === opt.value}
               >
                 {opt.label}
               </button>
             ))}
           </div>
         </div>
-
-        {underusedKanji.length > 0 && (
-          <div className="form-group">
-            <label>
-              <input
-                type="checkbox"
-                checked={prioritizeRare}
-                onChange={(e) => setPrioritizeRare(e.target.checked)}
-              />
-              Prioritize rarely seen kanji
-            </label>
-          </div>
-        )}
 
         <button
           className="generate-btn"

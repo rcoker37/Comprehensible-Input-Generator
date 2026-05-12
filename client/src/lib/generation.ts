@@ -28,9 +28,9 @@ function sanitizeUserText(raw: string): string {
   return raw.replace(/[\n\r#`]/g, "").trim();
 }
 
-export type UnknownKanjiTarget = "none" | "1-2" | "3-5" | "5-10";
+export type UnseenKanjiTarget = "none" | "1-2" | "3-5" | "5-10";
 
-const UNKNOWN_KANJI_RANGES: Record<UnknownKanjiTarget, [number, number] | null> = {
+const UNSEEN_KANJI_RANGES: Record<UnseenKanjiTarget, [number, number] | null> = {
   none: null,
   "1-2": [1, 2],
   "3-5": [3, 5],
@@ -45,9 +45,9 @@ export function buildPrompt(
   topic?: string,
   style?: string,
   underusedKanji?: string[],
-  unknownKanjiTarget: UnknownKanjiTarget = "none"
+  unseenKanjiTarget: UnseenKanjiTarget = "none"
 ): string {
-  const range = UNKNOWN_KANJI_RANGES[unknownKanjiTarget];
+  const range = UNSEEN_KANJI_RANGES[unseenKanjiTarget];
   const rules: string[] = ["Rules:"];
 
   if (range) {
