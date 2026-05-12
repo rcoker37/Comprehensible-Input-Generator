@@ -25,6 +25,7 @@ export default function Stories() {
   const [storyOccurrences, setStoryOccurrences] = useState<
     Map<number, Map<string, number>>
   >(new Map());
+  const [storyOccurrencesLoaded, setStoryOccurrencesLoaded] = useState(false);
 
   const unknownCount = (text?: string | null) => {
     if (!text) return 0;
@@ -39,8 +40,10 @@ export default function Stories() {
     getPerStoryWordOccurrences()
       .then(setStoryOccurrences)
       .catch(() => {
-        // Vocab payout is best-effort; the kanji delta still lands.
-      });
+        // Vocab payout is best-effort; if it fails we fall back to
+        // kanji-only payouts once the loaded gate flips.
+      })
+      .finally(() => setStoryOccurrencesLoaded(true));
   }, []);
 
   const handleDelete = async (id: number) => {
@@ -53,19 +56,27 @@ export default function Stories() {
     }
   };
 
+  // Wait for BOTH halves of the payout to load before computing any
+  // deltas — otherwise the score tag (and score-sort) would flash a
+  // kanji-only number for a beat while the paginated vocab RPC drains.
   const deltaById = useMemo(() => {
     const m = new Map<number, number>();
+    if (!vocabEncountersLoaded || !storyOccurrencesLoaded) return m;
     for (const s of stories) {
       const kanji = readingScoreDelta(s.content, kanjiExposures);
       const occMap = storyOccurrences.get(s.id);
-      const vocab =
-        occMap && vocabEncountersLoaded
-          ? vocabScoreDelta(occMap, vocabEncounters)
-          : 0;
+      const vocab = occMap ? vocabScoreDelta(occMap, vocabEncounters) : 0;
       m.set(s.id, kanji + vocab);
     }
     return m;
-  }, [stories, kanjiExposures, storyOccurrences, vocabEncounters, vocabEncountersLoaded]);
+  }, [
+    stories,
+    kanjiExposures,
+    storyOccurrences,
+    storyOccurrencesLoaded,
+    vocabEncounters,
+    vocabEncountersLoaded,
+  ]);
 
   if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;
 
