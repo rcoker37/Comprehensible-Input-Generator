@@ -232,6 +232,11 @@ export default function WordPopover({
   const [translationPending, setTranslationPending] = useState(false);
   const [translationRegenerating, setTranslationRegenerating] = useState(false);
   const [translationError, setTranslationError] = useState<string | null>(null);
+  // Translation is opt-in per card: the user clicks "AI Translation" to
+  // trigger the fetch. Reset when the popover opens against a new tap and
+  // when the active card changes, so each card starts in the unrequested
+  // state regardless of prior siblings.
+  const [translationRequested, setTranslationRequested] = useState(false);
 
   const [frequency, setFrequency] = useState<FrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
@@ -273,6 +278,7 @@ export default function WordPopover({
     setTranslationPending(false);
     setTranslationRegenerating(false);
     setTranslationError(null);
+    setTranslationRequested(false);
     setFrequency(null);
     setEncounters(null);
     setUsagesLoading(true);
@@ -570,13 +576,15 @@ export default function WordPopover({
     [storyId, onTranslationUpdated]
   );
 
-  // Lazy-fetch the translation when the active card's sentence isn't
-  // cached. Bails on cache hit so navigating among already-translated
-  // cards is instant. Cancels in-flight requests when the card changes
-  // mid-fetch so a slow card-0 response doesn't overwrite card-1's state.
+  // Lazy-fetch the translation only after the user explicitly requests it
+  // via the "AI Translation" button. Bails on cache hit so navigating among
+  // already-translated cards is instant. Cancels in-flight requests when
+  // the card changes mid-fetch so a slow card-0 response doesn't overwrite
+  // card-1's state.
   useEffect(() => {
     if (!open || !activeCard || !snippet) return;
     if (cachedTranslation) return;
+    if (!translationRequested) return;
     let cancelled = false;
     const cardStoryId = activeCard.storyId;
     const start = snippet.sentenceStart;
@@ -601,7 +609,19 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, activeCard, snippet, cachedTranslation, storeTranslation]);
+  }, [
+    open,
+    activeCard,
+    snippet,
+    cachedTranslation,
+    storeTranslation,
+    translationRequested,
+  ]);
+
+  const handleTranslate = useCallback(() => {
+    setTranslationError(null);
+    setTranslationRequested(true);
+  }, []);
 
   const handleRegenerate = useCallback(() => {
     if (!activeCard || !snippet || translationPending) return;
@@ -627,10 +647,12 @@ export default function WordPopover({
       });
   }, [activeCard, snippet, translationPending, storeTranslation]);
 
-  // Reset card scroll + per-card translation error when navigating.
+  // Reset card scroll + per-card translation state when navigating. Each
+  // card requires its own opt-in click before a translation is fetched.
   useEffect(() => {
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
     setTranslationError(null);
+    setTranslationRequested(false);
   }, [cardIndex]);
 
   if (!open || !referenceEl) return null;
@@ -852,10 +874,18 @@ export default function WordPopover({
                               ↻ Retry
                             </button>
                           </>
-                        ) : (
+                        ) : translationPending ? (
                           <div className="word-popover__translation-loading">
                             Translating<AnimatedDots />
                           </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="word-popover__translate-btn"
+                            onClick={handleTranslate}
+                          >
+                            AI Translation
+                          </button>
                         )}
                       </section>
                     </>
