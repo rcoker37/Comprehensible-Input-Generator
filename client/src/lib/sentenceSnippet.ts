@@ -21,6 +21,10 @@ export interface SentenceSnippet {
   surfaceStart: number;
   /** Surface highlight end (exclusive), relative to `text`. */
   surfaceEnd: number;
+  /** Absolute start offset of the sentence in the source `cleanText`. */
+  sentenceStart: number;
+  /** Absolute end offset of the sentence (exclusive) in the source `cleanText`. */
+  sentenceEnd: number;
 }
 
 function partEnd(part: SegmentPart): number {
@@ -70,6 +74,8 @@ export function extractSentenceSnippet(
             })),
           surfaceStart: clamped.start - sStart,
           surfaceEnd: clamped.end - sStart,
+          sentenceStart: sStart,
+          sentenceEnd: sEnd,
         };
       }
     }

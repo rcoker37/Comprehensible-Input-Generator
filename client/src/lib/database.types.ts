@@ -93,7 +93,6 @@ export type Database = {
           created_at: string
           difficulty: Json
           error_message: string | null
-          explanations: Json | null
           filters: Json
           first_read_at: string | null
           formality: string
@@ -104,6 +103,7 @@ export type Database = {
           status: string
           title: string
           topic: string | null
+          translations: Json | null
           user_id: string
           word_index_at: string | null
           word_index_version: number | null
@@ -115,7 +115,6 @@ export type Database = {
           created_at?: string
           difficulty: Json
           error_message?: string | null
-          explanations?: Json | null
           filters: Json
           first_read_at?: string | null
           formality: string
@@ -126,6 +125,7 @@ export type Database = {
           status?: string
           title: string
           topic?: string | null
+          translations?: Json | null
           user_id: string
           word_index_at?: string | null
           word_index_version?: number | null
@@ -137,7 +137,6 @@ export type Database = {
           created_at?: string
           difficulty?: Json
           error_message?: string | null
-          explanations?: Json | null
           filters?: Json
           first_read_at?: string | null
           formality?: string
@@ -148,6 +147,7 @@ export type Database = {
           status?: string
           title?: string
           topic?: string | null
+          translations?: Json | null
           user_id?: string
           word_index_at?: string | null
           word_index_version?: number | null
@@ -316,7 +316,6 @@ export type Database = {
           story_id: number
           story_title: string
           surface: string
-          threads: Json
         }[]
       }
       index_story_words: {
@@ -495,4 +494,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

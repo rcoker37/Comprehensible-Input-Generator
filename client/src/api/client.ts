@@ -7,10 +7,9 @@ import type {
   ContentType,
   Formality,
   Preferences,
+  SentenceTranslation,
   Story,
   StoryReadState,
-  WordThread,
-  WordThreadsByThread,
   WordUsage,
 } from "../types";
 
@@ -131,7 +130,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, difficulty, explanations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, created_at"
+      "id, title, content, content_type, paragraphs, topic, formality, difficulty, translations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, created_at"
     )
     .eq("status", "complete")
     .order("created_at", { ascending: false });
@@ -196,22 +195,27 @@ export async function deleteStory(id: number): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// Stories — word conversation threads
+// Stories — sentence translations
 
-export async function askWord(
+/**
+ * Translate a single sentence within a story to natural English. The
+ * translation is cached server-side on `stories.translations` keyed by the
+ * sentence's character offsets, so other taps within the same sentence
+ * (and reopens) return instantly. Pass `regenerate=true` to overwrite the
+ * cached translation with a fresh model call.
+ */
+export async function translateSentence(
   storyId: number,
-  startOffset: number,
-  endOffset: number,
-  threadId: string,
-  question: string,
+  sentenceStart: number,
+  sentenceEnd: number,
   regenerate = false
-): Promise<WordThread> {
+): Promise<SentenceTranslation> {
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
   if (!accessToken) throw new Error("Not authenticated");
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const response = await fetch(`${supabaseUrl}/functions/v1/ask-word`, {
+  const response = await fetch(`${supabaseUrl}/functions/v1/translate-sentence`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -219,21 +223,21 @@ export async function askWord(
     },
     body: JSON.stringify({
       story_id: storyId,
-      start_offset: startOffset,
-      end_offset: endOffset,
-      thread_id: threadId,
-      question,
+      sentence_start: sentenceStart,
+      sentence_end: sentenceEnd,
       ...(regenerate && { regenerate: true }),
     }),
   });
 
   if (!response.ok) {
-    const body = await response.json().catch(() => ({ error: "Ask failed" }));
+    const body = await response
+      .json()
+      .catch(() => ({ error: "Translation failed" }));
     throw new Error(body.error || `HTTP ${response.status}`);
   }
 
-  const { thread } = await response.json();
-  return thread as WordThread;
+  const { translation } = await response.json();
+  return translation as SentenceTranslation;
 }
 
 // Stories — word lookup history
@@ -266,10 +270,9 @@ export async function recordWordLookup(
 
 /**
  * Returns every occurrence of the given headword across the user's tokenized
- * stories (newest stories first, in-text order within each story). Each row
- * carries any chip threads stored at that span; `lookedUpAt` / `lookupCount`
- * are populated when the user has previously tapped the span (LEFT JOIN over
- * `word_lookups`) and otherwise null / 0.
+ * stories (newest stories first, in-text order within each story).
+ * `lookedUpAt` / `lookupCount` are populated when the user has previously
+ * tapped the span (LEFT JOIN over `word_lookups`) and otherwise null / 0.
  */
 interface WordUsageRow {
   occurrence_id: number;
@@ -281,7 +284,6 @@ interface WordUsageRow {
   end_offset: number;
   surface: string;
   reading: string | null;
-  threads: WordThreadsByThread | null;
   looked_up_at: string | null;
   lookup_count: number;
 }
@@ -302,7 +304,6 @@ export async function getWordUsages(headword: string): Promise<WordUsage[]> {
     endOffset: r.end_offset,
     surface: r.surface,
     reading: r.reading || null,
-    threads: r.threads ?? {},
     lookedUpAt: r.looked_up_at,
     lookupCount: r.lookup_count,
   }));

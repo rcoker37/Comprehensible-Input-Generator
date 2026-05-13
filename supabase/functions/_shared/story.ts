@@ -1,7 +1,6 @@
 // Auth + story-load helpers shared by word-context edge functions.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import type { StoredWordThreads } from "./word-thread.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -28,10 +27,18 @@ export async function getUserFromAuthHeader(
   return { authHeader, userId: user.id };
 }
 
+export interface SentenceTranslation {
+  text: string;
+  model: string;
+  generated_at: string;
+}
+
+export type StoredTranslations = Record<string, SentenceTranslation>;
+
 export interface LoadedStory {
   id: number;
   content: string;
-  explanations: StoredWordThreads | null;
+  translations: StoredTranslations | null;
   user_id: string;
 }
 
@@ -44,7 +51,7 @@ export async function loadStoryForUser(
   });
   const { data, error } = await supabaseUser
     .from("stories")
-    .select("id, content, explanations, user_id")
+    .select("id, content, translations, user_id")
     .eq("id", storyId)
     .single();
   if (error || !data) throw new Error("Story not found");

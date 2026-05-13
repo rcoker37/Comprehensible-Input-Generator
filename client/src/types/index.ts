@@ -17,25 +17,15 @@ export interface DifficultyEstimate {
   jlpt: { min: number; avg: number };
 }
 
-export type ChatRole = "user" | "assistant";
-
-export interface ChatMessage {
-  role: ChatRole;
-  content: string;
+/** One AI-generated translation of a single sentence within a story. */
+export interface SentenceTranslation {
+  text: string;
+  model: string;
   generated_at: string;
 }
 
-/** Per-word conversation thread. */
-export interface WordThread {
-  version: 1;
-  messages: ChatMessage[];
-}
-
-/** Per-range map keyed by chip id from askChips.ts. Legacy "custom" entries may exist in stored data but are not surfaced. */
-export type WordThreadsByThread = Record<string, WordThread>;
-
-/** Keyed by `${start_offset}-${end_offset}` (char offsets in the story content). */
-export type StoryWordThreads = Record<string, WordThreadsByThread>;
+/** Keyed by `${sentence_start_offset}-${sentence_end_offset}` (char offsets in the cleaned story content). */
+export type StoryTranslations = Record<string, SentenceTranslation>;
 
 export type StoryStatus = "generating" | "complete" | "failed";
 
@@ -49,7 +39,7 @@ export interface Story {
   topic: string | null;
   formality: Formality;
   difficulty: DifficultyEstimate;
-  explanations: StoryWordThreads | null;
+  translations: StoryTranslations | null;
   read_count: number;
   first_read_at: string | null;
   last_read_at: string | null;
@@ -68,9 +58,9 @@ export interface StoryReadState {
 /**
  * One occurrence of a headword in one of the user's tokenized stories. Returned
  * by `get_word_usages` and consumed by the WordPopover carousel to render every
- * place the headword appears across the user's library, with any chip threads
- * stored at that span. `lookedUpAt` / `lookupCount` come from the optional
- * `word_lookups` join — null/0 when the user has never tapped this span.
+ * place the headword appears across the user's library. `lookedUpAt` /
+ * `lookupCount` come from the optional `word_lookups` join — null/0 when the
+ * user has never tapped this span.
  */
 export interface WordUsage {
   occurrenceId: number;
@@ -82,7 +72,6 @@ export interface WordUsage {
   endOffset: number;
   surface: string;
   reading: string | null;
-  threads: WordThreadsByThread;
   lookedUpAt: string | null;
   lookupCount: number;
 }

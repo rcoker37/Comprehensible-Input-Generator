@@ -85,7 +85,7 @@ BEGIN
 
   INSERT INTO stories (
     user_id, title, content, content_type, paragraphs, topic, formality,
-    filters, allowed_kanji, difficulty, explanations, created_at
+    filters, allowed_kanji, difficulty, created_at
   ) VALUES
   -- Story 1: short story, polite
   (
@@ -96,7 +96,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '今日天気私朝公園行大白犬元気走子供遊夕方飼主一緒家帰楽一日',
     '{"uniqueKanji": 25, "grade": {"max": 3, "avg": 1.7}, "jlpt": {"min": 4, "avg": 4.6}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '6 days'
   ),
   -- Story 2: short story, casual
@@ -108,7 +107,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '朝七時私学校行時間母弁当持聞答外晴空青鳥鳴今日一日',
     '{"uniqueKanji": 22, "grade": {"max": 3, "avg": 1.9}, "jlpt": {"min": 4, "avg": 4.5}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '4 days'
   ),
   -- Story 3: short story, polite (already read)
@@ -120,7 +118,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '冬朝目覚外真白雪降私見木山町色美弟一緒出作寒楽',
     '{"uniqueKanji": 22, "grade": {"max": 3, "avg": 2.1}, "jlpt": {"min": 3, "avg": 4.2}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '3 days'
   ),
   -- Story 4: dialogue, polite (keigo)
@@ -132,7 +129,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '店員何名様客二人飲物水願見少待',
     '{"uniqueKanji": 13, "grade": {"max": 3, "avg": 2.0}, "jlpt": {"min": 3, "avg": 4.0}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '2 days'
   ),
   -- Story 5: dialogue, casual
@@ -144,7 +140,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '明日何別家一緒映画見時三駅前会',
     '{"uniqueKanji": 13, "grade": {"max": 3, "avg": 2.2}, "jlpt": {"min": 3, "avg": 4.1}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '1 days'
   ),
   -- Story 6: essay, polite (newest)
@@ -156,7 +151,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '日本四季春夏秋冬美特色持桜咲暑海泳楽木葉赤空高雪降家中温茶飲人心豊国大好私',
     '{"uniqueKanji": 33, "grade": {"max": 4, "avg": 2.4}, "jlpt": {"min": 3, "avg": 3.9}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '6 hours'
   ),
   -- Story 7: essay, polite — regroup edge cases. Bundles the original
@@ -171,7 +165,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '千九百年代思出私生家族四部屋住日人決空高雲白帰母作飯食本季節冬雪降夏暑時心温',
     '{"uniqueKanji": 38, "grade": {"max": 6, "avg": 2.3}, "jlpt": {"min": 2, "avg": 4.0}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '1 hours'
   ),
   -- Story 8: deinflection regression — repeated kana-only いきます.
@@ -188,7 +181,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '明日友達公園雨朝食駅元気弟言家族',
     '{"uniqueKanji": 13, "grade": {"max": 3, "avg": 2.0}, "jlpt": {"min": 4, "avg": 4.5}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '30 minutes'
   ),
   -- Story 9: continuative + comma chains. Every paragraph stacks several
@@ -205,7 +197,6 @@ BEGIN
     '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
     '秋一日朝雨降風吹空灰色木葉赤黄下落私家出駅向電車乗町行午後止雲消青心明帰茶飲本読静夜過',
     '{"uniqueKanji": 41, "grade": {"max": 6, "avg": 2.5}, "jlpt": {"min": 2, "avg": 4.1}}'::jsonb,
-    '{}'::jsonb,
     now() - interval '10 minutes'
   );
 END $$;

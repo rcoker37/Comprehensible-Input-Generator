@@ -386,93 +386,30 @@
   50% { opacity: 0.4; }
 }
 
-.word-popover__thread {
+.word-popover__translation {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.45rem;
   border-top: 1px solid var(--border);
   padding-top: 0.6rem;
 }
 
-.word-popover__thread-scroll {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
+.word-popover__translation-text {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
 }
 
-.word-popover__qa {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.word-popover__msg-assistant {
+.word-popover__translation-loading {
   font-size: 0.85rem;
-  line-height: 1.45;
-  color: var(--text);
-  white-space: pre-wrap;
-}
-
-.word-popover__msg-user {
-  align-self: flex-end;
-  max-width: 90%;
-  background: var(--bg-dim);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.4rem 0.6rem;
-  font-size: 0.82rem;
-  line-height: 1.4;
-  color: var(--text);
-  white-space: pre-wrap;
-}
-
-.word-popover__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.word-popover__chip {
-  font-size: 0.78rem;
-  background: var(--bg-dim);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 0.3rem 0.65rem;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.word-popover__chip:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.word-popover__chip:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.word-popover__chip--active,
-.word-popover__chip--active:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg, #111);
-}
-
-.word-popover__chip--has-thread {
-  color: var(--accent);
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .word-popover__status {
   font-size: 0.8rem;
   color: var(--text-dim);
-}
-
-.word-popover__asking {
-  font-size: 0.82rem;
-  color: var(--text-dim);
-  font-style: italic;
 }
 
 .word-popover__error {
@@ -490,6 +427,11 @@
   padding: 0.2rem 0;
 }
 
-.word-popover__regenerate:hover {
+.word-popover__regenerate:hover:not(:disabled) {
   color: var(--accent);
+}
+
+.word-popover__regenerate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
