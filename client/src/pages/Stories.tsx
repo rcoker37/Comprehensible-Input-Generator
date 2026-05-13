@@ -14,6 +14,7 @@ import "./Stories.css";
 
 type ReadFilter = "all" | "unread" | "read";
 type SortMode = "newest" | "score" | "adjustedScore";
+type ParagraphFilter = number | "all";
 
 export default function Stories() {
   const {
@@ -26,6 +27,7 @@ export default function Stories() {
   } = useStories();
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>("all");
+  const [paragraphFilter, setParagraphFilter] = useState<ParagraphFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
   const { kanjiExposures } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
@@ -86,9 +88,14 @@ export default function Stories() {
 
   if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;
 
+  const paragraphCounts = Array.from(
+    new Set(stories.map((s) => s.paragraphs)),
+  ).sort((a, b) => a - b);
+
   const filtered = stories.filter((s) => {
-    if (readFilter === "unread") return s.read_count === 0;
-    if (readFilter === "read") return s.read_count > 0;
+    if (readFilter === "unread" && s.read_count !== 0) return false;
+    if (readFilter === "read" && s.read_count === 0) return false;
+    if (paragraphFilter !== "all" && s.paragraphs !== paragraphFilter) return false;
     return true;
   });
 
@@ -126,6 +133,30 @@ export default function Stories() {
               ))}
             </div>
           </div>
+          {paragraphCounts.length > 1 && (
+            <div className="filter-row">
+              <label>Paragraphs</label>
+              <div className="chip-group" role="radiogroup" aria-label="Paragraph count filter">
+                <button
+                  className={`chip ${paragraphFilter === "all" ? "active" : ""}`}
+                  onClick={() => setParagraphFilter("all")}
+                  aria-pressed={paragraphFilter === "all"}
+                >
+                  All
+                </button>
+                {paragraphCounts.map((n) => (
+                  <button
+                    key={n}
+                    className={`chip ${paragraphFilter === n ? "active" : ""}`}
+                    onClick={() => setParagraphFilter(n)}
+                    aria-pressed={paragraphFilter === n}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="filter-row">
             <label>Sort</label>
             <div className="chip-group" role="radiogroup" aria-label="Sort mode">
