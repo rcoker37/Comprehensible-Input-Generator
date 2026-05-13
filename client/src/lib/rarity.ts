@@ -3,9 +3,9 @@ import { KANJI_REGEX } from "./constants";
 
 // Per-exposure raw score saturates near ~9.43 (the curve's value at c=10)
 // and is hard-capped there: further encounters of the same kanji/word
-// contribute nothing. SCORE_MULTIPLIER scales the raw curve before
-// display. Shared with vocabScore.ts so the kanji and per-word curves
-// have the same shape.
+// contribute nothing. SCORE_MULTIPLIER scales the kanji curve before
+// display. `vocabScore.ts` reuses the same `rawScore` shape but scales
+// independently (see VOCAB_SCALE).
 export const SCORE_MULTIPLIER = 1;
 
 const TAU = 3.5;

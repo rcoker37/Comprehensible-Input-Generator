@@ -1,4 +1,10 @@
-import { rawScore, SCORE_MULTIPLIER } from "./rarity";
+import { rawScore } from "./rarity";
+
+// Global scale on vocab contributions. There are far more headwords than
+// kanji in a typical reader's history, so the unscaled vocab total
+// drowns out the kanji total in the header score; dialing vocab back
+// keeps the two halves closer to parity.
+export const VOCAB_SCALE = 1 / 2.5;
 
 // Frequency weighting: a word's contribution to the vocab score is scaled
 // by a smooth sigmoid in rank, so the "core vocabulary" (top several
@@ -29,10 +35,10 @@ export function frequencyWeight(rank: number | null): number {
 }
 
 // Per-word score: the saturating-and-capped exposure curve (see rarity.ts)
-// multiplied by the frequency weight, so common words pay more per
-// encounter than rare ones at the same count.
+// multiplied by the frequency weight and a global vocab scale, so
+// common words pay more per encounter than rare ones at the same count.
 export function wordScore(count: number, rank: number | null): number {
-  return rawScore(count) * frequencyWeight(rank) * SCORE_MULTIPLIER;
+  return rawScore(count) * frequencyWeight(rank) * VOCAB_SCALE;
 }
 
 export type RankLookup = (headword: string) => number | null;
