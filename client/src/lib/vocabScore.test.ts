@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  VOCAB_SCALE,
   frequencyWeight,
   wordScore,
   totalVocabScore,
@@ -63,15 +64,19 @@ describe("wordScore", () => {
     expect(wordScore(0, null)).toBe(0);
   });
 
-  it("equals rawScore × frequencyWeight", () => {
+  it("equals rawScore × frequencyWeight × VOCAB_SCALE", () => {
     for (const c of [1, 3, 5, 10, 50]) {
       for (const rank of [1, 100, 5000, 100_000, null]) {
         expect(wordScore(c, rank)).toBeCloseTo(
-          rawScore(c) * frequencyWeight(rank),
+          rawScore(c) * frequencyWeight(rank) * VOCAB_SCALE,
           6
         );
       }
     }
+  });
+
+  it("VOCAB_SCALE is 1/2.5 (vocab dialed back to balance against kanji)", () => {
+    expect(VOCAB_SCALE).toBeCloseTo(1 / 2.5, 6);
   });
 
   it("weights common words more than rare ones at the same count", () => {
