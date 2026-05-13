@@ -417,6 +417,25 @@
   color: var(--error-fg);
 }
 
+.word-popover__translate-btn {
+  align-self: flex-start;
+  background: var(--bg-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.35rem 0.7rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+@media (hover: hover) {
+  .word-popover__translate-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
 .word-popover__regenerate {
   align-self: flex-start;
   background: none;
