@@ -18,12 +18,11 @@ import {
 import { Link } from "react-router-dom";
 import { useDictionary } from "../contexts/DictionaryContext";
 import {
-  askWord,
   getWordEncounters,
   getWordUsages,
   recordWordLookup,
+  translateSentence,
 } from "../api/client";
-import { ASK_CHIPS, type AskChip } from "../lib/askChips";
 import { KANJI_REGEX } from "../lib/constants";
 import {
   parseAnnotatedText,
@@ -43,11 +42,9 @@ import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
-import { pairThreadMessages } from "./wordPopoverHelpers";
 import type {
-  StoryWordThreads,
-  WordThread,
-  WordThreadsByThread,
+  SentenceTranslation,
+  StoryTranslations,
   WordUsage,
 } from "../types";
 import "./WordPopover.css";
@@ -64,11 +61,14 @@ interface WordPopoverProps {
    */
   start: number | null;
   end: number | null;
-  wordThreads: StoryWordThreads;
+  translations: StoryTranslations;
   referenceEl: HTMLElement | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onThreadUpdated: (rangeKey: string, threadId: string, thread: WordThread) => void;
+  onTranslationUpdated: (
+    rangeKey: string,
+    translation: SentenceTranslation
+  ) => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
@@ -111,30 +111,8 @@ type OtherCard = {
 
 type Card = CurrentCard | OtherCard;
 
-function rangeKey(start: number, end: number): string {
+function sentenceKey(start: number, end: number): string {
   return `${start}-${end}`;
-}
-
-// Render the assistant's plain-text reply with Aozora ruby blocks
-// (`漢字《かんじ》`) converted to <ruby> elements. Old replies stored before
-// the prompt asked for furigana fall through unchanged.
-function renderAssistant(content: string): ReactNode {
-  const { cleanText, annotations } = parseAnnotatedText(content);
-  if (annotations.length === 0) return cleanText;
-  const parts: ReactNode[] = [];
-  let cursor = 0;
-  for (const [i, a] of annotations.entries()) {
-    if (a.start > cursor) parts.push(cleanText.slice(cursor, a.start));
-    parts.push(
-      <ruby key={i}>
-        {cleanText.slice(a.start, a.end)}
-        <rt>{a.reading}</rt>
-      </ruby>
-    );
-    cursor = a.end;
-  }
-  if (cursor < cleanText.length) parts.push(cleanText.slice(cursor));
-  return parts;
 }
 
 function renderSnippet(
@@ -225,11 +203,11 @@ export default function WordPopover({
   annotations,
   start: tapStart,
   end: tapEnd,
-  wordThreads,
+  translations,
   referenceEl,
   open,
   onOpenChange,
-  onThreadUpdated,
+  onTranslationUpdated,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
   const [hit, setHit] = useState<LookupHit | null>(null);
@@ -239,19 +217,22 @@ export default function WordPopover({
   const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
 
-  // Carousel state — `usages` comes from get_word_usages; `localThreads`
-  // overlays per-lookup ask responses captured during this popover's lifetime
-  // so swiping back to a card shows the just-asked thread without refetching.
+  // Carousel state.
   const [usages, setUsages] = useState<WordUsage[]>([]);
   const [cardIndex, setCardIndex] = useState(0);
-  const [localThreads, setLocalThreads] = useState<
-    Record<number, WordThreadsByThread>
-  >({});
 
-  const [activeChipId, setActiveChipId] = useState<string | null>(null);
-  const [pending, setPending] = useState<boolean>(false);
-  const [isRegenerating, setIsRegenerating] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  // Translation cache for stories other than the current one. The current
+  // story's translations are owned by the parent (props) and updates flow
+  // out via onTranslationUpdated. Local cache here keeps the popover-only
+  // state for any other-story sentences that get translated during this
+  // popover's lifetime.
+  const [otherStoryTranslations, setOtherStoryTranslations] = useState<
+    Record<number, StoryTranslations>
+  >({});
+  const [translationPending, setTranslationPending] = useState(false);
+  const [translationRegenerating, setTranslationRegenerating] = useState(false);
+  const [translationError, setTranslationError] = useState<string | null>(null);
+
   const [frequency, setFrequency] = useState<FrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
   // Loading flags for the three headword-dependent fetches. The popover body
@@ -263,10 +244,6 @@ export default function WordPopover({
   const [frequencyLoading, setFrequencyLoading] = useState(false);
   const cardScrollRef = useRef<HTMLDivElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-  const userAskedRef = useRef(false);
-  // Mirrors `pending` but updates synchronously so a second click in the
-  // same tick (before React re-renders) is blocked.
-  const pendingRef = useRef(false);
   // Touch swipe tracking on the card area.
   const touchStartXRef = useRef<number | null>(null);
 
@@ -289,20 +266,18 @@ export default function WordPopover({
     setActiveKanji(null);
     setActiveKanjiRow(null);
     setLoadingKanji(null);
-    setError(null);
     setHit(null);
     setUsages([]);
     setCardIndex(0);
-    setLocalThreads({});
-    setActiveChipId(null);
-    setPending(false);
-    setIsRegenerating(false);
+    setOtherStoryTranslations({});
+    setTranslationPending(false);
+    setTranslationRegenerating(false);
+    setTranslationError(null);
     setFrequency(null);
     setEncounters(null);
     setUsagesLoading(true);
     setEncountersLoading(true);
     setFrequencyLoading(true);
-    userAskedRef.current = false;
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
   }, [open, tapStart, tapEnd]);
 
@@ -479,38 +454,6 @@ export default function WordPopover({
   }, [cards.length, cardIndex]);
 
   const activeCard = cards[cardIndex] ?? null;
-  const activeRangeThreads: WordThreadsByThread = useMemo(() => {
-    if (!activeCard) return {};
-    if (activeCard.kind === "current") {
-      return wordThreads[rangeKey(activeCard.startOffset, activeCard.endOffset)] ?? {};
-    }
-    return (
-      localThreads[activeCard.occurrenceId] ??
-      usages.find((u) => u.occurrenceId === activeCard.occurrenceId)?.threads ??
-      {}
-    );
-  }, [activeCard, wordThreads, localThreads, usages]);
-
-  const activeThread: WordThread | null =
-    activeChipId !== null ? activeRangeThreads[activeChipId] ?? null : null;
-  const askPairs = useMemo(
-    () => pairThreadMessages(activeThread?.messages ?? []),
-    [activeThread]
-  );
-
-  // Auto-scroll the card body to the bottom only when the user has just
-  // asked a question — initial cached-thread loads stay scrolled at the top.
-  useEffect(() => {
-    if (!userAskedRef.current) return;
-    const el = cardScrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [activeThread?.messages.length]);
-
-  // Reset card scroll when navigating between cards.
-  useEffect(() => {
-    if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
-  }, [cardIndex]);
 
   // Sticky kanji chips show the kanji of the headword (identical across
   // cards). Falls back to the surface kanji when there's no JMdict match.
@@ -518,16 +461,6 @@ export default function WordPopover({
     const source = headword?.headword ?? hit?.surface ?? "";
     return [...source].filter((ch) => KANJI_REGEX.test(ch));
   }, [headword, hit]);
-
-  const chipsWithState = useMemo(
-    () =>
-      ASK_CHIPS.map((c) => ({
-        chip: c,
-        active: activeChipId === c.id,
-        hasThread: c.id in activeRangeThreads,
-      })),
-    [activeChipId, activeRangeThreads]
-  );
 
   const goToCard = useCallback(
     (next: number) => {
@@ -539,8 +472,7 @@ export default function WordPopover({
   );
 
   // Keyboard navigation: ←/→ advance the carousel when the popover is open
-  // and the user isn't typing. The popover has no inputs in v1 (chips only),
-  // so this is mostly belt-and-braces.
+  // and the user isn't typing.
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -593,109 +525,118 @@ export default function WordPopover({
     }
   };
 
-  const performAsk = useCallback(
-    async (card: Card, chip: AskChip, regenerate: boolean) => {
-      if (pendingRef.current) return;
-      userAskedRef.current = true;
-      pendingRef.current = true;
-      setPending(true);
-      if (regenerate) setIsRegenerating(true);
-      setError(null);
-      try {
-        const updated = await askWord(
-          card.storyId,
-          card.startOffset,
-          card.endOffset,
-          chip.id,
-          chip.prompt,
-          regenerate
-        );
-        // Update local overlay so re-navigating to this card preserves the
-        // response without a refetch. The "current" card's span doesn't have
-        // a stable occurrence id in this popover lifetime (we may not have
-        // indexed the story yet), so we bubble through onThreadUpdated and
-        // trust the parent's state.
-        if (card.kind === "other") {
-          setLocalThreads((prev) => {
-            const existing =
-              prev[card.occurrenceId] ??
-              usages.find((u) => u.occurrenceId === card.occurrenceId)?.threads ??
-              {};
-            return {
-              ...prev,
-              [card.occurrenceId]: { ...existing, [chip.id]: updated },
-            };
-          });
-        }
-        // The parent only tracks threads for the current story. Any card
-        // whose storyId matches should bubble up so reopening the popover
-        // there finds the thread immediately.
-        if (card.storyId === storyId) {
-          onThreadUpdated(
-            rangeKey(card.startOffset, card.endOffset),
-            chip.id,
-            updated
-          );
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Ask failed");
-      } finally {
-        pendingRef.current = false;
-        setPending(false);
-        if (regenerate) setIsRegenerating(false);
-      }
-    },
-    [onThreadUpdated, storyId, usages]
+  const snippet = useMemo(
+    () =>
+      activeCard
+        ? extractSentenceSnippet(
+            activeCard.cleanText,
+            activeCard.annotations,
+            activeCard.startOffset,
+            activeCard.endOffset
+          )
+        : null,
+    [activeCard]
   );
 
-  const handleChipClick = (chip: AskChip) => {
-    if (!activeCard || pendingRef.current) return;
-    const hasThread = chip.id in activeRangeThreads;
-    if (activeChipId === chip.id) {
-      if (hasThread) {
-        // Toggle off — already showing this thread.
-        setActiveChipId(null);
-        setError(null);
-        return;
-      }
-      // Active but no thread on this card — re-clicking asks.
-      void performAsk(activeCard, chip, false);
-      return;
+  // Resolve a cached translation for the active card's sentence: parent's
+  // translations for the current story, popover-local cache for others.
+  const cachedTranslation: SentenceTranslation | null = useMemo(() => {
+    if (!activeCard || !snippet) return null;
+    const key = sentenceKey(snippet.sentenceStart, snippet.sentenceEnd);
+    if (activeCard.storyId === storyId) {
+      return translations[key] ?? null;
     }
-    setActiveChipId(chip.id);
-    setError(null);
-    if (hasThread) return;
-    void performAsk(activeCard, chip, false);
-  };
+    return otherStoryTranslations[activeCard.storyId]?.[key] ?? null;
+  }, [activeCard, snippet, storyId, translations, otherStoryTranslations]);
 
-  const handleRegenerate = () => {
-    if (!activeCard || !activeChipId) return;
-    const chip = ASK_CHIPS.find((c) => c.id === activeChipId);
-    if (!chip) return;
-    void performAsk(activeCard, chip, true);
-  };
+  const storeTranslation = useCallback(
+    (
+      cardStoryId: number,
+      key: string,
+      translation: SentenceTranslation
+    ) => {
+      if (cardStoryId === storyId) {
+        onTranslationUpdated(key, translation);
+      } else {
+        setOtherStoryTranslations((prev) => ({
+          ...prev,
+          [cardStoryId]: {
+            ...(prev[cardStoryId] ?? {}),
+            [key]: translation,
+          },
+        }));
+      }
+    },
+    [storyId, onTranslationUpdated]
+  );
+
+  // Lazy-fetch the translation when the active card's sentence isn't
+  // cached. Bails on cache hit so navigating among already-translated
+  // cards is instant. Cancels in-flight requests when the card changes
+  // mid-fetch so a slow card-0 response doesn't overwrite card-1's state.
+  useEffect(() => {
+    if (!open || !activeCard || !snippet) return;
+    if (cachedTranslation) return;
+    let cancelled = false;
+    const cardStoryId = activeCard.storyId;
+    const start = snippet.sentenceStart;
+    const end = snippet.sentenceEnd;
+    const key = sentenceKey(start, end);
+    setTranslationPending(true);
+    setTranslationError(null);
+    void translateSentence(cardStoryId, start, end)
+      .then((t) => {
+        if (cancelled) return;
+        storeTranslation(cardStoryId, key, t);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setTranslationError(
+          err instanceof Error ? err.message : "Translation failed"
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setTranslationPending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, activeCard, snippet, cachedTranslation, storeTranslation]);
+
+  const handleRegenerate = useCallback(() => {
+    if (!activeCard || !snippet || translationPending) return;
+    const cardStoryId = activeCard.storyId;
+    const start = snippet.sentenceStart;
+    const end = snippet.sentenceEnd;
+    const key = sentenceKey(start, end);
+    setTranslationRegenerating(true);
+    setTranslationPending(true);
+    setTranslationError(null);
+    void translateSentence(cardStoryId, start, end, true)
+      .then((t) => {
+        storeTranslation(cardStoryId, key, t);
+      })
+      .catch((err: unknown) => {
+        setTranslationError(
+          err instanceof Error ? err.message : "Translation failed"
+        );
+      })
+      .finally(() => {
+        setTranslationPending(false);
+        setTranslationRegenerating(false);
+      });
+  }, [activeCard, snippet, translationPending, storeTranslation]);
+
+  // Reset card scroll + per-card translation error when navigating.
+  useEffect(() => {
+    if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
+    setTranslationError(null);
+  }, [cardIndex]);
 
   if (!open || !referenceEl) return null;
 
   const stickyHeadword = headword?.headword ?? hit?.surface ?? "";
   const stickyReading = headword?.reading ?? null;
-
-  const showResponseArea = activeChipId !== null;
-  const visibleAskPairs = isRegenerating ? [] : askPairs;
-  const showAskingPlaceholder = pending && visibleAskPairs.length === 0;
-  const canRegenerate =
-    activeChipId !== null &&
-    activeChipId in activeRangeThreads &&
-    !pending;
-
-  const snippet =
-    activeCard &&
-    extractSentenceSnippet(
-      activeCard.cleanText,
-      activeCard.annotations,
-      activeCard.startOffset,
-      activeCard.endOffset
-    );
 
   const showCarouselNav = cards.length > 1;
 
@@ -882,78 +823,40 @@ export default function WordPopover({
                           )}
                         </div>
                       )}
-                      <section className="word-popover__thread">
-                        <div
-                          className="word-popover__chips"
-                          role="tablist"
-                          aria-label="Suggested questions"
-                        >
-                          {chipsWithState.map(({ chip, active, hasThread }) => {
-                            const classNames = [
-                              "word-popover__chip",
-                              active ? "word-popover__chip--active" : "",
-                              hasThread && !active
-                                ? "word-popover__chip--has-thread"
-                                : "",
-                            ]
-                              .filter(Boolean)
-                              .join(" ");
-                            return (
-                              <button
-                                key={chip.id}
-                                type="button"
-                                className={classNames}
-                                role="tab"
-                                aria-selected={active}
-                                disabled={pending || !hit}
-                                onClick={() => handleChipClick(chip)}
-                              >
-                                {chip.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        {showResponseArea && (
-                          <div className="word-popover__thread-scroll" role="tabpanel">
-                            {visibleAskPairs.map((pair, i) => (
-                              <div key={i} className="word-popover__qa">
-                                {pair.q && (
-                                  <div className="word-popover__msg-user">
-                                    {pair.q.content}
-                                  </div>
-                                )}
-                                {pair.a && (
-                                  <div className="word-popover__msg-assistant">
-                                    {renderAssistant(pair.a.content)}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                            {showAskingPlaceholder && (
-                              <div className="word-popover__asking">
-                                Loading<AnimatedDots />
-                              </div>
-                            )}
-                            {visibleAskPairs.length === 0 &&
-                              !showAskingPlaceholder && (
-                                <div className="word-popover__asking">
-                                  Click the chip again to ask.
-                                </div>
-                              )}
-                            {canRegenerate && (
-                              <button
-                                type="button"
-                                className="word-popover__regenerate"
-                                onClick={handleRegenerate}
-                              >
-                                ↻ Regenerate
-                              </button>
-                            )}
+                      <section className="word-popover__translation">
+                        {cachedTranslation && !translationRegenerating ? (
+                          <>
+                            <div className="word-popover__translation-text">
+                              {cachedTranslation.text}
+                            </div>
+                            <button
+                              type="button"
+                              className="word-popover__regenerate"
+                              onClick={handleRegenerate}
+                              disabled={translationPending}
+                            >
+                              ↻ Regenerate
+                            </button>
+                          </>
+                        ) : translationError ? (
+                          <>
+                            <div className="word-popover__error">
+                              {translationError}
+                            </div>
+                            <button
+                              type="button"
+                              className="word-popover__regenerate"
+                              onClick={handleRegenerate}
+                              disabled={translationPending}
+                            >
+                              ↻ Retry
+                            </button>
+                          </>
+                        ) : (
+                          <div className="word-popover__translation-loading">
+                            Translating<AnimatedDots />
                           </div>
                         )}
-
-                        {error && <div className="word-popover__error">{error}</div>}
                       </section>
                     </>
                   )}

@@ -16,7 +16,7 @@ import {
 import { regroupWords } from "../lib/regroupWords";
 import WordPopover from "./WordPopover";
 import AnimatedDots from "./AnimatedDots";
-import type { Story, StoryWordThreads, WordThread } from "../types";
+import type { SentenceTranslation, Story, StoryTranslations } from "../types";
 import "./StoryDisplay.css";
 
 interface Props {
@@ -36,8 +36,8 @@ export default function StoryDisplay({ story, showLink }: Props) {
     story.word_index_at === null ||
     backfillProcessing ||
     backfillRemaining > 0;
-  const [wordThreads, setWordThreads] = useState<StoryWordThreads>(
-    story.explanations ?? {}
+  const [translations, setTranslations] = useState<StoryTranslations>(
+    story.translations ?? {}
   );
   const [activeTap, setActiveTap] = useState<{
     start: number;
@@ -46,8 +46,8 @@ export default function StoryDisplay({ story, showLink }: Props) {
   } | null>(null);
   const [furiganaState, setFuriganaState] = useState<"unseen" | "all" | "none">("unseen");
   useEffect(() => {
-    setWordThreads(story.explanations ?? {});
-  }, [story.explanations]);
+    setTranslations(story.translations ?? {});
+  }, [story.translations]);
 
   // Close any open popover if indexing kicks in mid-view (e.g., the user is
   // reading and a freshly-generated story enters the backfill queue).
@@ -142,15 +142,11 @@ export default function StoryDisplay({ story, showLink }: Props) {
     setActiveTap({ start, end, el: e.currentTarget });
   };
 
-  const handleThreadUpdated = (
+  const handleTranslationUpdated = (
     rangeKey: string,
-    threadId: string,
-    thread: WordThread
+    translation: SentenceTranslation
   ) => {
-    setWordThreads((prev) => ({
-      ...prev,
-      [rangeKey]: { ...(prev[rangeKey] ?? {}), [threadId]: thread },
-    }));
+    setTranslations((prev) => ({ ...prev, [rangeKey]: translation }));
   };
 
   // "Unseen" = the whole word's headword has zero encounters across the
@@ -324,13 +320,13 @@ export default function StoryDisplay({ story, showLink }: Props) {
         annotations={rubyAnnotations}
         start={activeTap?.start ?? null}
         end={activeTap?.end ?? null}
-        wordThreads={wordThreads}
+        translations={translations}
         referenceEl={activeTap?.el ?? null}
         open={activeTap !== null}
         onOpenChange={(open) => {
           if (!open) setActiveTap(null);
         }}
-        onThreadUpdated={handleThreadUpdated}
+        onTranslationUpdated={handleTranslationUpdated}
       />
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">

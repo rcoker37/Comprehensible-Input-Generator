@@ -1,4 +1,4 @@
-// Shared text helpers for word-context edge functions (explain-word, ask-word).
+// Shared text helpers for word-context edge functions.
 // Keep in sync with client/src/lib/text.ts (stripBold) and
 // client/src/lib/furigana.ts (parseAnnotatedText).
 
@@ -26,47 +26,4 @@ export function cleanContent(raw: string): string {
   }
   clean += withoutBold.slice(cursor);
   return clean;
-}
-
-// Split on the nearest sentence terminator before `start` and after `end`.
-// '\n' is a terminator for passages laid out line-by-line (dialogue) where
-// a punctuated terminator may be missing.
-const SENTENCE_TERMINATORS = new Set(["。", "！", "？", "\n"]);
-
-export function findSentenceBounds(
-  content: string,
-  start: number,
-  end: number
-): { sentenceStart: number; sentenceEnd: number } {
-  let sentenceStart = 0;
-  for (let i = start - 1; i >= 0; i--) {
-    if (SENTENCE_TERMINATORS.has(content[i])) {
-      sentenceStart = i + 1;
-      break;
-    }
-  }
-  let sentenceEnd = content.length;
-  for (let i = end; i < content.length; i++) {
-    if (SENTENCE_TERMINATORS.has(content[i])) {
-      sentenceEnd = i + 1;
-      break;
-    }
-  }
-  return { sentenceStart, sentenceEnd };
-}
-
-export function buildSentenceWithMarker(
-  content: string,
-  sentenceStart: number,
-  sentenceEnd: number,
-  targetStart: number,
-  targetEnd: number
-): string {
-  return (
-    content.slice(sentenceStart, targetStart) +
-    "【" +
-    content.slice(targetStart, targetEnd) +
-    "】" +
-    content.slice(targetEnd, sentenceEnd)
-  ).trim();
 }
