@@ -6,6 +6,7 @@ import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import type {
   ContentType,
   Formality,
+  Preferences,
   Story,
   StoryReadState,
   WordThread,
@@ -454,20 +455,11 @@ export async function getStoriesNeedingIndex(): Promise<
 
 // Profiles
 
-export async function updateProfile(
-  userId: string,
-  fields: {
-    preferred_model?: string;
-    preferred_content_type?: string;
-    preferred_formality?: string;
-    preferred_paragraphs?: number;
-    preferred_unknown_kanji_target?: string;
-  }
-): Promise<void> {
-  const { error } = await supabase
-    .from("profiles")
-    .update(fields)
-    .eq("user_id", userId);
+// Atomic shallow merge into `profiles.preferences`. Always send a section
+// (`generator` or `stories`) in full — the SQL `||` operator replaces the
+// entire sub-object, so a partial section would clobber unrelated keys.
+export async function updatePreferences(patch: Preferences): Promise<void> {
+  const { error } = await supabase.rpc("update_preferences", { p_patch: patch });
   if (error) throw new Error(error.message);
 }
 

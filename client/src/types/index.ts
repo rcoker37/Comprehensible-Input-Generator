@@ -87,16 +87,37 @@ export interface WordUsage {
   lookupCount: number;
 }
 
+// Stories-page filter shapes are persisted on the profile so the page
+// reopens with the user's most recent choices.
+export type ReadFilter = "all" | "unread" | "read";
+export type SortMode = "newest" | "score" | "adjustedScore";
+export type ParagraphFilter = number | "all";
+
+export interface GeneratorPreferences {
+  model: string;
+  formality: Formality;
+  paragraphs: number;
+  contentType: ContentType;
+  // Legacy JSON key — the UI labels this "Unseen kanji" since the meaning is
+  // "kanji not in the user's allowed list".
+  unknownKanjiTarget: string;
+}
+
+export interface StoriesPreferences {
+  readFilter: ReadFilter;
+  paragraphFilter: ParagraphFilter;
+  sortMode: SortMode;
+}
+
+export interface Preferences {
+  generator?: Partial<GeneratorPreferences>;
+  stories?: Partial<StoriesPreferences>;
+}
+
 export interface Profile {
   user_id: string;
   display_name: string | null;
   has_openrouter_api_key: boolean;
-  preferred_model: string;
-  preferred_formality: string | null;
-  preferred_paragraphs: number | null;
-  preferred_content_type: string | null;
-  // DB column kept its legacy name "unknown" — the UI labels it "Unseen kanji"
-  // since the meaning is "kanji not in the user's allowed list".
-  preferred_unknown_kanji_target: string | null;
+  preferences: Preferences;
   created_at: string;
 }

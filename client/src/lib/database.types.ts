@@ -66,36 +66,21 @@ export type Database = {
           created_at: string
           display_name: string | null
           openrouter_api_key_secret_id: string | null
-          preferred_content_type: string | null
-          preferred_formality: string | null
-          preferred_model: string | null
-          preferred_paragraphs: number | null
-          preferred_prioritize_rare_kanji: boolean | null
-          preferred_unknown_kanji_target: string | null
+          preferences: Json
           user_id: string
         }
         Insert: {
           created_at?: string
           display_name?: string | null
           openrouter_api_key_secret_id?: string | null
-          preferred_content_type?: string | null
-          preferred_formality?: string | null
-          preferred_model?: string | null
-          preferred_paragraphs?: number | null
-          preferred_prioritize_rare_kanji?: boolean | null
-          preferred_unknown_kanji_target?: string | null
+          preferences?: Json
           user_id: string
         }
         Update: {
           created_at?: string
           display_name?: string | null
           openrouter_api_key_secret_id?: string | null
-          preferred_content_type?: string | null
-          preferred_formality?: string | null
-          preferred_model?: string | null
-          preferred_paragraphs?: number | null
-          preferred_prioritize_rare_kanji?: boolean | null
-          preferred_unknown_kanji_target?: string | null
+          preferences?: Json
           user_id?: string
         }
         Relationships: []
@@ -367,6 +352,7 @@ export type Database = {
           read_count: number
         }[]
       }
+      update_preferences: { Args: { p_patch: Json }; Returns: Json }
       user_underused_kanji: {
         Args: { p_limit?: number }
         Returns: {

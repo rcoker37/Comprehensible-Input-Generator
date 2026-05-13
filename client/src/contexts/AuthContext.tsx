@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import type { Profile } from "../types";
+import type { Preferences, Profile } from "../types";
 
 interface AuthContextType {
   session: Session | null;
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, preferred_model, preferred_formality, preferred_paragraphs, preferred_content_type, preferred_unknown_kanji_target, created_at, openrouter_api_key_secret_id"
+          "user_id, display_name, preferences, created_at, openrouter_api_key_secret_id"
         )
         .eq("user_id", userId)
         .single();
@@ -51,11 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         return;
       }
-      const { openrouter_api_key_secret_id, ...rest } = data as {
+      const { openrouter_api_key_secret_id, preferences, ...rest } = data as {
         openrouter_api_key_secret_id: string | null;
-      } & Omit<Profile, "has_openrouter_api_key">;
+        preferences: Preferences | null;
+      } & Omit<Profile, "has_openrouter_api_key" | "preferences">;
       setProfile({
         ...rest,
+        preferences: preferences ?? {},
         has_openrouter_api_key: openrouter_api_key_secret_id != null,
       });
     } catch (err) {

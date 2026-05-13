@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { deleteStory } from "../api/client";
+import { deleteStory, updatePreferences } from "../api/client";
+import { useAuth } from "../contexts/AuthContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import { useStories } from "../contexts/StoriesContext";
@@ -8,13 +9,9 @@ import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
-import type { Story } from "../types";
+import type { ParagraphFilter, ReadFilter, SortMode, Story } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
-
-type ReadFilter = "all" | "unread" | "read";
-type SortMode = "newest" | "score" | "adjustedScore";
-type ParagraphFilter = number | "all";
 
 export default function Stories() {
   const {
@@ -25,12 +22,27 @@ export default function Stories() {
     error: contextError,
     removeStory,
   } = useStories();
+  const { profile } = useAuth();
+  const saved = profile?.preferences?.stories;
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [readFilter, setReadFilter] = useState<ReadFilter>("all");
-  const [paragraphFilter, setParagraphFilter] = useState<ParagraphFilter>("all");
-  const [sortMode, setSortMode] = useState<SortMode>("newest");
+  const [readFilter, setReadFilter] = useState<ReadFilter>(saved?.readFilter ?? "all");
+  const [paragraphFilter, setParagraphFilter] = useState<ParagraphFilter>(saved?.paragraphFilter ?? "all");
+  const [sortMode, setSortMode] = useState<SortMode>(saved?.sortMode ?? "newest");
   const { kanjiExposures } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
+
+  // Skip the first effect run — that's just the initial render after hydrating
+  // from the profile. Subsequent state changes write back to the server.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      return;
+    }
+    updatePreferences({
+      stories: { readFilter, paragraphFilter, sortMode },
+    }).catch((err) => console.warn("Failed to save filter preferences:", err));
+  }, [readFilter, paragraphFilter, sortMode]);
 
   // Number of distinct headwords in the story that the user has never
   // encountered in a read story. Returns null until both halves of the
@@ -92,10 +104,19 @@ export default function Stories() {
     new Set(stories.map((s) => s.paragraphs)),
   ).sort((a, b) => a - b);
 
+  // The saved paragraph filter may target a count the user no longer has
+  // stories for (e.g. all 5-paragraph stories were deleted). Filter and
+  // render as "all" in that case, but keep the saved value so the filter
+  // re-activates if a matching story reappears.
+  const effectiveParagraphFilter: ParagraphFilter =
+    paragraphFilter === "all" || paragraphCounts.includes(paragraphFilter as number)
+      ? paragraphFilter
+      : "all";
+
   const filtered = stories.filter((s) => {
     if (readFilter === "unread" && s.read_count !== 0) return false;
     if (readFilter === "read" && s.read_count === 0) return false;
-    if (paragraphFilter !== "all" && s.paragraphs !== paragraphFilter) return false;
+    if (effectiveParagraphFilter !== "all" && s.paragraphs !== effectiveParagraphFilter) return false;
     return true;
   });
 
@@ -138,18 +159,18 @@ export default function Stories() {
               <label>Paragraphs</label>
               <div className="chip-group" role="radiogroup" aria-label="Paragraph count filter">
                 <button
-                  className={`chip ${paragraphFilter === "all" ? "active" : ""}`}
+                  className={`chip ${effectiveParagraphFilter === "all" ? "active" : ""}`}
                   onClick={() => setParagraphFilter("all")}
-                  aria-pressed={paragraphFilter === "all"}
+                  aria-pressed={effectiveParagraphFilter === "all"}
                 >
                   All
                 </button>
                 {paragraphCounts.map((n) => (
                   <button
                     key={n}
-                    className={`chip ${paragraphFilter === n ? "active" : ""}`}
+                    className={`chip ${effectiveParagraphFilter === n ? "active" : ""}`}
                     onClick={() => setParagraphFilter(n)}
-                    aria-pressed={paragraphFilter === n}
+                    aria-pressed={effectiveParagraphFilter === n}
                   >
                     {n}
                   </button>
