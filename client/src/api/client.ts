@@ -73,7 +73,6 @@ export async function startStoryGeneration(
     formality: Formality;
     model: string;
     seenKanji: Set<string>;
-    prioritizedKanji: string[];
     unseenKanjiTarget: UnseenKanjiTarget;
   }
 ): Promise<{ storyId: number }> {
@@ -90,7 +89,6 @@ export async function startStoryGeneration(
     params.formality,
     params.topic,
     params.style,
-    params.prioritizedKanji,
     params.unseenKanjiTarget
   );
 
@@ -197,12 +195,6 @@ export async function undoStoryRead(id: number): Promise<StoryReadState> {
   const row = (data as StoryReadState[] | null)?.[0];
   if (!row) throw new Error("Story not found");
   return row;
-}
-
-export async function getUnderusedKanji(limit = 20): Promise<string[]> {
-  const { data, error } = await supabase.rpc("user_underused_kanji", { p_limit: limit });
-  if (error) throw new Error(error.message);
-  return ((data as { kanji: string }[]) || []).map((r) => r.kanji);
 }
 
 // Returns exposure counts (read_count-weighted) for every kanji the user has

@@ -22,7 +22,6 @@ interface GenerateParams {
   formality: Formality;
   model: string;
   seenKanji: Set<string>;
-  prioritizedKanji: string[];
   unseenKanjiTarget: UnseenKanjiTarget;
 }
 
