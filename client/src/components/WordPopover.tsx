@@ -49,30 +49,51 @@ import type {
 } from "../types";
 import "./WordPopover.css";
 
+/**
+ * The popover can be opened either from a tap inside a story (carousel
+ * starts with the tapped span as card 0) or from outside any story — e.g.
+ * the Stats page — where there is no current tap and every card in the
+ * carousel is just a usage from the user's history.
+ */
+export type WordPopoverMode =
+  | {
+      kind: "tap";
+      storyId: number;
+      cleanText: string;
+      annotations: FuriganaAnnotation[];
+      /**
+       * The exact span the regroup pass decided was a tap target — character
+       * offsets in `cleanText`. Lookups are constrained to this span so the
+       * popover stays consistent with what the user clicked, instead of doing
+       * a greedy longest-prefix scan that can reach past the rendered button.
+       */
+      start: number;
+      end: number;
+      translations: StoryTranslations;
+      onTranslationUpdated: (
+        rangeKey: string,
+        translation: SentenceTranslation
+      ) => void;
+    }
+  | {
+      kind: "headword";
+      headword: string;
+    };
+
 interface WordPopoverProps {
-  storyId: number;
-  cleanText: string;
-  annotations: FuriganaAnnotation[];
-  /**
-   * The exact span the regroup pass decided was a tap target — character
-   * offsets in `cleanText`. Lookups are constrained to this span so the
-   * popover stays consistent with what the user clicked, instead of doing a
-   * greedy longest-prefix scan that can reach past the rendered button.
-   */
-  start: number | null;
-  end: number | null;
-  translations: StoryTranslations;
+  mode: WordPopoverMode;
   referenceEl: HTMLElement | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onTranslationUpdated: (
-    rangeKey: string,
-    translation: SentenceTranslation
-  ) => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
 const SWIPE_THRESHOLD_PX = 50;
+
+// Stable references so the headword-mode defaults don't churn effects on
+// every render.
+const EMPTY_ANNOTATIONS: FuriganaAnnotation[] = [];
+const EMPTY_TRANSLATIONS: StoryTranslations = {};
 
 /**
  * One slot in the carousel — either the current tap (`current`) or a prior
@@ -198,18 +219,23 @@ function formatStoryDate(iso: string): string {
 }
 
 export default function WordPopover({
-  storyId,
-  cleanText,
-  annotations,
-  start: tapStart,
-  end: tapEnd,
-  translations,
+  mode,
   referenceEl,
   open,
   onOpenChange,
-  onTranslationUpdated,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
+  // Narrow once so downstream code can read mode-specific fields without
+  // re-narrowing. Tap-only fields default to null in headword mode.
+  const isTap = mode.kind === "tap";
+  const tapStoryId = mode.kind === "tap" ? mode.storyId : null;
+  const tapStart = mode.kind === "tap" ? mode.start : null;
+  const tapEnd = mode.kind === "tap" ? mode.end : null;
+  const tapCleanText = mode.kind === "tap" ? mode.cleanText : "";
+  const tapAnnotations = mode.kind === "tap" ? mode.annotations : EMPTY_ANNOTATIONS;
+  const tapTranslations = mode.kind === "tap" ? mode.translations : EMPTY_TRANSLATIONS;
+  const onTranslationUpdated = mode.kind === "tap" ? mode.onTranslationUpdated : null;
+  const headwordParam = mode.kind === "headword" ? mode.headword : null;
   const [hit, setHit] = useState<LookupHit | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [showAllSenses, setShowAllSenses] = useState(false);
@@ -264,7 +290,8 @@ export default function WordPopover({
 
   const headword = useMemo(() => (hit ? headwordFromHit(hit) : null), [hit]);
 
-  // Reset transient UI state when we open against a different tap point.
+  // Reset transient UI state when we open against a different tap point or
+  // headword. Re-keys on whichever identity is active for the current mode.
   useEffect(() => {
     if (!open) return;
     setShowAllSenses(false);
@@ -285,22 +312,23 @@ export default function WordPopover({
     setEncountersLoading(true);
     setFrequencyLoading(true);
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
-  }, [open, tapStart, tapEnd]);
+  }, [open, tapStart, tapEnd, headwordParam]);
 
-  // Run the lookup against the tap target's span whenever we open against a
-  // new range. Constrained to the rendered span so the popover doesn't reach
-  // past the button the user actually clicked. The kuromoji POS hint at
-  // `tapStart` is plumbed through so the lookup can prefer verb deinflection
-  // over an unrelated noun exact match (e.g. 「赤くなり、」 → なる, not なり).
+  // Tap-mode lookup: span-bounded against the story's clean text. Constrained
+  // to the rendered span so the popover doesn't reach past the button the
+  // user actually clicked. The kuromoji POS hint at `tapStart` is plumbed
+  // through so the lookup can prefer verb deinflection over an unrelated noun
+  // exact match (e.g. 「赤くなり、」 → なる, not なり).
   useEffect(() => {
-    if (!open || tapStart === null || tapEnd === null) return;
+    if (!open || !isTap) return;
+    if (tapStart === null || tapEnd === null) return;
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    posHintAtOffset(cleanText, tapStart)
+    posHintAtOffset(tapCleanText, tapStart)
       .catch(() => undefined)
       .then((posHint) =>
-        lookupExactSpan(cleanText, tapStart, tapEnd, annotations, posHint)
+        lookupExactSpan(tapCleanText, tapStart, tapEnd, tapAnnotations, posHint)
       )
       .then((result) => {
         if (cancelled) return;
@@ -312,14 +340,37 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, tapStart, tapEnd, cleanText, annotations, dictState]);
+  }, [open, isTap, tapStart, tapEnd, tapCleanText, tapAnnotations, dictState]);
 
-  // Once the hit resolves, record the lookup and fetch the user's prior
-  // usages of the same headword. Both fire in parallel; recording is
-  // best-effort and never blocks the carousel from rendering.
+  // Headword-mode lookup: the headword string is its own "text" and span, so
+  // we hit the dictionary directly for senses without needing a story.
+  useEffect(() => {
+    if (!open || isTap || !headwordParam) return;
+    if (dictState !== "ready") return;
+    let cancelled = false;
+    setLookingUp(true);
+    void lookupExactSpan(headwordParam, 0, headwordParam.length, [], undefined)
+      .then((result) => {
+        if (cancelled) return;
+        setHit(result);
+      })
+      .finally(() => {
+        if (!cancelled) setLookingUp(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, isTap, headwordParam, dictState]);
+
+  // Once the hit resolves, record the lookup (tap mode only — opening the
+  // popover from Stats isn't a "tap" event we want to log) and fetch the
+  // user's prior usages of the same headword. Both fire in parallel;
+  // recording is best-effort and never blocks the carousel from rendering.
   useEffect(() => {
     if (!open || !hit) return;
-    void recordWordLookup(storyId, hit);
+    if (isTap && tapStoryId !== null) {
+      void recordWordLookup(tapStoryId, hit);
+    }
     if (!headword) return;
     let cancelled = false;
     void getWordUsages(headword.headword)
@@ -336,7 +387,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, hit, headword, storyId]);
+  }, [open, hit, headword, isTap, tapStoryId]);
 
   // Resolve JPDB frequency for the headword. Best-effort — if the asset
   // fails to load (offline, 404 in dev), the header just omits the badge.
@@ -410,24 +461,13 @@ export default function WordPopover({
 
   const cards = useMemo<Card[]>(() => {
     if (!hit) return [];
-    const current: CurrentCard = {
-      kind: "current",
-      storyId,
-      storyTitle: null,
-      storyCreatedAt: null,
-      startOffset: hit.start,
-      endOffset: hit.end,
-      surface: hit.surface,
-      base: hit.base,
-      derivations: hit.derivations,
-      cleanText,
-      annotations,
-    };
     const others: OtherCard[] = usages
       .filter(
         (u) =>
           !(
-            u.storyId === storyId &&
+            isTap &&
+            tapStoryId !== null &&
+            u.storyId === tapStoryId &&
             u.startOffset === hit.start &&
             u.endOffset === hit.end
           )
@@ -447,8 +487,22 @@ export default function WordPopover({
           annotations: parsed.annotations,
         };
       });
+    if (!isTap || tapStoryId === null) return others;
+    const current: CurrentCard = {
+      kind: "current",
+      storyId: tapStoryId,
+      storyTitle: null,
+      storyCreatedAt: null,
+      startOffset: hit.start,
+      endOffset: hit.end,
+      surface: hit.surface,
+      base: hit.base,
+      derivations: hit.derivations,
+      cleanText: tapCleanText,
+      annotations: tapAnnotations,
+    };
     return [current, ...others];
-  }, [hit, usages, storyId, cleanText, annotations]);
+  }, [hit, usages, isTap, tapStoryId, tapCleanText, tapAnnotations]);
 
   // Clamp cardIndex if usages shrink (e.g., refetch returns fewer rows).
   useEffect(() => {
@@ -545,15 +599,17 @@ export default function WordPopover({
   );
 
   // Resolve a cached translation for the active card's sentence: parent's
-  // translations for the current story, popover-local cache for others.
+  // translations for the current story (tap mode only), popover-local cache
+  // for everything else. In headword mode tapStoryId is null so the equality
+  // check always falls through to otherStoryTranslations.
   const cachedTranslation: SentenceTranslation | null = useMemo(() => {
     if (!activeCard || !snippet) return null;
     const key = sentenceKey(snippet.sentenceStart, snippet.sentenceEnd);
-    if (activeCard.storyId === storyId) {
-      return translations[key] ?? null;
+    if (isTap && activeCard.storyId === tapStoryId) {
+      return tapTranslations[key] ?? null;
     }
     return otherStoryTranslations[activeCard.storyId]?.[key] ?? null;
-  }, [activeCard, snippet, storyId, translations, otherStoryTranslations]);
+  }, [activeCard, snippet, isTap, tapStoryId, tapTranslations, otherStoryTranslations]);
 
   const storeTranslation = useCallback(
     (
@@ -561,7 +617,7 @@ export default function WordPopover({
       key: string,
       translation: SentenceTranslation
     ) => {
-      if (cardStoryId === storyId) {
+      if (isTap && cardStoryId === tapStoryId && onTranslationUpdated) {
         onTranslationUpdated(key, translation);
       } else {
         setOtherStoryTranslations((prev) => ({
@@ -573,7 +629,7 @@ export default function WordPopover({
         }));
       }
     },
-    [storyId, onTranslationUpdated]
+    [isTap, tapStoryId, onTranslationUpdated]
   );
 
   // Lazy-fetch the translation only after the user explicitly requests it
@@ -784,7 +840,7 @@ export default function WordPopover({
                       </svg>
                     </button>
                     <div className="word-popover__nav-meta">
-                      {activeCard.storyId === storyId ? (
+                      {activeCard.storyId === tapStoryId ? (
                         <span className="word-popover__nav-title">This story</span>
                       ) : (
                         <>
