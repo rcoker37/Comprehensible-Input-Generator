@@ -124,6 +124,44 @@ export function lookupFrequencySync(
 }
 
 /**
+ * One headword/rank tuple from the JPDB index, with the reading that produced
+ * the rank (kana-only entries return `reading: null` since the headword itself
+ * is already kana). Used by the Stats browse view to paginate top-N vocab.
+ */
+export interface FrequencyEntry {
+  headword: string;
+  reading: string | null;
+  rank: number;
+}
+
+let sortedEntriesCache: FrequencyEntry[] | null = null;
+
+/**
+ * Returns every JPDB headword sorted by rank ascending, one entry per
+ * headword (the lowest-rank reading wins when a headword has multiple).
+ * Requires `loadFrequencyIndex()` to have resolved — throws otherwise.
+ * Result is cached so subsequent calls are O(1).
+ */
+export function getFrequencyEntriesSync(): FrequencyEntry[] {
+  if (sortedEntriesCache) return sortedEntriesCache;
+  if (!cached) {
+    throw new Error(
+      "getFrequencyEntriesSync called before loadFrequencyIndex resolved"
+    );
+  }
+  const out: FrequencyEntry[] = [];
+  for (const [headword, entries] of Object.entries(cached)) {
+    // Entries are pre-sorted asc by rank, so [0] is the lowest rank.
+    const best = entries[0];
+    if (!best) continue;
+    out.push({ headword, reading: best[0], rank: best[1] });
+  }
+  out.sort((a, b) => a.rank - b.rank);
+  sortedEntriesCache = out;
+  return out;
+}
+
+/**
  * Lookup the best (lowest rank) JPDB frequency across multiple candidate
  * orthographies of the same word. A JMdict entry can list several kanji
  * variants (e.g. 御供え / お供え) that share a reading; JPDB indexes them

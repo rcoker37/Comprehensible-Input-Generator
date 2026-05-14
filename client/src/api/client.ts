@@ -6,6 +6,7 @@ import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import type {
   ContentType,
   Formality,
+  Kanji,
   Preferences,
   SentenceTranslation,
   Story,
@@ -28,6 +29,30 @@ export async function getJlptN5Kanji(): Promise<Set<string>> {
   if (error) throw new Error(error.message);
   n5KanjiCache = new Set((data ?? []).map((r) => r.character));
   return n5KanjiCache;
+}
+
+// All kanji rows (joyo set, ~2140 entries). Paginated because PostgREST caps
+// each response at db-max-rows (1000 on Supabase Cloud). Cached in memory
+// after the first call — the table is reference data and never changes from
+// the client. Used by the Stats browse section.
+let allKanjiCache: Kanji[] | null = null;
+export async function getAllKanji(): Promise<Kanji[]> {
+  if (allKanjiCache) return allKanjiCache;
+  const PAGE = 1000;
+  const out: Kanji[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("kanji")
+      .select("character, grade, jlpt, meanings, readings_on, readings_kun")
+      .order("character", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data as Kanji[] | null) ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  allKanjiCache = out;
+  return out;
 }
 
 // Stories — generation

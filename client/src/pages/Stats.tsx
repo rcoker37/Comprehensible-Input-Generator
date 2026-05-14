@@ -1,31 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
-import { useDictionary } from "../contexts/DictionaryContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
-import { lookupBestFrequency } from "../lib/frequency";
 import AnimatedDots from "../components/AnimatedDots";
-import WordPopover from "../components/WordPopover";
+import BrowseSection from "../components/BrowseSection";
 import "./Stats.css";
 
+const KANJI_CAP_THRESHOLD = 10;
 const VOCAB_CAP_THRESHOLD = 10;
 
 export default function Stats() {
   const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
-  const { state: dictState, lookupWord } = useDictionary();
-  const [showVocabAtCap, setShowVocabAtCap] = useState(false);
-  const [activeHeadword, setActiveHeadword] = useState<{
-    headword: string;
-    el: HTMLElement;
-  } | null>(null);
-  // Map: stored canonical headword (e.g. 御供え) → most-frequent JPDB
-  // orthography (e.g. お供え). Mirrors what WordPopover shows in its sticky
-  // header so the row label and the popover label agree.
-  const [displaySpellings, setDisplaySpellings] = useState<Map<string, string>>(
-    () => new Map()
-  );
 
   const kanjiTotal = useMemo(() => totalScore(kanjiExposures), [kanjiExposures]);
   const vocabTotal = useMemo(
@@ -40,7 +27,7 @@ export default function Stats() {
   }, [kanjiExposures]);
   const kanjiAtCap = useMemo(() => {
     let n = 0;
-    for (const c of kanjiExposures.values()) if (c >= 10) n += 1;
+    for (const c of kanjiExposures.values()) if (c >= KANJI_CAP_THRESHOLD) n += 1;
     return n;
   }, [kanjiExposures]);
   const vocabAtCap = useMemo(() => {
@@ -48,48 +35,6 @@ export default function Stats() {
     for (const c of vocabEncounters.values()) if (c >= VOCAB_CAP_THRESHOLD) n += 1;
     return n;
   }, [vocabEncounters]);
-
-  const topVocabAtCap = useMemo(() => {
-    const rows: Array<[string, number]> = [];
-    for (const [headword, count] of vocabEncounters) {
-      if (count >= VOCAB_CAP_THRESHOLD) rows.push([headword, count]);
-    }
-    rows.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    return rows;
-  }, [vocabEncounters]);
-
-  // Resolve the most-frequent JPDB orthography for each row in the visible
-  // list. Same candidate set as WordPopover (every k-form AND r-form of the
-  // primary JMdict entry) so the row label matches what the popover will show
-  // when opened — including kana-only forms like の that don't appear in k[].
-  useEffect(() => {
-    if (!showVocabAtCap || dictState !== "ready" || topVocabAtCap.length === 0) {
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      const next = new Map<string, string>();
-      await Promise.all(
-        topVocabAtCap.map(async ([headword]) => {
-          const results = await lookupWord(headword);
-          const primary = results[0];
-          if (!primary) return;
-          const candidates = [headword];
-          for (const k of primary.k ?? []) candidates.push(k.ent);
-          for (const r of primary.r ?? []) candidates.push(r.ent);
-          const reading = primary.r?.[0]?.ent ?? null;
-          const best = await lookupBestFrequency(candidates, reading);
-          if (best.headword && best.headword !== headword) {
-            next.set(headword, best.headword);
-          }
-        })
-      );
-      if (!cancelled) setDisplaySpellings(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [showVocabAtCap, dictState, topVocabAtCap, lookupWord]);
 
   if (!kanjiExposuresLoaded || !vocabEncountersLoaded) {
     return (
@@ -137,67 +82,14 @@ export default function Stats() {
             <div className="coverage-value">{kanjiAtCap.toLocaleString()}</div>
             <div className="coverage-label">Kanji read 10+ times</div>
           </div>
-          <button
-            type="button"
-            className={`coverage-cell coverage-cell--button${
-              showVocabAtCap ? " is-active" : ""
-            }`}
-            onClick={() => setShowVocabAtCap((s) => !s)}
-            aria-expanded={showVocabAtCap}
-            aria-controls="vocab-at-cap-list"
-          >
+          <div className="coverage-cell">
             <div className="coverage-value">{vocabAtCap.toLocaleString()}</div>
             <div className="coverage-label">Words read 10+ times</div>
-          </button>
+          </div>
         </div>
       </section>
 
-      {showVocabAtCap && (
-        <section className="stats-section" id="vocab-at-cap-list">
-          <h2>Words read 10+ times</h2>
-          {topVocabAtCap.length === 0 ? (
-            <div className="vocab-list-empty">
-              No words have been read 10 or more times yet.
-            </div>
-          ) : (
-            <ol className="vocab-list">
-              {topVocabAtCap.map(([headword, count]) => (
-                <li key={headword}>
-                  <button
-                    type="button"
-                    className="vocab-row"
-                    onClick={(e) =>
-                      setActiveHeadword({
-                        headword,
-                        el: e.currentTarget,
-                      })
-                    }
-                  >
-                    <span className="vocab-word">
-                      {displaySpellings.get(headword) ?? headword}
-                    </span>
-                    <span className="vocab-count">
-                      {count.toLocaleString()} reads
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-      )}
-
-      <WordPopover
-        mode={{
-          kind: "headword",
-          headword: activeHeadword?.headword ?? "",
-        }}
-        referenceEl={activeHeadword?.el ?? null}
-        open={activeHeadword !== null}
-        onOpenChange={(open) => {
-          if (!open) setActiveHeadword(null);
-        }}
-      />
+      <BrowseSection />
     </div>
   );
 }
