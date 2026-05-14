@@ -198,6 +198,28 @@ BEGIN
     '秋一日朝雨降風吹空灰色木葉赤黄下落私家出駅向電車乗町行午後止雲消青心明帰茶飲本読静夜過',
     '{"uniqueKanji": 41, "grade": {"max": 6, "avg": 2.5}, "jlpt": {"min": 2, "avg": 4.1}}'::jsonb,
     now() - interval '10 minutes'
+  ),
+  -- Story 10: homophone disambiguation via JMdict entry id.
+  --   * 暗《くら》い appears as kanji — the i-adjective "dark" (JMdict id
+  --     1154330, JPDB rank 881). Previously the popover would substitute
+  --     くらい as the "most common spelling" because くらい outranks 暗い
+  --     in JPDB — but the rank belonged to a different lexeme.
+  --   * くらい appears as a kana-only approximation suffix (id 1154340,
+  --     rank 189) — a separate JMdict entry from 暗い. Tapping it should
+  --     show suffix senses, not "dark".
+  --   * 貴方《あなた》 — the "you" pronoun entry (id 1223615) carries
+  --     `uk` on its senses, so the resolved display headword is あなた
+  --     (rank 121) instead of the canonical kanji 貴方 (rank 3,151).
+  --     The scoring path picks up the entry-resolved rank too.
+  (
+    '00000000-0000-0000-0000-000000000001'::uuid,
+    '暗《くら》い部屋《へや》',
+    E'夕方《ゆうがた》、部屋《へや》の中《なか》は暗《くら》くなりました。私《わたし》は窓《まど》から空《そら》を見《み》て、星《ほし》が三《みっ》つくらい数《かぞ》えました。\n\n「貴方《あなた》、ご飯《はん》ですよ」と母《はは》の声《こえ》が聞《き》こえました。私《わたし》は「今《いま》行《い》きます」と答《こた》えました。\n\n台所《だいどころ》で母《はは》は「今日《きょう》は何時《なんじ》くらいに帰《かえ》りましたか」と聞《き》きました。私《わたし》は「六時《ろくじ》くらいです」と答《こた》えました。外《そと》はもう暗《くら》かったです。',
+    'fiction', 3, '夕方', 'polite',
+    '{"knownOnly": true, "jlptLevels": [], "grades": [1,2,3]}'::jsonb,
+    '暗部屋夕方中私窓空見星三数貴飯母声聞今日行答台所何時帰六外',
+    '{"uniqueKanji": 29, "grade": {"max": 6, "avg": 2.4}, "jlpt": {"min": 1, "avg": 3.6}}'::jsonb,
+    now() - interval '5 minutes'
   );
 END $$;
 

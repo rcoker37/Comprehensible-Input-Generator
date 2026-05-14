@@ -33,6 +33,7 @@ import { stripBold } from "../lib/text";
 import { headwordFromHit } from "../lib/headword";
 import {
   lookupBestFrequency,
+  lookupFrequencyByEntry,
   TIER_LABEL,
   type BestFrequencyResult,
 } from "../lib/frequency";
@@ -389,33 +390,47 @@ export default function WordPopover({
     };
   }, [open, hit, headword, isTap, tapStoryId]);
 
-  // Resolve JPDB frequency for the headword. Best-effort — if the asset
-  // fails to load (offline, 404 in dev), the header just omits the badge.
-  // We pass every kanji AND kana variant of the primary JMdict entry plus the
-  // tapped surface, because JPDB indexes orthographies separately: 御供え
-  // isn't in the index at all but お供え is, and 乃 is rank 13,652 while the
-  // r[0] kana form の is rank ~100. A k-only lookup would lose the real rank
-  // (and the most-frequent spelling) whenever the kana form is the common one.
+  // Resolve JPDB frequency by JMdict entry id. The by-entry index handles
+  // the homophone-disambiguation problem at build time (it honours JMdict's
+  // `uk` tag and only pulls a kana rank into an entry that wants kana
+  // spelling), so the popover doesn't have to merge candidate orthographies
+  // itself. We fall back to a candidate-list lookup against the surface-keyed
+  // index only when the hit has no JMdict result (1-char no-match fallback) —
+  // there's no entry id to look up in that case.
   useEffect(() => {
     if (!open || !hit || !headword) {
       setFrequency(null);
       return;
     }
     let cancelled = false;
-    const candidates = [headword.headword];
-    if (!hit.base) candidates.push(hit.surface);
-    for (const k of hit.results[0]?.k ?? []) candidates.push(k.ent);
-    for (const r of hit.results[0]?.r ?? []) candidates.push(r.ent);
-    void lookupBestFrequency(candidates, headword.reading)
-      .then((res) => {
-        if (!cancelled) setFrequency(res);
-      })
-      .catch(() => {
-        if (!cancelled) setFrequency(null);
-      })
-      .finally(() => {
-        if (!cancelled) setFrequencyLoading(false);
-      });
+    const entryId = hit.results[0]?.id ?? null;
+    const finish = (res: BestFrequencyResult) => {
+      if (cancelled) return;
+      setFrequency(res);
+      setFrequencyLoading(false);
+    };
+    const fail = () => {
+      if (cancelled) return;
+      setFrequency(null);
+      setFrequencyLoading(false);
+    };
+    if (entryId !== null) {
+      void lookupFrequencyByEntry(entryId)
+        .then((res) => {
+          if (res) {
+            finish({ rank: res.rank, tier: res.tier, headword: res.headword });
+          } else {
+            finish({ rank: null, tier: "very-rare", headword: null });
+          }
+        })
+        .catch(fail);
+    } else {
+      const candidates = [headword.headword];
+      if (!hit.base) candidates.push(hit.surface);
+      void lookupBestFrequency(candidates, headword.reading)
+        .then(finish)
+        .catch(fail);
+    }
     return () => {
       cancelled = true;
     };
