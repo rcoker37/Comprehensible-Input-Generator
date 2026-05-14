@@ -59,9 +59,9 @@ export default function Stats() {
   }, [vocabEncounters]);
 
   // Resolve the most-frequent JPDB orthography for each row in the visible
-  // list. Same candidate set as WordPopover headword-mode (the canonical
-  // headword + every k-form of the primary JMdict entry) so the row label
-  // matches what the popover will show when opened.
+  // list. Same candidate set as WordPopover (every k-form AND r-form of the
+  // primary JMdict entry) so the row label matches what the popover will show
+  // when opened — including kana-only forms like の that don't appear in k[].
   useEffect(() => {
     if (!showVocabAtCap || dictState !== "ready" || topVocabAtCap.length === 0) {
       return;
@@ -76,6 +76,7 @@ export default function Stats() {
           if (!primary) return;
           const candidates = [headword];
           for (const k of primary.k ?? []) candidates.push(k.ent);
+          for (const r of primary.r ?? []) candidates.push(r.ent);
           const reading = primary.r?.[0]?.ent ?? null;
           const best = await lookupBestFrequency(candidates, reading);
           if (best.headword && best.headword !== headword) {
