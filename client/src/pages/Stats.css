@@ -69,6 +69,25 @@
   padding: 0.75rem 1rem;
 }
 
+.coverage-cell--button {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .coverage-cell--button:hover {
+    border-color: var(--accent);
+  }
+}
+
+.coverage-cell--button.is-active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
 .coverage-value {
   font-size: 1.25rem;
   font-weight: 600;
@@ -79,5 +98,61 @@
   margin-top: 0.15rem;
   font-size: 0.8rem;
   color: var(--text-dim);
+}
+
+.vocab-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vocab-row {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.5rem 0.85rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  transition: border-color 0.15s ease;
+}
+
+@media (hover: hover) {
+  .vocab-row:hover {
+    border-color: var(--accent);
+  }
+}
+
+.vocab-row:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.vocab-word {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.vocab-count {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.vocab-list-empty {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  padding: 0.5rem 0;
 }
 

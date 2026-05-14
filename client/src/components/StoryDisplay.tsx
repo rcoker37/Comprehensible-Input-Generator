@@ -315,18 +315,21 @@ export default function StoryDisplay({ story, showLink }: Props) {
         )}
       </div>
       <WordPopover
-        storyId={story.id}
-        cleanText={cleanContent}
-        annotations={rubyAnnotations}
-        start={activeTap?.start ?? null}
-        end={activeTap?.end ?? null}
-        translations={translations}
+        mode={{
+          kind: "tap",
+          storyId: story.id,
+          cleanText: cleanContent,
+          annotations: rubyAnnotations,
+          start: activeTap?.start ?? 0,
+          end: activeTap?.end ?? 0,
+          translations,
+          onTranslationUpdated: handleTranslationUpdated,
+        }}
         referenceEl={activeTap?.el ?? null}
         open={activeTap !== null}
         onOpenChange={(open) => {
           if (!open) setActiveTap(null);
         }}
-        onTranslationUpdated={handleTranslationUpdated}
       />
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">
