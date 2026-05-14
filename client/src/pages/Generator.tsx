@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
-import { updatePreferences, getUnderusedKanji } from "../api/client";
+import { updatePreferences } from "../api/client";
 import type { UnseenKanjiTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
@@ -44,23 +44,6 @@ export default function Generator() {
   const [unseenKanjiTarget, setUnseenKanjiTarget] = useState<UnseenKanjiTarget>(
     (gen?.unknownKanjiTarget as UnseenKanjiTarget) ?? "none"
   );
-  const [underusedKanji, setUnderusedKanji] = useState<string[]>([]);
-
-  useEffect(() => {
-    const userId = user?.id;
-    if (!userId) return;
-    let cancelled = false;
-    getUnderusedKanji(25)
-      .then((kanji) => {
-        if (!cancelled) setUnderusedKanji(kanji);
-      })
-      .catch((err) => {
-        console.warn("Failed to fetch underused kanji:", err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
 
   const handleGenerate = () => {
     if (!profile?.has_openrouter_api_key) return;
@@ -72,7 +55,6 @@ export default function Generator() {
       formality,
       model: MODEL,
       seenKanji,
-      prioritizedKanji: underusedKanji,
       unseenKanjiTarget,
     });
     updatePreferences({

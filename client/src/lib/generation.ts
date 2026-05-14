@@ -44,7 +44,6 @@ export function buildPrompt(
   formality: Formality,
   topic?: string,
   style?: string,
-  underusedKanji?: string[],
   unseenKanjiTarget: UnseenKanjiTarget = "none"
 ): string {
   const range = UNSEEN_KANJI_RANGES[unseenKanjiTarget];
@@ -68,12 +67,6 @@ export function buildPrompt(
   rules.push(
     "- For EVERY run of kanji in the output, attach its reading in hiragana immediately after using full-width angle brackets 《…》. Use strict Aozora Bunko ruby notation: the reading covers ONLY the kanji run itself, not any okurigana or particles. Examples: 二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。先生《せんせい》は学生《がくせい》に話《はな》しました。新《あたら》しい本《ほん》を読《よ》みました。Annotate every kanji run, even common ones. Do NOT use the pipe character."
   );
-
-  if (underusedKanji && underusedKanji.length > 0) {
-    rules.push(
-      `- Prioritize using these kanji that the student has seen rarely: ${underusedKanji.join("")}. Try to include at least 3–5 of them, weaving them in naturally where the topic permits — do not force them or contort the narrative.`
-    );
-  }
 
   const parts = [
     CONTENT_TYPE_PREAMBLE[contentType],
