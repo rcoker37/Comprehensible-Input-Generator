@@ -34,7 +34,7 @@ import { headwordFromHit } from "../lib/headword";
 import {
   lookupBestFrequency,
   TIER_LABEL,
-  type FrequencyResult,
+  type BestFrequencyResult,
 } from "../lib/frequency";
 import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
 import { posHintAtOffset } from "../lib/tokenizer";
@@ -264,7 +264,7 @@ export default function WordPopover({
   // state regardless of prior siblings.
   const [translationRequested, setTranslationRequested] = useState(false);
 
-  const [frequency, setFrequency] = useState<FrequencyResult | null>(null);
+  const [frequency, setFrequency] = useState<BestFrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
   // Loading flags for the three headword-dependent fetches. The popover body
   // is gated on these being false so badges/cards don't pop in one at a time
@@ -391,10 +391,11 @@ export default function WordPopover({
 
   // Resolve JPDB frequency for the headword. Best-effort — if the asset
   // fails to load (offline, 404 in dev), the header just omits the badge.
-  // We pass every kanji variant of the primary JMdict entry plus the tapped
-  // surface, because JPDB indexes orthographies separately: 御供え isn't in
-  // the index at all but お供え is, and the canonical k[0] for that entry
-  // happens to be 御供え, so a single-form lookup would lose the real rank.
+  // We pass every kanji AND kana variant of the primary JMdict entry plus the
+  // tapped surface, because JPDB indexes orthographies separately: 御供え
+  // isn't in the index at all but お供え is, and 乃 is rank 13,652 while the
+  // r[0] kana form の is rank ~100. A k-only lookup would lose the real rank
+  // (and the most-frequent spelling) whenever the kana form is the common one.
   useEffect(() => {
     if (!open || !hit || !headword) {
       setFrequency(null);
@@ -404,6 +405,7 @@ export default function WordPopover({
     const candidates = [headword.headword];
     if (!hit.base) candidates.push(hit.surface);
     for (const k of hit.results[0]?.k ?? []) candidates.push(k.ent);
+    for (const r of hit.results[0]?.r ?? []) candidates.push(r.ent);
     void lookupBestFrequency(candidates, headword.reading)
       .then((res) => {
         if (!cancelled) setFrequency(res);
@@ -713,7 +715,13 @@ export default function WordPopover({
 
   if (!open || !referenceEl) return null;
 
-  const stickyHeadword = headword?.headword ?? hit?.surface ?? "";
+  // Prefer the most-frequent orthography variant from JPDB (e.g. お供え rather
+  // than the canonical k[0] 御供え) so the displayed form matches what the
+  // user is most likely to encounter in the wild — and what we score the
+  // headword against. Falls back to the JMdict-canonical headword while the
+  // frequency lookup is still in flight or no candidate resolved.
+  const stickyHeadword =
+    frequency?.headword ?? headword?.headword ?? hit?.surface ?? "";
   const stickyReading = headword?.reading ?? null;
 
   const showCarouselNav = cards.length > 1;

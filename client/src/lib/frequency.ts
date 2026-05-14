@@ -17,6 +17,12 @@ export interface FrequencyResult {
   tier: FrequencyTier;
 }
 
+export interface BestFrequencyResult extends FrequencyResult {
+  // The candidate orthography that produced `rank`, or null when no
+  // candidate resolved.
+  headword: string | null;
+}
+
 type RawIndex = Record<string, Array<[string | null, number]>>;
 
 let loadPromise: Promise<RawIndex> | null = null;
@@ -131,16 +137,21 @@ export function lookupFrequencySync(
 export async function lookupBestFrequency(
   headwords: string[],
   reading: string | null
-): Promise<FrequencyResult> {
+): Promise<BestFrequencyResult> {
   const unique = Array.from(new Set(headwords.filter((h) => h.length > 0)));
-  if (unique.length === 0) return { rank: null, tier: "very-rare" };
+  if (unique.length === 0) {
+    return { rank: null, tier: "very-rare", headword: null };
+  }
   const results = await Promise.all(
     unique.map((h) => lookupFrequency(h, reading))
   );
-  let best: FrequencyResult = { rank: null, tier: "very-rare" };
-  for (const r of results) {
+  let best: BestFrequencyResult = { rank: null, tier: "very-rare", headword: null };
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i]!;
     if (r.rank === null) continue;
-    if (best.rank === null || r.rank < best.rank) best = r;
+    if (best.rank === null || r.rank < best.rank) {
+      best = { rank: r.rank, tier: r.tier, headword: unique[i]! };
+    }
   }
   return best;
 }
