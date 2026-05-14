@@ -44,14 +44,18 @@ describe("lookupBestFrequency", () => {
       ["御供え", "お供え"],
       "おそなえ"
     );
-    expect(result).toEqual({ rank: 32269, tier: "very-rare" });
+    expect(result).toEqual({
+      rank: 32269,
+      tier: "very-rare",
+      headword: "お供え",
+    });
   });
 
   it("returns very-rare when no candidate is in the index", async () => {
     stubIndex({ "別の語": [["べつのご", 5000]] });
     const { lookupBestFrequency } = await import("./frequency");
     const result = await lookupBestFrequency(["御供え"], "おそなえ");
-    expect(result).toEqual({ rank: null, tier: "very-rare" });
+    expect(result).toEqual({ rank: null, tier: "very-rare", headword: null });
   });
 
   it("deduplicates candidates", async () => {
@@ -67,7 +71,11 @@ describe("lookupBestFrequency", () => {
       ["あなた", "あなた", ""],
       null
     );
-    expect(result).toEqual({ rank: 121, tier: "very-common" });
+    expect(result).toEqual({
+      rank: 121,
+      tier: "very-common",
+      headword: "あなた",
+    });
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 
@@ -75,7 +83,7 @@ describe("lookupBestFrequency", () => {
     stubIndex({});
     const { lookupBestFrequency } = await import("./frequency");
     const result = await lookupBestFrequency([], "おそなえ");
-    expect(result).toEqual({ rank: null, tier: "very-rare" });
+    expect(result).toEqual({ rank: null, tier: "very-rare", headword: null });
   });
 
   it("prefers a common kana variant over the canonical kanji form", async () => {
@@ -85,6 +93,10 @@ describe("lookupBestFrequency", () => {
     });
     const { lookupBestFrequency } = await import("./frequency");
     const result = await lookupBestFrequency(["貴方", "あなた"], "あなた");
-    expect(result).toEqual({ rank: 121, tier: "very-common" });
+    expect(result).toEqual({
+      rank: 121,
+      tier: "very-common",
+      headword: "あなた",
+    });
   });
 });

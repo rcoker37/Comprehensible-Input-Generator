@@ -34,7 +34,7 @@ import { headwordFromHit } from "../lib/headword";
 import {
   lookupBestFrequency,
   TIER_LABEL,
-  type FrequencyResult,
+  type BestFrequencyResult,
 } from "../lib/frequency";
 import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
 import { posHintAtOffset } from "../lib/tokenizer";
@@ -264,7 +264,7 @@ export default function WordPopover({
   // state regardless of prior siblings.
   const [translationRequested, setTranslationRequested] = useState(false);
 
-  const [frequency, setFrequency] = useState<FrequencyResult | null>(null);
+  const [frequency, setFrequency] = useState<BestFrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
   // Loading flags for the three headword-dependent fetches. The popover body
   // is gated on these being false so badges/cards don't pop in one at a time
@@ -713,7 +713,13 @@ export default function WordPopover({
 
   if (!open || !referenceEl) return null;
 
-  const stickyHeadword = headword?.headword ?? hit?.surface ?? "";
+  // Prefer the most-frequent orthography variant from JPDB (e.g. お供え rather
+  // than the canonical k[0] 御供え) so the displayed form matches what the
+  // user is most likely to encounter in the wild — and what we score the
+  // headword against. Falls back to the JMdict-canonical headword while the
+  // frequency lookup is still in flight or no candidate resolved.
+  const stickyHeadword =
+    frequency?.headword ?? headword?.headword ?? hit?.surface ?? "";
   const stickyReading = headword?.reading ?? null;
 
   const showCarouselNav = cards.length > 1;

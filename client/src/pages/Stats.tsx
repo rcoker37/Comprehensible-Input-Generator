@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
+import { useDictionary } from "../contexts/DictionaryContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
+import { lookupBestFrequency } from "../lib/frequency";
 import AnimatedDots from "../components/AnimatedDots";
 import WordPopover from "../components/WordPopover";
 import "./Stats.css";
@@ -12,11 +14,18 @@ const VOCAB_CAP_THRESHOLD = 10;
 export default function Stats() {
   const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
+  const { state: dictState, lookupWord } = useDictionary();
   const [showVocabAtCap, setShowVocabAtCap] = useState(false);
   const [activeHeadword, setActiveHeadword] = useState<{
     headword: string;
     el: HTMLElement;
   } | null>(null);
+  // Map: stored canonical headword (e.g. 御供え) → most-frequent JPDB
+  // orthography (e.g. お供え). Mirrors what WordPopover shows in its sticky
+  // header so the row label and the popover label agree.
+  const [displaySpellings, setDisplaySpellings] = useState<Map<string, string>>(
+    () => new Map()
+  );
 
   const kanjiTotal = useMemo(() => totalScore(kanjiExposures), [kanjiExposures]);
   const vocabTotal = useMemo(
@@ -48,6 +57,38 @@ export default function Stats() {
     rows.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return rows;
   }, [vocabEncounters]);
+
+  // Resolve the most-frequent JPDB orthography for each row in the visible
+  // list. Same candidate set as WordPopover headword-mode (the canonical
+  // headword + every k-form of the primary JMdict entry) so the row label
+  // matches what the popover will show when opened.
+  useEffect(() => {
+    if (!showVocabAtCap || dictState !== "ready" || topVocabAtCap.length === 0) {
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const next = new Map<string, string>();
+      await Promise.all(
+        topVocabAtCap.map(async ([headword]) => {
+          const results = await lookupWord(headword);
+          const primary = results[0];
+          if (!primary) return;
+          const candidates = [headword];
+          for (const k of primary.k ?? []) candidates.push(k.ent);
+          const reading = primary.r?.[0]?.ent ?? null;
+          const best = await lookupBestFrequency(candidates, reading);
+          if (best.headword && best.headword !== headword) {
+            next.set(headword, best.headword);
+          }
+        })
+      );
+      if (!cancelled) setDisplaySpellings(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showVocabAtCap, dictState, topVocabAtCap, lookupWord]);
 
   if (!kanjiExposuresLoaded || !vocabEncountersLoaded) {
     return (
@@ -131,7 +172,9 @@ export default function Stats() {
                       })
                     }
                   >
-                    <span className="vocab-word">{headword}</span>
+                    <span className="vocab-word">
+                      {displaySpellings.get(headword) ?? headword}
+                    </span>
                     <span className="vocab-count">
                       {count.toLocaleString()} reads
                     </span>
