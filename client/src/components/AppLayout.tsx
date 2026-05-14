@@ -37,20 +37,13 @@ function NavTotalScore() {
     () => totalVocabScore(vocabEncounters, getWordRank),
     [vocabEncounters, getWordRank]
   );
-  if (!kanjiExposuresLoaded && !vocabEncountersLoaded) return null;
-  const kanjiPortion = kanjiExposuresLoaded ? kanji : 0;
-  const total = vocabEncountersLoaded ? kanjiPortion + vocab : kanjiPortion;
+  if (!kanjiExposuresLoaded || !vocabEncountersLoaded) return null;
   return (
     <span
       className="nav-score"
-      title={
-        vocabEncountersLoaded
-          ? `Kanji ${formatScore(kanji)} + vocab ${formatScore(vocab)}`
-          : `Kanji ${formatScore(kanji)}, vocab loading…`
-      }
+      title={`Kanji ${formatScore(kanji)} + vocab ${formatScore(vocab)}`}
     >
-      ★ {formatScore(total)}
-      {!vocabEncountersLoaded && <AnimatedDots />}
+      ★ {formatScore(kanji + vocab)}
     </span>
   );
 }
