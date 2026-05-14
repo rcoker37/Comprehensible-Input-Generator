@@ -8,6 +8,7 @@
     "build": "npm run build --workspace=client",
     "generate-seed": "npx tsx scripts/generate-seed-sql.ts",
     "generate-frequency": "npx tsx scripts/generate-jpdb-frequency.ts",
+    "generate-frequency-by-entry": "npx tsx scripts/generate-jpdb-frequency-by-entry.ts",
     "sync-prod": "bash scripts/sync-prod-to-local.sh",
     "test": "npm run test --workspace=client"
   }

@@ -46,8 +46,11 @@ export interface WordOccurrence {
  *   2 — pure-kana single-char CharParts (particles like が / を / は, etc.)
  *       are now also indexed so encounter counts and the new-word
  *       underline cover them.
+ *   3 — `headwordFromHit` now skips `sK` (search-only) kanji forms, so the
+ *       の particle's entry stamps `の` instead of `乃`, and ~80 other
+ *       entries whose k[0] is sK now stamp their kana surface as canonical.
  */
-export const WORD_INDEX_VERSION = 2;
+export const WORD_INDEX_VERSION = 3;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

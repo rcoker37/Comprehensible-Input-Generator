@@ -3,10 +3,19 @@ import type { WordResult } from "@birchill/jpdict-idb";
 import { headwordFromHit } from "./headword";
 import type { LookupHit } from "./lookupAtCursor";
 
-function wr(k: string[] | null, r: string[]): WordResult {
+function wr(
+  k: Array<string | [string, string[]]> | null,
+  r: string[]
+): WordResult {
   return {
     id: 1,
-    k: k ? k.map((ent) => ({ ent })) : undefined,
+    k: k
+      ? k.map((entry) =>
+          typeof entry === "string"
+            ? { ent: entry }
+            : { ent: entry[0], i: entry[1] }
+        )
+      : undefined,
     r: r.map((ent) => ({ ent })),
     s: [],
     romaji: [],
@@ -87,5 +96,34 @@ describe("headwordFromHit", () => {
       results: [wr(["言う"], ["いう"]), wr(["事"], ["こと"])],
     };
     expect(headwordFromHit(hit)?.headword).toBe("言う");
+  });
+
+  it("skips sK kanji forms and falls back to the kana reading", () => {
+    // JMdict entry 1469800 (の particle): k=[乃 sK, 之 sK], r=[の]. Without
+    // the sK filter we'd stamp 乃 as the canonical headword on every tap of
+    // a kana の — the canonical-keyed frequency lookup then misses, and the
+    // popover header renders 乃 instead of の.
+    const hit: LookupHit = {
+      start: 0,
+      end: 1,
+      surface: "の",
+      results: [wr([["乃", ["sK"]], ["之", ["sK"]]], ["の"])],
+    };
+    expect(headwordFromHit(hit)).toEqual({
+      headword: "の",
+      reading: "の",
+    });
+  });
+
+  it("picks the first non-sK kanji when some forms are sK", () => {
+    const hit: LookupHit = {
+      start: 0,
+      end: 2,
+      surface: "貴方",
+      results: [
+        wr([["貴方", []], ["貴男", ["sK"]]], ["あなた"]),
+      ],
+    };
+    expect(headwordFromHit(hit)?.headword).toBe("貴方");
   });
 });

@@ -9,7 +9,11 @@ import {
 } from "react";
 import { useAuth } from "./AuthContext";
 import { getUserWordEncounters } from "../api/client";
-import { loadFrequencyIndex, lookupFrequencySync } from "../lib/frequency";
+import {
+  loadFrequencyIndex,
+  lookupFrequencyByCanonicalSync,
+  lookupFrequencySync,
+} from "../lib/frequency";
 
 interface VocabContextType {
   vocabEncounters: Map<string, number>;
@@ -54,6 +58,14 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   const getWordRank = useCallback(
     (headword: string): number | null => {
       if (!vocabEncountersLoaded) return null;
+      // Prefer the JMdict-entry-resolved rank — encounter stamps are the
+      // entry's canonical k[0]/r[0], so this picks up the entry's best
+      // variant (e.g. 貴方 → あなた's rank 121, not the rare 貴方 surface
+      // rank). Falls back to the surface-keyed lookup for stamps not covered
+      // by the by-entry index (entries without a JPDB rank, or stamps that
+      // don't correspond to a JMdict entry's canonical surface — rare).
+      const byEntry = lookupFrequencyByCanonicalSync(headword);
+      if (byEntry) return byEntry.rank;
       return lookupFrequencySync(headword, null).rank;
     },
     [vocabEncountersLoaded]
