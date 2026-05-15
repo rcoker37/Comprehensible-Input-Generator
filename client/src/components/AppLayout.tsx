@@ -61,7 +61,6 @@ export default function AppLayout() {
                 <nav className="nav">
                   <div className="nav-brand">読む練習</div>
                   <div className="nav-links">
-                    <NavLink to="/">Generate</NavLink>
                     <NavLink to="/stories">Compositions</NavLink>
                     <NavLink to="/stats">Stats</NavLink>
                     <NavLink to="/settings">Settings</NavLink>

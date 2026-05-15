@@ -203,17 +203,6 @@ h1 {
   color: var(--text-dim);
 }
 
-@media (max-width: 400px) {
-  .chip {
-    padding: 0.2rem 0.6rem;
-    font-size: 0.75rem;
-  }
-
-  .chip-group {
-    gap: 0.35rem;
-  }
-}
-
 .delete-btn {
   display: flex;
   align-items: center;
