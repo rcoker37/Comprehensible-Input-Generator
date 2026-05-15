@@ -12,6 +12,7 @@ import {
   surfaceReadingFromAnnotations,
   type FuriganaAnnotation,
 } from "./furigana";
+import { headwordFromHit } from "./headword";
 
 const MAX_LOOKUP_LEN = 16;
 
@@ -242,6 +243,117 @@ export async function lookupExactSpan(
     surface: text.slice(start, end),
     results: [],
   };
+}
+
+/**
+ * Enumerate every dictionary candidate for a span, used by the manual
+ * override UI to let the user pick which JMdict entry should win when the
+ * algorithm chose wrong (or to confirm the algorithm's choice).
+ *
+ * The returned list is the union of:
+ *   - every exact JMdict `WordResult` for the surface
+ *   - every deinflection candidate whose base has at least one
+ *     POS-compatible `WordResult`
+ *
+ * One `SpanCandidate` per `WordResult` — so a single span that has both
+ * homophone entries and a deinflection path produces multiple candidates.
+ * Exact matches come first, then deinflections, mirroring
+ * `lookupAtBoundary`'s preference order (except for the POS-hint verb
+ * preemption, which only affects which one the algorithm auto-picks).
+ */
+export interface SpanCandidate {
+  /** True iff this candidate came from a deinflection rule. */
+  deinflected: boolean;
+  /** JMdict lemma (the value that lands in `story_word_occurrences.headword`). */
+  headword: string;
+  /** Primary reading for the lemma, or null when the entry is kana-only. */
+  reading: string | null;
+  /** Deinflected base form when `deinflected`; otherwise undefined. */
+  base?: string;
+  /** Conjugation chain (e.g. ["polite", "past"]) when `deinflected`. */
+  derivations?: string[];
+  /** First sense's glosses joined with "; " — for display in the picker. */
+  primarySense: string;
+  /** First sense's POS tags. */
+  pos: string[];
+  /** JMdict entry id (used as a stable React key + tiebreaker). */
+  entryId: number;
+}
+
+export async function listSpanCandidates(
+  text: string,
+  start: number,
+  end: number,
+  annotations: FuriganaAnnotation[] = []
+): Promise<SpanCandidate[]> {
+  if (start < 0 || end <= start || end > text.length) return [];
+  const surface = text.slice(start, end);
+  const out: SpanCandidate[] = [];
+  const seenEntryIds = new Set<number>();
+
+  const exact = await lookupWord(surface);
+  for (const wr of exact) {
+    const synthHit: LookupHit = {
+      start,
+      end,
+      surface,
+      results: [wr],
+    };
+    const annotated = applyAnnotatedReading(synthHit, annotations);
+    const hw = headwordFromHit(annotated);
+    if (!hw) continue;
+    if (seenEntryIds.has(wr.id)) continue;
+    seenEntryIds.add(wr.id);
+    out.push({
+      deinflected: false,
+      headword: hw.headword,
+      reading: hw.reading,
+      primarySense: primarySenseText(wr),
+      pos: primarySensePos(wr),
+      entryId: wr.id,
+    });
+  }
+
+  for (const c of deinflect(surface)) {
+    const hits = await lookupWord(c.base);
+    const filtered = filterByPos(hits, c);
+    for (const wr of filtered) {
+      if (seenEntryIds.has(wr.id)) continue;
+      seenEntryIds.add(wr.id);
+      const synthHit: LookupHit = {
+        start,
+        end,
+        surface,
+        base: c.base,
+        derivations: c.derivations,
+        results: [wr],
+      };
+      const hw = headwordFromHit(synthHit);
+      if (!hw) continue;
+      out.push({
+        deinflected: true,
+        headword: hw.headword,
+        reading: hw.reading,
+        base: c.base,
+        derivations: c.derivations,
+        primarySense: primarySenseText(wr),
+        pos: primarySensePos(wr),
+        entryId: wr.id,
+      });
+    }
+  }
+
+  return out;
+}
+
+function primarySenseText(wr: WordResult): string {
+  const sense = wr.s?.[0];
+  if (!sense) return "";
+  return sense.g?.map((g) => g.str).join("; ") ?? "";
+}
+
+function primarySensePos(wr: WordResult): string[] {
+  return wr.s?.[0]?.pos ?? [];
 }
 
 /**

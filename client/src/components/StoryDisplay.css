@@ -2,6 +2,10 @@
   /* no card chrome — story flows on the page background */
 }
 
+.story-display__override-overlay {
+  margin-top: 1.5rem;
+}
+
 .story-header {
   display: flex;
   align-items: center;
@@ -120,6 +124,13 @@
   text-decoration-color: var(--accent);
   text-decoration-thickness: 2px;
   text-underline-offset: 0.18em;
+}
+
+/* Tokens in the active override region get a soft highlight so the user
+ * can see at a glance which span they're editing. */
+.word-token--in-override {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 2px;
 }
 
 .word-token:focus {

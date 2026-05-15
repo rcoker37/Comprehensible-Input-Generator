@@ -70,11 +70,37 @@ export type WordPopoverMode =
        */
       start: number;
       end: number;
+      /**
+       * Optional — when set, the popover does its JMdict lookup against this
+       * string instead of `cleanText.slice(start, end)`. Used when the parent
+       * already knows the canonical headword for the span (from
+       * `story_word_occurrences`), so manual override rows surface their
+       * stored headword instead of whatever the raw surface happens to be
+       * (which can be a deinflected form, or a typo like 野さい that has
+       * no entry of its own).
+       */
+      lookupHeadword?: string | null;
+      /**
+       * Optional — JMdict entry id the indexer chose for this span. The
+       * `lookupHeadword` redo-lookup has no POS context, so JMdict's natural
+       * ordering can put the wrong homophone first (ふる → フル instead of
+       * 降る, いく → 幾 instead of 行く). When this id is supplied, the
+       * popover hoists the matching `WordResult` to `results[0]` so
+       * `headwordFromHit` picks the entry the indexer actually pointed at.
+       */
+      lookupEntryId?: number | null;
       translations: StoryTranslations;
       onTranslationUpdated: (
         rangeKey: string,
         translation: SentenceTranslation
       ) => void;
+      /**
+       * Optional — when supplied, the popover renders an "Override" action
+       * that closes the popover and asks the parent to enter manual-override
+       * mode on the resolved hit span (which may differ from `start`/`end`
+       * if deinflection extended it).
+       */
+      onRequestOverride?: (start: number, end: number) => void;
     }
   | {
       kind: "headword";
@@ -236,6 +262,11 @@ export default function WordPopover({
   const tapAnnotations = mode.kind === "tap" ? mode.annotations : EMPTY_ANNOTATIONS;
   const tapTranslations = mode.kind === "tap" ? mode.translations : EMPTY_TRANSLATIONS;
   const onTranslationUpdated = mode.kind === "tap" ? mode.onTranslationUpdated : null;
+  const onRequestOverride = mode.kind === "tap" ? mode.onRequestOverride : null;
+  const lookupHeadword =
+    mode.kind === "tap" ? mode.lookupHeadword ?? null : null;
+  const lookupEntryId =
+    mode.kind === "tap" ? mode.lookupEntryId ?? null : null;
   const headwordParam = mode.kind === "headword" ? mode.headword : null;
   const [hit, setHit] = useState<LookupHit | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
@@ -320,28 +351,90 @@ export default function WordPopover({
   // user actually clicked. The kuromoji POS hint at `tapStart` is plumbed
   // through so the lookup can prefer verb deinflection over an unrelated noun
   // exact match (e.g. 「赤くなり、」 → なる, not なり).
+  //
+  // When `lookupHeadword` is supplied (e.g. a manual override row's stored
+  // lemma), we bypass the surface lookup entirely and dictionary-lookup the
+  // headword string directly. The resulting hit is re-anchored to the story
+  // span so the sentence snippet, record-lookup call, and carousel queries
+  // still use the offsets the user actually tapped.
   useEffect(() => {
     if (!open || !isTap) return;
     if (tapStart === null || tapEnd === null) return;
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    posHintAtOffset(tapCleanText, tapStart)
-      .catch(() => undefined)
-      .then((posHint) =>
-        lookupExactSpan(tapCleanText, tapStart, tapEnd, tapAnnotations, posHint)
-      )
-      .then((result) => {
-        if (cancelled) return;
-        setHit(result);
-      })
-      .finally(() => {
-        if (!cancelled) setLookingUp(false);
+    const surface = tapCleanText.slice(tapStart, tapEnd);
+    const finishWithReanchor = (
+      result: Awaited<ReturnType<typeof lookupExactSpan>>
+    ) => {
+      if (cancelled || !result) return;
+      // When the indexer stamped an entry id, hoist that JMdict result to
+      // position 0 so `headwordFromHit(hit)` picks the entry the indexer
+      // actually chose. Without this, `lookupExactSpan(headword)` runs with
+      // no POS hint and JMdict's natural ordering can surface the wrong
+      // homophone (ふる → フル, いく → 幾).
+      let results = result.results;
+      if (lookupEntryId !== null && results.length > 1) {
+        const idx = results.findIndex((r) => r.id === lookupEntryId);
+        if (idx > 0) {
+          const match = results[idx]!;
+          results = [match, ...results.slice(0, idx), ...results.slice(idx + 1)];
+        }
+      }
+      setHit({
+        ...result,
+        results,
+        start: tapStart,
+        end: tapEnd,
+        surface,
       });
+    };
+    if (lookupHeadword) {
+      void lookupExactSpan(
+        lookupHeadword,
+        0,
+        lookupHeadword.length,
+        [],
+        undefined
+      )
+        .then(finishWithReanchor)
+        .finally(() => {
+          if (!cancelled) setLookingUp(false);
+        });
+    } else {
+      posHintAtOffset(tapCleanText, tapStart)
+        .catch(() => undefined)
+        .then((posHint) =>
+          lookupExactSpan(
+            tapCleanText,
+            tapStart,
+            tapEnd,
+            tapAnnotations,
+            posHint
+          )
+        )
+        .then((result) => {
+          if (cancelled) return;
+          setHit(result);
+        })
+        .finally(() => {
+          if (!cancelled) setLookingUp(false);
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [open, isTap, tapStart, tapEnd, tapCleanText, tapAnnotations, dictState]);
+  }, [
+    open,
+    isTap,
+    tapStart,
+    tapEnd,
+    tapCleanText,
+    tapAnnotations,
+    lookupHeadword,
+    lookupEntryId,
+    dictState,
+  ]);
 
   // Headword-mode lookup: the headword string is its own "text" and span, so
   // we hit the dictionary directly for senses without needing a story.
@@ -922,6 +1015,21 @@ export default function WordPopover({
                             snippet.surfaceStart,
                             snippet.surfaceEnd
                           )}
+                        </div>
+                      )}
+                      {onRequestOverride && hit && activeCard.kind === "current" && (
+                        <div className="word-popover__override-row">
+                          <button
+                            type="button"
+                            className="word-popover__override-btn"
+                            onClick={() => {
+                              onRequestOverride(hit.start, hit.end);
+                              onOpenChange(false);
+                            }}
+                            title="Override this match — pick different word boundaries or a different dictionary entry"
+                          >
+                            Override match
+                          </button>
                         </div>
                       )}
                       <section className="word-popover__translation">
