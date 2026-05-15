@@ -176,7 +176,8 @@
 }
 
 .story-override__subspan-toggle,
-.story-override__subspan-clear {
+.story-override__subspan-clear,
+.story-override__subspan-name-btn {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-dim);
@@ -188,13 +189,58 @@
 }
 
 .story-override__subspan-toggle:hover:not(:disabled),
-.story-override__subspan-clear:hover:not(:disabled) {
+.story-override__subspan-clear:hover:not(:disabled),
+.story-override__subspan-name-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
 }
 
 .story-override__subspan-toggle:disabled,
-.story-override__subspan-clear:disabled {
+.story-override__subspan-clear:disabled,
+.story-override__subspan-name-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.story-override__subspan-name-tag {
+  font-size: 0.7rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  padding: 0 0.3rem;
+  margin-left: 0.4rem;
+}
+
+.story-override__subspan-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.2rem;
+}
+
+.story-override__subspan-name-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.story-override__subspan-name-input {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.story-override__subspan-name-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.story-override__subspan-name-input:disabled {
   cursor: not-allowed;
   opacity: 0.5;
 }

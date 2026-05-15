@@ -160,6 +160,7 @@ export type Database = {
           entry_id: number | null
           headword: string
           id: number
+          is_name: boolean
           manual: boolean
           reading: string | null
           start_offset: number
@@ -172,6 +173,7 @@ export type Database = {
           entry_id?: number | null
           headword: string
           id?: never
+          is_name?: boolean
           manual?: boolean
           reading?: string | null
           start_offset: number
@@ -184,6 +186,7 @@ export type Database = {
           entry_id?: number | null
           headword?: string
           id?: never
+          is_name?: boolean
           manual?: boolean
           reading?: string | null
           start_offset?: number

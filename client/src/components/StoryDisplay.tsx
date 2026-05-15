@@ -70,6 +70,8 @@ export default function StoryDisplay({
     el: HTMLElement;
     lookupHeadword: string | null;
     lookupEntryId: number | null;
+    lookupIsName: boolean;
+    lookupReading: string | null;
   } | null>(null);
   const [titleTap, setTitleTap] = useState<{
     headword: string;
@@ -255,7 +257,12 @@ export default function StoryDisplay({
   const lookupBySpan = useMemo(() => {
     const map = new Map<
       string,
-      { headword: string; entryId: number | null }
+      {
+        headword: string;
+        entryId: number | null;
+        isName: boolean;
+        reading: string | null;
+      }
     >();
     if (occurrences) {
       for (const o of occurrences) {
@@ -263,6 +270,8 @@ export default function StoryDisplay({
         map.set(`${o.start}-${o.end}`, {
           headword: o.headword,
           entryId: o.entryId,
+          isName: o.isName,
+          reading: o.reading,
         });
       }
     }
@@ -312,6 +321,8 @@ export default function StoryDisplay({
       el: e.currentTarget,
       lookupHeadword: entry?.headword ?? null,
       lookupEntryId: entry?.entryId ?? null,
+      lookupIsName: entry?.isName ?? false,
+      lookupReading: entry?.reading ?? null,
     });
   };
 
@@ -607,6 +618,8 @@ export default function StoryDisplay({
           end: activeTap?.end ?? 0,
           lookupHeadword: activeTap?.lookupHeadword ?? null,
           lookupEntryId: activeTap?.lookupEntryId ?? null,
+          lookupIsName: activeTap?.lookupIsName ?? false,
+          lookupReading: activeTap?.lookupReading ?? null,
           translations,
           onTranslationUpdated: handleTranslationUpdated,
           onRequestOverride: (start, end) => {

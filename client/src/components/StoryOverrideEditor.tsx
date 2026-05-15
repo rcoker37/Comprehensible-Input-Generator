@@ -30,11 +30,34 @@ interface Subspan {
 interface CandidatesState {
   loading: boolean;
   candidates: SpanCandidate[];
+  mode: "dictionary" | "name";
+  // Candidate index when mode='dictionary'; null = "skip" (algorithm fills in).
   selected: number | null;
+  // User-typed reading when mode='name'. Pre-filled from any ruby annotation
+  // that exactly covers the sub-span so kanji names like 田中《たなか》 don't
+  // require re-typing the reading.
+  nameReading: string;
 }
 
 function subspanKey(start: number, end: number): string {
   return `${start}-${end}`;
+}
+
+// Pre-fill the name reading from any ruby annotation that exactly covers
+// the sub-span. Covers the common case where the LLM annotated a name
+// (田中《たなか》) but the indexer regrouped it incorrectly — the reading
+// is already in the annotations, so the user doesn't have to retype it.
+function initialNameReading(
+  annotations: FuriganaAnnotation[],
+  start: number,
+  end: number,
+  surface: string
+): string {
+  const exact = annotations.find((a) => a.start === start && a.end === end);
+  if (exact) return exact.reading;
+  // All-kana surface: the surface is the reading.
+  if (!/[一-鿿]/.test(surface)) return surface;
+  return "";
 }
 
 function deriveSubspans(
@@ -107,7 +130,13 @@ export default function StoryOverrideEditor({
       setCandidatesBySpan((prev) => {
         if (prev.has(key)) return prev;
         const next = new Map(prev);
-        next.set(key, { loading: true, candidates: [], selected: null });
+        next.set(key, {
+          loading: true,
+          candidates: [],
+          mode: "dictionary",
+          selected: null,
+          nameReading: initialNameReading(annotations, s.start, s.end, s.surface),
+        });
         return next;
       });
       void listSpanCandidates(cleanText, s.start, s.end, annotations).then(
@@ -118,6 +147,7 @@ export default function StoryOverrideEditor({
             if (!cur || !cur.loading) return prev;
             const next = new Map(prev);
             next.set(key, {
+              ...cur,
               loading: false,
               candidates: cands,
               selected: cands.length > 0 ? 0 : null,
@@ -183,7 +213,7 @@ export default function StoryOverrideEditor({
       const cur = prev.get(key);
       if (!cur) return prev;
       const next = new Map(prev);
-      next.set(key, { ...cur, selected: index });
+      next.set(key, { ...cur, mode: "dictionary", selected: index });
       return next;
     });
   };
@@ -194,7 +224,29 @@ export default function StoryOverrideEditor({
       const cur = prev.get(key);
       if (!cur) return prev;
       const next = new Map(prev);
-      next.set(key, { ...cur, selected: null });
+      next.set(key, { ...cur, mode: "dictionary", selected: null });
+      return next;
+    });
+  };
+
+  const handleEnterNameMode = (subspan: Subspan) => {
+    const key = subspanKey(subspan.start, subspan.end);
+    setCandidatesBySpan((prev) => {
+      const cur = prev.get(key);
+      if (!cur) return prev;
+      const next = new Map(prev);
+      next.set(key, { ...cur, mode: "name" });
+      return next;
+    });
+  };
+
+  const handleNameReadingChange = (subspan: Subspan, reading: string) => {
+    const key = subspanKey(subspan.start, subspan.end);
+    setCandidatesBySpan((prev) => {
+      const cur = prev.get(key);
+      if (!cur) return prev;
+      const next = new Map(prev);
+      next.set(key, { ...cur, nameReading: reading });
       return next;
     });
   };
@@ -202,9 +254,13 @@ export default function StoryOverrideEditor({
   const anyLoading = subspans.some(
     (s) => candidatesBySpan.get(subspanKey(s.start, s.end))?.loading
   );
-  const anySelected = subspans.some(
-    (s) => candidatesBySpan.get(subspanKey(s.start, s.end))?.selected !== null
-  );
+  // Name mode always counts as "selected" (the row is saved with the user's
+  // reading, even when empty — kanji-only names with an unknown reading still
+  // benefit from being marked so the popover stops trying to look them up).
+  const anySelected = subspans.some((s) => {
+    const st = candidatesBySpan.get(subspanKey(s.start, s.end));
+    return !!st && (st.mode === "name" || st.selected !== null);
+  });
   const canSave = !saving && !anyLoading && anySelected;
 
   const handleSave = async () => {
@@ -212,7 +268,20 @@ export default function StoryOverrideEditor({
     const overrides: WordOverride[] = [];
     for (const s of subspans) {
       const state = candidatesBySpan.get(subspanKey(s.start, s.end));
-      if (!state || state.selected === null) continue;
+      if (!state) continue;
+      if (state.mode === "name") {
+        overrides.push({
+          start: s.start,
+          end: s.end,
+          surface: s.surface,
+          headword: s.surface,
+          reading: state.nameReading,
+          entryId: null,
+          isName: true,
+        });
+        continue;
+      }
+      if (state.selected === null) continue;
       const cand = state.candidates[state.selected];
       if (!cand) continue;
       overrides.push({
@@ -222,6 +291,7 @@ export default function StoryOverrideEditor({
         headword: cand.headword,
         reading: cand.reading ?? "",
         entryId: cand.entryId,
+        isName: false,
       });
     }
     setSaving(true);
@@ -326,6 +396,8 @@ export default function StoryOverrideEditor({
               state={state}
               onSelect={(idx) => handleSelect(s, idx)}
               onClear={() => handleClearSelection(s)}
+              onEnterNameMode={() => handleEnterNameMode(s)}
+              onNameReadingChange={(r) => handleNameReadingChange(s, r)}
               disabled={saving}
             />
           );
@@ -363,6 +435,8 @@ interface SubspanPanelProps {
   state: CandidatesState | undefined;
   onSelect: (index: number) => void;
   onClear: () => void;
+  onEnterNameMode: () => void;
+  onNameReadingChange: (reading: string) => void;
   disabled: boolean;
 }
 
@@ -371,6 +445,8 @@ function SubspanPanel({
   state,
   onSelect,
   onClear,
+  onEnterNameMode,
+  onNameReadingChange,
   disabled,
 }: SubspanPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -386,14 +462,43 @@ function SubspanPanel({
     );
   }
 
+  const isNameMode = state.mode === "name";
   const selected =
-    state.selected !== null ? state.candidates[state.selected] : null;
+    !isNameMode && state.selected !== null
+      ? state.candidates[state.selected]
+      : null;
   const hasCandidates = state.candidates.length > 0;
 
   return (
     <div className="story-override__subspan">
       <div className="story-override__subspan-surface">{subspan.surface}</div>
-      {selected ? (
+      {isNameMode ? (
+        <div className="story-override__subspan-selected">
+          <div className="story-override__subspan-headword">
+            {state.nameReading && state.nameReading !== subspan.surface ? (
+              <ruby>
+                {subspan.surface}
+                <rt>{state.nameReading}</rt>
+              </ruby>
+            ) : (
+              subspan.surface
+            )}
+            <span className="story-override__subspan-name-tag">name</span>
+          </div>
+          <label className="story-override__subspan-name-row">
+            <span className="story-override__subspan-name-label">Reading</span>
+            <input
+              type="text"
+              className="story-override__subspan-name-input"
+              value={state.nameReading}
+              onChange={(e) => onNameReadingChange(e.target.value)}
+              placeholder="e.g. たなか"
+              disabled={disabled}
+              autoFocus
+            />
+          </label>
+        </div>
+      ) : selected ? (
         <div className="story-override__subspan-selected">
           <div className="story-override__subspan-headword">
             {selected.reading && selected.reading !== selected.headword ? (
@@ -430,7 +535,7 @@ function SubspanPanel({
         </div>
       )}
       <div className="story-override__subspan-controls">
-        {hasCandidates && (
+        {!isNameMode && hasCandidates && (
           <button
             type="button"
             className="story-override__subspan-toggle"
@@ -440,19 +545,34 @@ function SubspanPanel({
             {expanded ? "Hide" : `Choose (${state.candidates.length})`}
           </button>
         )}
-        {selected && (
+        {!isNameMode && (
+          <button
+            type="button"
+            className="story-override__subspan-name-btn"
+            onClick={onEnterNameMode}
+            disabled={disabled}
+            title="Match this span as a name (proper noun) — skips JMdict lookup"
+          >
+            Match as name
+          </button>
+        )}
+        {(isNameMode || selected) && (
           <button
             type="button"
             className="story-override__subspan-clear"
             onClick={onClear}
             disabled={disabled}
-            title="Don't write a manual row for this sub-span (let the algorithm decide)"
+            title={
+              isNameMode
+                ? "Exit name mode — let the algorithm decide instead"
+                : "Don't write a manual row for this sub-span (let the algorithm decide)"
+            }
           >
             Skip
           </button>
         )}
       </div>
-      {expanded && hasCandidates && (
+      {!isNameMode && expanded && hasCandidates && (
         <ul className="story-override__candidate-list">
           {state.candidates.map((c, i) => (
             <li key={`${c.entryId}-${i}`}>

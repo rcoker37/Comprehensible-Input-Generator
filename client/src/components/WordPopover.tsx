@@ -89,6 +89,20 @@ export type WordPopoverMode =
        * `headwordFromHit` picks the entry the indexer actually pointed at.
        */
       lookupEntryId?: number | null;
+      /**
+       * Optional — when true, the tapped occurrence is a manual "match as
+       * name" row. The popover skips the JMdict lookup entirely (no senses,
+       * no frequency) and renders a Name header with `lookupReading` as the
+       * furigana. Other usages of the same surface still load via the
+       * carousel — encounter counts and the usages list both key off
+       * `lookupHeadword` (which equals the surface for name rows).
+       */
+      lookupIsName?: boolean;
+      /**
+       * Optional — the user-supplied reading saved with a name row. Drives
+       * the ruby on the sticky header when `lookupIsName` is true.
+       */
+      lookupReading?: string | null;
       translations: StoryTranslations;
       onTranslationUpdated: (
         rangeKey: string,
@@ -267,6 +281,10 @@ export default function WordPopover({
     mode.kind === "tap" ? mode.lookupHeadword ?? null : null;
   const lookupEntryId =
     mode.kind === "tap" ? mode.lookupEntryId ?? null : null;
+  const lookupIsName =
+    mode.kind === "tap" ? mode.lookupIsName ?? false : false;
+  const lookupReading =
+    mode.kind === "tap" ? mode.lookupReading ?? null : null;
   const headwordParam = mode.kind === "headword" ? mode.headword : null;
   const [hit, setHit] = useState<LookupHit | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
@@ -320,7 +338,16 @@ export default function WordPopover({
   const role = useRole(context, { role: "dialog" });
   const { getFloatingProps } = useInteractions([dismiss, role]);
 
-  const headword = useMemo(() => (hit ? headwordFromHit(hit) : null), [hit]);
+  // In name mode, the displayed headword + reading come straight from the
+  // override row — we never look up JMdict for names, so there's no `hit` to
+  // derive from. Downstream effects (encounters, usages) key off this same
+  // shape so they don't have to special-case name mode.
+  const headword = useMemo(() => {
+    if (lookupIsName && lookupHeadword) {
+      return { headword: lookupHeadword, reading: lookupReading };
+    }
+    return hit ? headwordFromHit(hit) : null;
+  }, [lookupIsName, lookupHeadword, lookupReading, hit]);
 
   // Reset transient UI state when we open against a different tap point or
   // headword. Re-keys on whichever identity is active for the current mode.
@@ -364,6 +391,20 @@ export default function WordPopover({
     let cancelled = false;
     setLookingUp(true);
     const surface = tapCleanText.slice(tapStart, tapEnd);
+    // Name mode skips the JMdict lookup entirely — JMdict has nothing useful
+    // to say about proper nouns. We still need a `hit` for the carousel
+    // (cards key off hit.surface / hit.start / hit.end), so we synthesise an
+    // empty-results LookupHit anchored at the tap span.
+    if (lookupIsName) {
+      setHit({
+        start: tapStart,
+        end: tapEnd,
+        surface,
+        results: [],
+      });
+      setLookingUp(false);
+      return;
+    }
     const finishWithReanchor = (
       result: Awaited<ReturnType<typeof lookupExactSpan>>
     ) => {
@@ -433,6 +474,7 @@ export default function WordPopover({
     tapAnnotations,
     lookupHeadword,
     lookupEntryId,
+    lookupIsName,
     dictState,
   ]);
 
@@ -495,6 +537,13 @@ export default function WordPopover({
       setFrequency(null);
       return;
     }
+    // Names have no JMdict entry id and no meaningful JPDB rank — skip the
+    // lookup and let the sticky header render a Name badge instead.
+    if (lookupIsName) {
+      setFrequency(null);
+      setFrequencyLoading(false);
+      return;
+    }
     let cancelled = false;
     const entryId = hit.results[0]?.id ?? null;
     const finish = (res: BestFrequencyResult) => {
@@ -527,7 +576,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, hit, headword]);
+  }, [open, hit, headword, lookupIsName]);
 
   // Total read-count-weighted encounters for the headword across the user's
   // read stories. Same shape as kanji exposures — every read of a story
@@ -889,20 +938,29 @@ export default function WordPopover({
                     ) : (
                       <span className="word-popover__surface">{stickyHeadword}</span>
                     )}
-                    {frequency && (
+                    {lookupIsName ? (
                       <span
-                        className={`word-popover__freq word-popover__freq--${frequency.tier}`}
-                        title="JPDB frequency"
+                        className="word-popover__name-badge"
+                        title="Manually marked as a name (proper noun)"
                       >
-                        <span className="word-popover__freq-badge">
-                          {TIER_LABEL[frequency.tier]}
-                        </span>
-                        {frequency.rank !== null && (
-                          <span className="word-popover__freq-rank">
-                            #{frequency.rank.toLocaleString()}
-                          </span>
-                        )}
+                        Name
                       </span>
+                    ) : (
+                      frequency && (
+                        <span
+                          className={`word-popover__freq word-popover__freq--${frequency.tier}`}
+                          title="JPDB frequency"
+                        >
+                          <span className="word-popover__freq-badge">
+                            {TIER_LABEL[frequency.tier]}
+                          </span>
+                          {frequency.rank !== null && (
+                            <span className="word-popover__freq-rank">
+                              #{frequency.rank.toLocaleString()}
+                            </span>
+                          )}
+                        </span>
+                      )
                     )}
                     {encounters !== null && (
                       <span
@@ -915,13 +973,19 @@ export default function WordPopover({
                     )}
                   </header>
                   <section className="word-popover__senses">
-                    <SenseSection
-                      state={dictState}
-                      hit={hit}
-                      lookingUp={lookingUp}
-                      showAll={showAllSenses}
-                      onToggleShowAll={() => setShowAllSenses((s) => !s)}
-                    />
+                    {lookupIsName ? (
+                      <div className="word-popover__name-note">
+                        Proper noun — no dictionary entry.
+                      </div>
+                    ) : (
+                      <SenseSection
+                        state={dictState}
+                        hit={hit}
+                        lookingUp={lookingUp}
+                        showAll={showAllSenses}
+                        onToggleShowAll={() => setShowAllSenses((s) => !s)}
+                      />
+                    )}
                   </section>
                   {stickyKanjiChars.length > 0 && (
                     <section className="word-popover__kanji">
