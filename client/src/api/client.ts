@@ -520,6 +520,13 @@ export interface WordOverride {
    * but has no entry to hoist).
    */
   entryId: number | null;
+  /**
+   * True when the user chose "match as name" in the override editor —
+   * the span is a proper noun (person, place, etc.) that JMdict would
+   * not match. The popover renders a Name header instead of running a
+   * dictionary lookup that would only produce false matches.
+   */
+  isName: boolean;
 }
 
 /**
@@ -536,6 +543,7 @@ export interface StoryOccurrence {
   reading: string | null;
   entryId: number | null;
   manual: boolean;
+  isName: boolean;
 }
 
 export async function getStoryOccurrences(
@@ -543,7 +551,7 @@ export async function getStoryOccurrences(
 ): Promise<StoryOccurrence[]> {
   const { data, error } = await supabase
     .from("story_word_occurrences")
-    .select("start_offset, end_offset, surface, headword, reading, entry_id, manual")
+    .select("start_offset, end_offset, surface, headword, reading, entry_id, manual, is_name")
     .eq("story_id", storyId)
     .order("start_offset", { ascending: true });
   if (error) throw new Error(error.message);
@@ -555,6 +563,7 @@ export async function getStoryOccurrences(
     reading: r.reading,
     entryId: r.entry_id,
     manual: r.manual,
+    isName: r.is_name,
   }));
 }
 
