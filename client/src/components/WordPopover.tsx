@@ -6,16 +6,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  useFloating,
-  useDismiss,
-  useRole,
-  useInteractions,
-  FloatingPortal,
-  FloatingFocusManager,
-  FloatingOverlay,
-} from "@floating-ui/react";
 import { Link } from "react-router-dom";
+import Modal from "./Modal";
 import { useDictionary } from "../contexts/DictionaryContext";
 import {
   getWordEncounters,
@@ -123,7 +115,6 @@ export type WordPopoverMode =
 
 interface WordPopoverProps {
   mode: WordPopoverMode;
-  referenceEl: HTMLElement | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -261,7 +252,6 @@ function formatStoryDate(iso: string): string {
 
 export default function WordPopover({
   mode,
-  referenceEl,
   open,
   onOpenChange,
 }: WordPopoverProps) {
@@ -324,19 +314,8 @@ export default function WordPopover({
   const [encountersLoading, setEncountersLoading] = useState(false);
   const [frequencyLoading, setFrequencyLoading] = useState(false);
   const cardScrollRef = useRef<HTMLDivElement | null>(null);
-  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   // Touch swipe tracking on the card area.
   const touchStartXRef = useRef<number | null>(null);
-
-  const { refs, context } = useFloating({
-    open,
-    onOpenChange,
-    elements: { reference: referenceEl },
-  });
-
-  const dismiss = useDismiss(context, { outsidePress: false });
-  const role = useRole(context, { role: "dialog" });
-  const { getFloatingProps } = useInteractions([dismiss, role]);
 
   // In name mode, the displayed headword + reading come straight from the
   // override row — we never look up JMdict for names, so there's no `hit` to
@@ -870,7 +849,7 @@ export default function WordPopover({
     setTranslationRequested(false);
   }, [cardIndex]);
 
-  if (!open || !referenceEl) return null;
+  if (!open) return null;
 
   // Prefer the most-frequent orthography variant from JPDB (e.g. お供え rather
   // than the canonical k[0] 御供え) so the displayed form matches what the
@@ -884,270 +863,243 @@ export default function WordPopover({
   const showCarouselNav = cards.length > 1;
 
   return (
-    <FloatingPortal>
-      <FloatingOverlay className="word-popover__backdrop" lockScroll>
-        <FloatingFocusManager context={context} modal={true} initialFocus={closeBtnRef}>
-          <div
-            ref={refs.setFloating}
-            style={{
-              position: "fixed",
-              top: "50%",
-              left: "50%",
-              transform: "translate(-50%, -50%)",
-            }}
-            className="word-popover"
-            {...getFloatingProps()}
-          >
-            <button
-              ref={closeBtnRef}
-              type="button"
-              className="word-popover__close"
-              onClick={() => onOpenChange(false)}
-              title="Close"
-              aria-label="Close"
-            >
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
-                <path d="M3 3l10 10" />
-                <path d="M13 3L3 13" />
-              </svg>
-            </button>
-            {!contentReady ? (
-              <div className="word-popover__loading">
-                Loading<AnimatedDots />
-              </div>
-            ) : activeKanji ? (
-              <div className="word-popover__body">
-                <KanjiInlineDetail
-                  char={activeKanji}
-                  initialRow={activeKanjiRow ?? undefined}
-                  onBack={() => {
-                    setActiveKanji(null);
-                    setActiveKanjiRow(null);
-                  }}
-                />
-              </div>
-            ) : (
-              <>
-                <div className="word-popover__sticky">
-                  <header className="word-popover__header">
-                    {stickyReading && stickyHeadword !== stickyReading ? (
-                      <ruby className="word-popover__surface">
-                        {stickyHeadword}
-                        <rt>{stickyReading}</rt>
-                      </ruby>
-                    ) : (
-                      <span className="word-popover__surface">{stickyHeadword}</span>
-                    )}
-                    {lookupIsName ? (
-                      <span
-                        className="word-popover__name-badge"
-                        title="Manually marked as a name (proper noun)"
-                      >
-                        Name
-                      </span>
-                    ) : (
-                      frequency && (
-                        <span
-                          className={`word-popover__freq word-popover__freq--${frequency.tier}`}
-                          title="JPDB frequency"
-                        >
-                          <span className="word-popover__freq-badge">
-                            {TIER_LABEL[frequency.tier]}
-                          </span>
-                          {frequency.rank !== null && (
-                            <span className="word-popover__freq-rank">
-                              #{frequency.rank.toLocaleString()}
-                            </span>
-                          )}
-                        </span>
-                      )
-                    )}
-                    {encounters !== null && (
-                      <span
-                        className="word-popover__encounters"
-                        title="Total reads across your read stories (re-reads counted)"
-                      >
-                        {encounters.toLocaleString()}{" "}
-                        {encounters === 1 ? "encounter" : "encounters"}
-                      </span>
-                    )}
-                  </header>
-                  <section className="word-popover__senses">
-                    {lookupIsName ? (
-                      <div className="word-popover__name-note">
-                        Proper noun — no dictionary entry.
-                      </div>
-                    ) : (
-                      <SenseSection
-                        state={dictState}
-                        hit={hit}
-                        lookingUp={lookingUp}
-                        showAll={showAllSenses}
-                        onToggleShowAll={() => setShowAllSenses((s) => !s)}
-                      />
-                    )}
-                  </section>
-                  {stickyKanjiChars.length > 0 && (
-                    <section className="word-popover__kanji">
-                      {stickyKanjiChars.map((ch) => (
-                        <button
-                          key={ch}
-                          type="button"
-                          className={`word-popover__kanji-chip${
-                            loadingKanji === ch ? " is-loading" : ""
-                          }`}
-                          onClick={() => handleKanjiClick(ch)}
-                          disabled={loadingKanji !== null}
-                        >
-                          {ch}
-                        </button>
-                      ))}
-                    </section>
-                  )}
-                </div>
-
-                {showCarouselNav && activeCard && (
-                  <nav className="word-popover__nav" aria-label="Other usages">
-                    <button
-                      type="button"
-                      className="word-popover__nav-arrow"
-                      onClick={() => goToCard(cardIndex - 1)}
-                      disabled={cardIndex === 0}
-                      aria-label="Previous usage"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M10 3L5 8l5 5" />
-                      </svg>
-                    </button>
-                    <div className="word-popover__nav-meta">
-                      {activeCard.storyId === tapStoryId ? (
-                        <span className="word-popover__nav-title">This story</span>
-                      ) : (
-                        <>
-                          <Link
-                            to={`/stories/${activeCard.storyId}`}
-                            className="word-popover__nav-title word-popover__nav-title--link"
-                            onClick={() => onOpenChange(false)}
-                          >
-                            {stripAnnotations(stripBold(activeCard.storyTitle ?? ""))}
-                          </Link>
-                          {activeCard.storyCreatedAt && (
-                            <span className="word-popover__nav-date">
-                              {formatStoryDate(activeCard.storyCreatedAt)}
-                            </span>
-                          )}
-                        </>
-                      )}
-                      <span className="word-popover__nav-indicator">
-                        {cardIndex + 1} / {cards.length}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="word-popover__nav-arrow"
-                      onClick={() => goToCard(cardIndex + 1)}
-                      disabled={cardIndex === cards.length - 1}
-                      aria-label="Next usage"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M6 3l5 5-5 5" />
-                      </svg>
-                    </button>
-                  </nav>
+    <Modal open={true} onClose={() => onOpenChange(false)} className="word-popover">
+      <div className="word-popover__inner">
+        {!contentReady ? (
+          <div className="word-popover__loading">
+            Loading<AnimatedDots />
+          </div>
+        ) : activeKanji ? (
+          <div className="word-popover__body">
+            <KanjiInlineDetail
+              char={activeKanji}
+              initialRow={activeKanjiRow ?? undefined}
+              onBack={() => {
+                setActiveKanji(null);
+                setActiveKanjiRow(null);
+              }}
+            />
+          </div>
+        ) : (
+          <>
+            <div className="word-popover__sticky">
+              <header className="word-popover__header">
+                {stickyReading && stickyHeadword !== stickyReading ? (
+                  <ruby className="word-popover__surface">
+                    {stickyHeadword}
+                    <rt>{stickyReading}</rt>
+                  </ruby>
+                ) : (
+                  <span className="word-popover__surface">{stickyHeadword}</span>
                 )}
+                {lookupIsName ? (
+                  <span
+                    className="word-popover__name-badge"
+                    title="Manually marked as a name (proper noun)"
+                  >
+                    Name
+                  </span>
+                ) : (
+                  frequency && (
+                    <span
+                      className={`word-popover__freq word-popover__freq--${frequency.tier}`}
+                      title="JPDB frequency"
+                    >
+                      <span className="word-popover__freq-badge">
+                        {TIER_LABEL[frequency.tier]}
+                      </span>
+                      {frequency.rank !== null && (
+                        <span className="word-popover__freq-rank">
+                          #{frequency.rank.toLocaleString()}
+                        </span>
+                      )}
+                    </span>
+                  )
+                )}
+                {encounters !== null && (
+                  <span
+                    className="word-popover__encounters"
+                    title="Total reads across your read stories (re-reads counted)"
+                  >
+                    {encounters.toLocaleString()}{" "}
+                    {encounters === 1 ? "encounter" : "encounters"}
+                  </span>
+                )}
+              </header>
+              <section className="word-popover__senses">
+                {lookupIsName ? (
+                  <div className="word-popover__name-note">
+                    Proper noun — no dictionary entry.
+                  </div>
+                ) : (
+                  <SenseSection
+                    state={dictState}
+                    hit={hit}
+                    lookingUp={lookingUp}
+                    showAll={showAllSenses}
+                    onToggleShowAll={() => setShowAllSenses((s) => !s)}
+                  />
+                )}
+              </section>
+              {stickyKanjiChars.length > 0 && (
+                <section className="word-popover__kanji">
+                  {stickyKanjiChars.map((ch) => (
+                    <button
+                      key={ch}
+                      type="button"
+                      className={`word-popover__kanji-chip${
+                        loadingKanji === ch ? " is-loading" : ""
+                      }`}
+                      onClick={() => handleKanjiClick(ch)}
+                      disabled={loadingKanji !== null}
+                    >
+                      {ch}
+                    </button>
+                  ))}
+                </section>
+              )}
+            </div>
 
-                <div
-                  ref={cardScrollRef}
-                  className="word-popover__card"
-                  onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
+            {showCarouselNav && activeCard && (
+              <nav className="word-popover__nav" aria-label="Other usages">
+                <button
+                  type="button"
+                  className="word-popover__nav-arrow"
+                  onClick={() => goToCard(cardIndex - 1)}
+                  disabled={cardIndex === 0}
+                  aria-label="Previous usage"
                 >
-                  {activeCard && (
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M10 3L5 8l5 5" />
+                  </svg>
+                </button>
+                <div className="word-popover__nav-meta">
+                  {activeCard.storyId === tapStoryId ? (
+                    <span className="word-popover__nav-title">This story</span>
+                  ) : (
                     <>
-                      {activeCard.base &&
-                        activeCard.derivations &&
-                        activeCard.derivations.length > 0 && (
-                          <div className="word-popover__inflection">
-                            {activeCard.derivations.join(" → ")}
-                          </div>
-                        )}
-                      {snippet && (
-                        <div className="word-popover__snippet">
-                          {renderSnippet(
-                            snippet.text,
-                            snippet.annotations,
-                            snippet.surfaceStart,
-                            snippet.surfaceEnd
-                          )}
-                        </div>
+                      <Link
+                        to={`/stories/${activeCard.storyId}`}
+                        className="word-popover__nav-title word-popover__nav-title--link"
+                        onClick={() => onOpenChange(false)}
+                      >
+                        {stripAnnotations(stripBold(activeCard.storyTitle ?? ""))}
+                      </Link>
+                      {activeCard.storyCreatedAt && (
+                        <span className="word-popover__nav-date">
+                          {formatStoryDate(activeCard.storyCreatedAt)}
+                        </span>
                       )}
-                      {onRequestOverride && hit && activeCard.kind === "current" && (
-                        <div className="word-popover__override-row">
-                          <button
-                            type="button"
-                            className="word-popover__override-btn"
-                            onClick={() => {
-                              onRequestOverride(hit.start, hit.end);
-                              onOpenChange(false);
-                            }}
-                            title="Override this match — pick different word boundaries or a different dictionary entry"
-                          >
-                            Override match
-                          </button>
-                        </div>
-                      )}
-                      <section className="word-popover__translation">
-                        {cachedTranslation && !translationRegenerating ? (
-                          <>
-                            <div className="word-popover__translation-text">
-                              {cachedTranslation.text}
-                            </div>
-                            <button
-                              type="button"
-                              className="word-popover__regenerate"
-                              onClick={handleRegenerate}
-                              disabled={translationPending}
-                            >
-                              ↻ Regenerate
-                            </button>
-                          </>
-                        ) : translationError ? (
-                          <>
-                            <div className="word-popover__error">
-                              {translationError}
-                            </div>
-                            <button
-                              type="button"
-                              className="word-popover__regenerate"
-                              onClick={handleRegenerate}
-                              disabled={translationPending}
-                            >
-                              ↻ Retry
-                            </button>
-                          </>
-                        ) : translationPending ? (
-                          <div className="word-popover__translation-loading">
-                            Translating<AnimatedDots />
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className="word-popover__translate-btn"
-                            onClick={handleTranslate}
-                          >
-                            AI Translation
-                          </button>
-                        )}
-                      </section>
                     </>
                   )}
+                  <span className="word-popover__nav-indicator">
+                    {cardIndex + 1} / {cards.length}
+                  </span>
                 </div>
-              </>
+                <button
+                  type="button"
+                  className="word-popover__nav-arrow"
+                  onClick={() => goToCard(cardIndex + 1)}
+                  disabled={cardIndex === cards.length - 1}
+                  aria-label="Next usage"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M6 3l5 5-5 5" />
+                  </svg>
+                </button>
+              </nav>
             )}
-          </div>
-        </FloatingFocusManager>
-      </FloatingOverlay>
-    </FloatingPortal>
+
+            <div
+              ref={cardScrollRef}
+              className="word-popover__card"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
+              {activeCard && (
+                <>
+                  {activeCard.base &&
+                    activeCard.derivations &&
+                    activeCard.derivations.length > 0 && (
+                      <div className="word-popover__inflection">
+                        {activeCard.derivations.join(" → ")}
+                      </div>
+                    )}
+                  {snippet && (
+                    <div className="word-popover__snippet">
+                      {renderSnippet(
+                        snippet.text,
+                        snippet.annotations,
+                        snippet.surfaceStart,
+                        snippet.surfaceEnd
+                      )}
+                    </div>
+                  )}
+                  {onRequestOverride && hit && activeCard.kind === "current" && (
+                    <div className="word-popover__override-row">
+                      <button
+                        type="button"
+                        className="word-popover__override-btn"
+                        onClick={() => {
+                          onRequestOverride(hit.start, hit.end);
+                          onOpenChange(false);
+                        }}
+                        title="Override this match — pick different word boundaries or a different dictionary entry"
+                      >
+                        Override match
+                      </button>
+                    </div>
+                  )}
+                  <section className="word-popover__translation">
+                    {cachedTranslation && !translationRegenerating ? (
+                      <>
+                        <div className="word-popover__translation-text">
+                          {cachedTranslation.text}
+                        </div>
+                        <button
+                          type="button"
+                          className="word-popover__regenerate"
+                          onClick={handleRegenerate}
+                          disabled={translationPending}
+                        >
+                          ↻ Regenerate
+                        </button>
+                      </>
+                    ) : translationError ? (
+                      <>
+                        <div className="word-popover__error">
+                          {translationError}
+                        </div>
+                        <button
+                          type="button"
+                          className="word-popover__regenerate"
+                          onClick={handleRegenerate}
+                          disabled={translationPending}
+                        >
+                          ↻ Retry
+                        </button>
+                      </>
+                    ) : translationPending ? (
+                      <div className="word-popover__translation-loading">
+                        Translating<AnimatedDots />
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="word-popover__translate-btn"
+                        onClick={handleTranslate}
+                      >
+                        AI Translation
+                      </button>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
   );
 }
 

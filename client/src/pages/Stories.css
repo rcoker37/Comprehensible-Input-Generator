@@ -1,3 +1,37 @@
+.stories-page-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.stories-page-header h1 {
+  margin: 0;
+}
+
+.generate-open-btn {
+  padding: 0.5rem 1.25rem;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.generate-open-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.generate-open-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .story-list {
   display: flex;
   flex-direction: column;

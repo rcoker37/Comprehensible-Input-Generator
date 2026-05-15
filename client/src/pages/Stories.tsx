@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { deleteStory, updatePreferences } from "../api/client";
+import GenerationModal from "../components/GenerationModal";
+import { useGeneration } from "../contexts/GenerationContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
@@ -23,7 +25,9 @@ export default function Stories() {
     removeStory,
   } = useStories();
   const { profile } = useAuth();
+  const { loading: generating } = useGeneration();
   const saved = profile?.preferences?.stories;
+  const [modalOpen, setModalOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>(saved?.readFilter ?? "all");
   const [paragraphFilter, setParagraphFilter] = useState<ParagraphFilter>(saved?.paragraphFilter ?? "all");
@@ -141,7 +145,18 @@ export default function Stories() {
 
   return (
     <div className="stories-page">
-      <h1>Composition History</h1>
+      <div className="stories-page-header">
+        <h1>Composition History</h1>
+        <button
+          className="generate-open-btn"
+          onClick={() => setModalOpen(true)}
+          disabled={generating}
+          title={generating ? "Generation in progress…" : undefined}
+        >
+          {generating ? <>Generating<AnimatedDots /></> : "Generate"}
+        </button>
+      </div>
+      <GenerationModal open={modalOpen} onClose={() => setModalOpen(false)} />
       {error && <div className="error">{error}</div>}
       {stories.length > 0 && (
         <>
@@ -213,7 +228,7 @@ export default function Stories() {
         </>
       )}
       {stories.length === 0 ? (
-        <p className="empty">No compositions yet. Generate one from the home page!</p>
+        <p className="empty">No compositions yet. Use the Generate button above to create one.</p>
       ) : visibleStories.length === 0 ? (
         <p className="empty">No compositions match this filter.</p>
       ) : (

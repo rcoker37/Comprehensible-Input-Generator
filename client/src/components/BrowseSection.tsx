@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  FloatingPortal,
-  FloatingOverlay,
-  FloatingFocusManager,
-  useFloating,
-  useDismiss,
-  useRole,
-  useInteractions,
-} from "@floating-ui/react";
+import Modal from "./Modal";
 import { getAllKanji } from "../api/client";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
@@ -410,7 +402,6 @@ export default function BrowseSection() {
           kind: "headword",
           headword: activeHeadword?.headword ?? "",
         }}
-        referenceEl={activeHeadword?.el ?? null}
         open={activeHeadword !== null}
         onOpenChange={(open) => {
           if (!open) setActiveHeadword(null);
@@ -421,17 +412,6 @@ export default function BrowseSection() {
 }
 
 function KanjiModal({ kanji, onClose }: { kanji: Kanji; onClose: () => void }) {
-  const handleOpenChange = (open: boolean) => {
-    if (!open) onClose();
-  };
-  const { refs, context } = useFloating({
-    open: true,
-    onOpenChange: handleOpenChange,
-  });
-  const dismiss = useDismiss(context, { outsidePress: true });
-  const role = useRole(context, { role: "dialog" });
-  const { getFloatingProps } = useInteractions([dismiss, role]);
-
   const initialRow: KanjiRow = {
     character: kanji.character,
     grade: kanji.grade,
@@ -442,49 +422,14 @@ function KanjiModal({ kanji, onClose }: { kanji: Kanji; onClose: () => void }) {
   };
 
   return (
-    <FloatingPortal>
-      <FloatingOverlay className="browse-modal-backdrop" lockScroll>
-        <FloatingFocusManager context={context} modal initialFocus={-1}>
-          <div
-            // refs.setFloating is a floating-ui ref-callback, not a React
-            // useRef. The lint heuristic treats `refs.*` as a ref read but
-            // it's safe here — same pattern WordPopover uses.
-            // eslint-disable-next-line react-hooks/refs
-            ref={refs.setFloating}
-            className="browse-modal"
-            {...getFloatingProps()}
-          >
-            <button
-              type="button"
-              className="browse-modal-close"
-              onClick={onClose}
-              aria-label="Close"
-              title="Close"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M3 3l10 10" />
-                <path d="M13 3L3 13" />
-              </svg>
-            </button>
-            <div className="browse-modal-body">
-              <KanjiInlineDetail
-                char={kanji.character}
-                initialRow={initialRow}
-                onBack={onClose}
-              />
-            </div>
-          </div>
-        </FloatingFocusManager>
-      </FloatingOverlay>
-    </FloatingPortal>
+    <Modal open={true} onClose={onClose} className="browse-modal">
+      <div className="browse-modal-body">
+        <KanjiInlineDetail
+          char={kanji.character}
+          initialRow={initialRow}
+          onBack={onClose}
+        />
+      </div>
+    </Modal>
   );
 }
