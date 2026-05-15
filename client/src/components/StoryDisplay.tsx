@@ -22,7 +22,6 @@ import { regroupWords } from "../lib/regroupWords";
 import { applyOccurrences } from "../lib/applyOccurrences";
 import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
-import AnimatedDots from "./AnimatedDots";
 import type { SentenceTranslation, Story, StoryTranslations } from "../types";
 import "./StoryDisplay.css";
 
@@ -30,10 +29,11 @@ interface Props {
   story: Story;
   showLink?: boolean;
   // True when an external action (override save, reset, content edit)
-  // has nulled the word index and the backfill is re-stamping it. Drives
-  // the "Preparing story" loader. The parent owns this state because it
-  // also owns the post-backfill refetch that restores `word_index_at` —
-  // we'd otherwise leave popover taps disabled indefinitely.
+  // has nulled the word index and the backfill is re-stamping it. Adds
+  // the glassy loading overlay on top of the story text. The parent owns
+  // this state because it also owns the post-backfill refetch that
+  // restores `word_index_at` — we'd otherwise leave popover taps disabled
+  // indefinitely.
   regenerating?: boolean;
   // Called when StoryDisplay itself initiates a re-index (override save).
   // The parent flips its `regenerating` flag in response.
@@ -200,11 +200,9 @@ export default function StoryDisplay({
     };
   }, [story.id, story.word_index_at, backfillProcessing, occurrencesNonce]);
 
-  // Hold off rendering until kuromoji + JMdict have produced merged
-  // word-shaped tap targets — char-level baseline buttons reflow noticeably
-  // when the merged spans swap in, which is jarring. On dict load failure
-  // fall back to the baseline so the story stays readable (just without
-  // word-level taps).
+  // Merged word-shaped tap targets when ready; null while the kuromoji +
+  // JMdict regroup pass is still running. The loading overlay covers any
+  // visual reflow if we render the char-level baseline as a fallback.
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
       groupedState?.source === baseParagraphs
@@ -225,6 +223,18 @@ export default function StoryDisplay({
     cleanContent,
     rubyAnnotations,
   ]);
+
+  // Always have something to render so the glassy loading overlay has a
+  // backdrop. Falls back to the char-level baseline before the regroup pass
+  // completes; the overlay hides the reflow when merged spans swap in.
+  const displayParagraphs = paragraphs ?? baseParagraphs;
+
+  // Show the loading overlay whenever popover taps would not work usefully:
+  // the regroup pass hasn't produced word-shaped tap targets, the parent
+  // signalled a re-index is in flight, or the story hasn't been indexed /
+  // the backfill queue isn't drained.
+  const showLoadingOverlay =
+    paragraphs === null || regenerating || popoverDisabled;
 
   // Lookup map for tap-target headwords: when the tapped span has an
   // occurrence row, pass the row's headword to the popover so its JMdict
@@ -552,20 +562,19 @@ export default function StoryDisplay({
       <div
         className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
-        {paragraphs === null || regenerating ? (
-          <div className="story-content__loading">Preparing story<AnimatedDots /></div>
-        ) : (
-          <div className="story-paragraphs">
-            {paragraphs.map((para, pIdx) => (
-              <p key={pIdx} className="story-paragraph">
-                {para.sentences.map((sent) => (
-                  <span key={sent.start} className="story-sentence">
-                    {sent.parts.map((part, i) => renderPart(part, i))}
-                  </span>
-                ))}
-              </p>
-            ))}
-          </div>
+        <div className="story-paragraphs">
+          {displayParagraphs.map((para, pIdx) => (
+            <p key={pIdx} className="story-paragraph">
+              {para.sentences.map((sent) => (
+                <span key={sent.start} className="story-sentence">
+                  {sent.parts.map((part, i) => renderPart(part, i))}
+                </span>
+              ))}
+            </p>
+          ))}
+        </div>
+        {showLoadingOverlay && (
+          <div className="story-content__loading-overlay" aria-hidden="true" />
         )}
       </div>
       <WordPopover

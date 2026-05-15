@@ -105,6 +105,7 @@
 }
 
 .story-content {
+  position: relative;
   font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP",
     "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
   font-size: 1.25rem;
@@ -162,14 +163,49 @@
   cursor: default;
 }
 
-.story-content__loading {
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  letter-spacing: normal;
-  color: var(--text-dim);
-  font-style: italic;
-  padding: 1rem 0;
+.story-content__loading-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
+  backdrop-filter: blur(1.5px) saturate(120%);
+  -webkit-backdrop-filter: blur(1.5px) saturate(120%);
+  overflow: hidden;
+}
+
+/* Sweeping shimmer across the glass so the user reads it as "in progress"
+ * rather than a permanent disabled state. Wider-than-container gradient
+ * slid horizontally; the soft accent-tinted highlight is faint enough to
+ * stay readable behind it. */
+.story-content__loading-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 35%,
+    color-mix(in srgb, var(--accent) 18%, transparent) 50%,
+    transparent 65%
+  );
+  background-size: 220% 100%;
+  animation: story-loading-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes story-loading-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-content__loading-overlay::before {
+    animation: none;
+  }
 }
 
 .violations {
