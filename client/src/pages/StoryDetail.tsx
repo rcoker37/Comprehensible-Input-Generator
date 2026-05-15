@@ -32,7 +32,7 @@ export default function StoryDetail() {
   const [resettingOverrides, setResettingOverrides] = useState(false);
   // True when an override save / content edit / reset has nulled the
   // word index and we're waiting for the backfill to re-stamp it. Set
-  // eagerly in each handler so the "Preparing story" loader appears the
+  // eagerly in each handler so the glassy loading overlay appears the
   // moment the user clicks; cleared after we refetch the story (so
   // `word_index_at` is restored locally and the popover taps re-enable).
   const [regenerating, setRegenerating] = useState(false);

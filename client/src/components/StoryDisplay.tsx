@@ -10,7 +10,6 @@ import {
 } from "../api/client";
 import {
   parseAnnotatedText,
-  stripAnnotations,
   type FuriganaAnnotation,
 } from "../lib/furigana";
 import { stripBold } from "../lib/text";
@@ -23,7 +22,6 @@ import { regroupWords } from "../lib/regroupWords";
 import { applyOccurrences } from "../lib/applyOccurrences";
 import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
-import AnimatedDots from "./AnimatedDots";
 import type { SentenceTranslation, Story, StoryTranslations } from "../types";
 import "./StoryDisplay.css";
 
@@ -31,10 +29,11 @@ interface Props {
   story: Story;
   showLink?: boolean;
   // True when an external action (override save, reset, content edit)
-  // has nulled the word index and the backfill is re-stamping it. Drives
-  // the "Preparing story" loader. The parent owns this state because it
-  // also owns the post-backfill refetch that restores `word_index_at` —
-  // we'd otherwise leave popover taps disabled indefinitely.
+  // has nulled the word index and the backfill is re-stamping it. Adds
+  // the glassy loading overlay on top of the story text. The parent owns
+  // this state because it also owns the post-backfill refetch that
+  // restores `word_index_at` — we'd otherwise leave popover taps disabled
+  // indefinitely.
   regenerating?: boolean;
   // Called when StoryDisplay itself initiates a re-index (override save).
   // The parent flips its `regenerating` flag in response.
@@ -62,6 +61,10 @@ export default function StoryDisplay({
     el: HTMLElement;
     lookupHeadword: string | null;
     lookupEntryId: number | null;
+  } | null>(null);
+  const [titleTap, setTitleTap] = useState<{
+    headword: string;
+    el: HTMLElement;
   } | null>(null);
   const [overrideSpan, setOverrideSpan] = useState<{
     start: number;
@@ -94,6 +97,49 @@ export default function StoryDisplay({
     const { cleanText, annotations } = parseAnnotatedText(raw);
     return { cleanContent: cleanText, rubyAnnotations: annotations };
   }, [story.content]);
+
+  const { titleClean, titleAnnotations } = useMemo(() => {
+    const raw = stripBold(story.title);
+    const { cleanText, annotations } = parseAnnotatedText(raw);
+    return { titleClean: cleanText, titleAnnotations: annotations };
+  }, [story.title]);
+
+  const titleBaseParagraphs: DisplayParagraph[] = useMemo(
+    () => buildDisplaySegments(titleClean, titleAnnotations),
+    [titleClean, titleAnnotations]
+  );
+
+  // Async regroup pass for the title (same pipeline as content). Falls back
+  // to char-level taps if the dictionary errors out.
+  const [titleGroupedState, setTitleGroupedState] = useState<{
+    source: DisplayParagraph[];
+    paragraphs: DisplayParagraph[];
+  } | null>(null);
+  useEffect(() => {
+    if (dictState !== "ready") return;
+    let cancelled = false;
+    regroupWords(titleBaseParagraphs, titleClean, titleAnnotations).then(
+      (res) => {
+        if (!cancelled) {
+          setTitleGroupedState({
+            source: titleBaseParagraphs,
+            paragraphs: res,
+          });
+        }
+      }
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [titleBaseParagraphs, titleClean, titleAnnotations, dictState]);
+
+  const titleParagraphs: DisplayParagraph[] | null = useMemo(() => {
+    if (titleGroupedState?.source === titleBaseParagraphs) {
+      return titleGroupedState.paragraphs;
+    }
+    if (dictState === "error") return titleBaseParagraphs;
+    return null;
+  }, [titleGroupedState, titleBaseParagraphs, dictState]);
 
   // Char-level baseline — every char is its own tap target. Renders immediately.
   const baseParagraphs: DisplayParagraph[] = useMemo(
@@ -154,11 +200,9 @@ export default function StoryDisplay({
     };
   }, [story.id, story.word_index_at, backfillProcessing, occurrencesNonce]);
 
-  // Hold off rendering until kuromoji + JMdict have produced merged
-  // word-shaped tap targets — char-level baseline buttons reflow noticeably
-  // when the merged spans swap in, which is jarring. On dict load failure
-  // fall back to the baseline so the story stays readable (just without
-  // word-level taps).
+  // Merged word-shaped tap targets when ready; null while the kuromoji +
+  // JMdict regroup pass is still running. The loading overlay covers any
+  // visual reflow if we render the char-level baseline as a fallback.
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
       groupedState?.source === baseParagraphs
@@ -179,6 +223,18 @@ export default function StoryDisplay({
     cleanContent,
     rubyAnnotations,
   ]);
+
+  // Always have something to render so the glassy loading overlay has a
+  // backdrop. Falls back to the char-level baseline before the regroup pass
+  // completes; the overlay hides the reflow when merged spans swap in.
+  const displayParagraphs = paragraphs ?? baseParagraphs;
+
+  // Show the loading overlay whenever popover taps would not work usefully:
+  // the regroup pass hasn't produced word-shaped tap targets, the parent
+  // signalled a re-index is in flight, or the story hasn't been indexed /
+  // the backfill queue isn't drained.
+  const showLoadingOverlay =
+    paragraphs === null || regenerating || popoverDisabled;
 
   // Lookup map for tap-target headwords: when the tapped span has an
   // occurrence row, pass the row's headword to the popover so its JMdict
@@ -329,6 +385,85 @@ export default function StoryDisplay({
     return parts.join(" ");
   };
 
+  const handleTitleClick = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    headword: string
+  ) => {
+    e.stopPropagation();
+    if (!headword) return;
+    setTitleTap({ headword, el: e.currentTarget });
+  };
+
+  // Title tap targets always render ruby when available (titles are short,
+  // no per-word visibility toggle). Opens the popover in headword mode —
+  // titles aren't indexed in `story_word_occurrences`, so there's no
+  // current-card sentence-translation flow available.
+  const renderTitlePart = (part: SegmentPart, key: number) => {
+    if (part.kind === "annotated") {
+      return (
+        <button
+          key={key}
+          type="button"
+          className="story-title-token"
+          aria-label={part.surface}
+          onClick={(e) => handleTitleClick(e, part.surface)}
+        >
+          <ruby>
+            {part.surface}
+            <rt>{part.reading}</rt>
+          </ruby>
+        </button>
+      );
+    }
+    if (part.kind === "word") {
+      const inner =
+        part.rubies && part.rubies.length > 0
+          ? (() => {
+              const out: ReactNode[] = [];
+              let cursor = 0;
+              for (const r of part.rubies!) {
+                const relStart = r.start - part.start;
+                const relEnd = r.end - part.start;
+                if (relStart > cursor)
+                  out.push(part.surface.slice(cursor, relStart));
+                out.push(
+                  <ruby key={relStart}>
+                    {part.surface.slice(relStart, relEnd)}
+                    <rt>{r.reading}</rt>
+                  </ruby>
+                );
+                cursor = relEnd;
+              }
+              if (cursor < part.surface.length)
+                out.push(part.surface.slice(cursor));
+              return out;
+            })()
+          : part.surface;
+      return (
+        <button
+          key={key}
+          type="button"
+          className="story-title-token"
+          aria-label={part.surface}
+          onClick={(e) => handleTitleClick(e, part.surface)}
+        >
+          {inner}
+        </button>
+      );
+    }
+    return (
+      <button
+        key={key}
+        type="button"
+        className="story-title-token"
+        aria-label={part.char}
+        onClick={(e) => handleTitleClick(e, part.char)}
+      >
+        {part.char}
+      </button>
+    );
+  };
+
   const renderPart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
       const inner = decideShowRuby(part.start, part.end) ? (
@@ -387,7 +522,19 @@ export default function StoryDisplay({
   return (
     <div className="story-display">
       <div className="story-header">
-        <h2 className="story-title">{stripAnnotations(stripBold(story.title))}</h2>
+        <h2 className="story-title">
+          {titleParagraphs === null
+            ? titleClean
+            : titleParagraphs.map((para, pIdx) => (
+                <span key={pIdx} className="story-title-paragraph">
+                  {para.sentences.map((sent) => (
+                    <span key={sent.start} className="story-title-sentence">
+                      {sent.parts.map((part, i) => renderTitlePart(part, i))}
+                    </span>
+                  ))}
+                </span>
+              ))}
+        </h2>
       </div>
       <div className="story-meta">
         <span className="type-tag">{story.content_type ?? "fiction"}</span>
@@ -415,22 +562,32 @@ export default function StoryDisplay({
       <div
         className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
-        {paragraphs === null || regenerating ? (
-          <div className="story-content__loading">Preparing story<AnimatedDots /></div>
-        ) : (
-          <div className="story-paragraphs">
-            {paragraphs.map((para, pIdx) => (
-              <p key={pIdx} className="story-paragraph">
-                {para.sentences.map((sent) => (
-                  <span key={sent.start} className="story-sentence">
-                    {sent.parts.map((part, i) => renderPart(part, i))}
-                  </span>
-                ))}
-              </p>
-            ))}
-          </div>
+        <div className="story-paragraphs">
+          {displayParagraphs.map((para, pIdx) => (
+            <p key={pIdx} className="story-paragraph">
+              {para.sentences.map((sent) => (
+                <span key={sent.start} className="story-sentence">
+                  {sent.parts.map((part, i) => renderPart(part, i))}
+                </span>
+              ))}
+            </p>
+          ))}
+        </div>
+        {showLoadingOverlay && (
+          <div className="story-content__loading-overlay" aria-hidden="true" />
         )}
       </div>
+      <WordPopover
+        mode={{
+          kind: "headword",
+          headword: titleTap?.headword ?? "",
+        }}
+        referenceEl={titleTap?.el ?? null}
+        open={titleTap !== null}
+        onOpenChange={(open) => {
+          if (!open) setTitleTap(null);
+        }}
+      />
       <WordPopover
         mode={{
           kind: "tap",
