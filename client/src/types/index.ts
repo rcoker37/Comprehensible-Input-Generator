@@ -79,7 +79,7 @@ export interface WordUsage {
 // Stories-page filter shapes are persisted on the profile so the page
 // reopens with the user's most recent choices.
 export type ReadFilter = "all" | "unread" | "read";
-export type SortMode = "newest" | "score" | "adjustedScore";
+export type SortMode = "newest" | "score" | "adjustedScore" | "lastRead";
 export type ParagraphFilter = number | "all";
 
 export interface GeneratorPreferences {

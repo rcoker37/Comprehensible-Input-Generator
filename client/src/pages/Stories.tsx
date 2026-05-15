@@ -131,6 +131,12 @@ export default function Stories() {
       ? [...filtered].sort((a, b) => scoreFor(b) - scoreFor(a))
       : sortMode === "adjustedScore"
       ? [...filtered].sort((a, b) => adjustedScoreFor(b) - adjustedScoreFor(a))
+      : sortMode === "lastRead"
+      ? [...filtered].sort((a, b) => {
+          const aT = a.last_read_at ? Date.parse(a.last_read_at) : -Infinity;
+          const bT = b.last_read_at ? Date.parse(b.last_read_at) : -Infinity;
+          return bT - aT;
+        })
       : filtered;
 
   return (
@@ -183,6 +189,7 @@ export default function Stories() {
             <div className="chip-group" role="radiogroup" aria-label="Sort mode">
               {([
                 ["newest", "Newest"],
+                ["lastRead", "Last Read"],
                 ["score", "Score"],
                 ["adjustedScore", "Adjusted Score"],
               ] as const).map(([v, label]) => {

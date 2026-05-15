@@ -22,7 +22,33 @@ import WordPopover from "./WordPopover";
 import "./BrowseSection.css";
 
 type Mode = "kanji" | "vocab";
-type SeenFilter = "all" | "seen" | "unseen";
+type SeenFilter =
+  | "all"
+  | "seen"
+  | "unseen"
+  | "1-3"
+  | "4-6"
+  | "7-9"
+  | "10+";
+
+function matchesCountFilter(count: number, filter: SeenFilter): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "seen":
+      return count > 0;
+    case "unseen":
+      return count === 0;
+    case "1-3":
+      return count >= 1 && count <= 3;
+    case "4-6":
+      return count >= 4 && count <= 6;
+    case "7-9":
+      return count >= 7 && count <= 9;
+    case "10+":
+      return count >= 10;
+  }
+}
 
 const JLPT_LEVELS = [5, 4, 3, 2, 1] as const;
 const JLPT_UNCLASSIFIED = "unclassified";
@@ -81,8 +107,7 @@ export default function BrowseSection() {
       if (gradeActive && !gradeFilters.has(k.grade as GradeFilter)) return false;
       if (seenFilter !== "all") {
         const c = kanjiExposures.get(k.character) ?? 0;
-        if (seenFilter === "seen" && c <= 0) return false;
-        if (seenFilter === "unseen" && c > 0) return false;
+        if (!matchesCountFilter(c, seenFilter)) return false;
       }
       return true;
     });
@@ -103,13 +128,10 @@ export default function BrowseSection() {
     const slice = allFrequencyEntries.filter(
       (e) => e.rank >= startRank && e.rank <= endRank
     );
-    if (seenFilter === "seen") {
-      return slice.filter((e) => (vocabEncounters.get(e.headword) ?? 0) > 0);
-    }
-    if (seenFilter === "unseen") {
-      return slice.filter((e) => (vocabEncounters.get(e.headword) ?? 0) === 0);
-    }
-    return slice;
+    if (seenFilter === "all") return slice;
+    return slice.filter((e) =>
+      matchesCountFilter(vocabEncounters.get(e.headword) ?? 0, seenFilter)
+    );
   }, [allFrequencyEntries, vocabWindow, seenFilter, vocabEncounters]);
 
   const windowStartRank = vocabWindow * VOCAB_WINDOW_SIZE + 1;
@@ -159,6 +181,10 @@ export default function BrowseSection() {
               ["all", "All"],
               ["seen", "Seen only"],
               ["unseen", "Unseen only"],
+              ["1-3", "1–3 reads"],
+              ["4-6", "4–6 reads"],
+              ["7-9", "7–9 reads"],
+              ["10+", "10+ reads"],
             ] as const
           ).map(([v, label]) => (
             <button
