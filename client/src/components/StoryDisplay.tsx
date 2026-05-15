@@ -1,4 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  FloatingFocusManager,
+  FloatingOverlay,
+  FloatingPortal,
+  useDismiss,
+  useFloating,
+  useInteractions,
+  useRole,
+} from "@floating-ui/react";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import {
@@ -612,27 +621,25 @@ export default function StoryDisplay({
         }}
       />
       {overrideSpan && (
-        <div className="story-display__override-overlay">
-          <StoryOverrideEditor
-            cleanText={cleanContent}
-            annotations={rubyAnnotations}
-            initialStart={overrideSpan.start}
-            initialEnd={overrideSpan.end}
-            onCancel={() => setOverrideSpan(null)}
-            onSave={async (overrides: WordOverride[]) => {
-              onRegenerationStart?.();
-              await setStoryWordOverrides(
-                story.id,
-                overrideSpan.start,
-                overrideSpan.end,
-                overrides
-              );
-              setOverrideSpan(null);
-              setOccurrencesNonce((n) => n + 1);
-              refreshBackfill();
-            }}
-          />
-        </div>
+        <OverrideModal
+          cleanText={cleanContent}
+          annotations={rubyAnnotations}
+          start={overrideSpan.start}
+          end={overrideSpan.end}
+          onCancel={() => setOverrideSpan(null)}
+          onSave={async (overrides: WordOverride[]) => {
+            onRegenerationStart?.();
+            await setStoryWordOverrides(
+              story.id,
+              overrideSpan.start,
+              overrideSpan.end,
+              overrides
+            );
+            setOverrideSpan(null);
+            setOccurrencesNonce((n) => n + 1);
+            refreshBackfill();
+          }}
+        />
       )}
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">
@@ -640,5 +647,60 @@ export default function StoryDisplay({
         </a>
       )}
     </div>
+  );
+}
+
+interface OverrideModalProps {
+  cleanText: string;
+  annotations: FuriganaAnnotation[];
+  start: number;
+  end: number;
+  onCancel: () => void;
+  onSave: (overrides: WordOverride[]) => void | Promise<void>;
+}
+
+function OverrideModal({
+  cleanText,
+  annotations,
+  start,
+  end,
+  onCancel,
+  onSave,
+}: OverrideModalProps) {
+  const { refs, context } = useFloating({
+    open: true,
+    onOpenChange: (open) => {
+      if (!open) onCancel();
+    },
+  });
+  // Match WordPopover: explicit Cancel/Save buttons own dismissal; outside
+  // clicks shouldn't drop in-progress region/split/candidate edits. Escape
+  // still closes via useDismiss's default key handling.
+  const dismiss = useDismiss(context, { outsidePress: false });
+  const role = useRole(context, { role: "dialog" });
+  const { getFloatingProps } = useInteractions([dismiss, role]);
+
+  return (
+    <FloatingPortal>
+      <FloatingOverlay className="story-override-backdrop" lockScroll>
+        <FloatingFocusManager context={context} modal initialFocus={-1}>
+          <div
+            // eslint-disable-next-line react-hooks/refs
+            ref={refs.setFloating}
+            className="story-override-modal"
+            {...getFloatingProps()}
+          >
+            <StoryOverrideEditor
+              cleanText={cleanText}
+              annotations={annotations}
+              initialStart={start}
+              initialEnd={end}
+              onCancel={onCancel}
+              onSave={onSave}
+            />
+          </div>
+        </FloatingFocusManager>
+      </FloatingOverlay>
+    </FloatingPortal>
   );
 }
