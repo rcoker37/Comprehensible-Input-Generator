@@ -9,7 +9,10 @@ interface KanjiContextType {
   seenKanji: Set<string>;
   kanjiExposures: Map<string, number>;
   kanjiExposuresLoaded: boolean;
-  refreshKanjiExposures: () => Promise<void>;
+  // Fetches the latest exposures and resolves to a commit function that writes
+  // them into state. Separating fetch from commit lets a caller refresh kanji
+  // and vocab in one React batch, so the header score updates once, not twice.
+  prepareKanjiRefresh: () => Promise<() => void>;
 }
 
 const KanjiContext = createContext<KanjiContextType | null>(null);
@@ -25,17 +28,19 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
   const [kanjiExposures, setKanjiExposures] = useState<Map<string, number>>(new Map());
   const [kanjiExposuresLoaded, setKanjiExposuresLoaded] = useState(false);
 
-  const refreshKanjiExposures = useCallback(async () => {
-    if (!user) return;
+  const prepareKanjiRefresh = useCallback(async (): Promise<() => void> => {
+    if (!user) return () => {};
     const map = await getKanjiExposures();
-    setKanjiExposures(map);
-    setKanjiExposuresLoaded(true);
+    return () => {
+      setKanjiExposures(map);
+      setKanjiExposuresLoaded(true);
+    };
   }, [user]);
 
   useEffect(() => {
-    refreshKanjiExposures();
+    prepareKanjiRefresh().then((commit) => commit());
     preloadTokenizer();
-  }, [refreshKanjiExposures]);
+  }, [prepareKanjiRefresh]);
 
   const seenKanji = useMemo(() => new Set(kanjiExposures.keys()), [kanjiExposures]);
 
@@ -44,9 +49,9 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
       seenKanji,
       kanjiExposures,
       kanjiExposuresLoaded,
-      refreshKanjiExposures,
+      prepareKanjiRefresh,
     }),
-    [seenKanji, kanjiExposures, kanjiExposuresLoaded, refreshKanjiExposures],
+    [seenKanji, kanjiExposures, kanjiExposuresLoaded, prepareKanjiRefresh],
   );
 
   return (

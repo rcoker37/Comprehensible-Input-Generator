@@ -18,11 +18,23 @@ export default function StoryReadButton({ story, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [markedThisSession, setMarkedThisSession] = useState(false);
-  const { refreshKanjiExposures } = useSeenKanji();
-  const { refreshVocabEncounters } = useVocab();
+  const { prepareKanjiRefresh } = useSeenKanji();
+  const { prepareVocabRefresh } = useVocab();
 
   const count = story.read_count;
   const isRead = count > 0;
+
+  // Refresh the header score after a read-state change. Both halves (kanji +
+  // vocab) are fetched in parallel, then committed together in one tick so the
+  // score re-renders once instead of jumping twice.
+  const refreshScore = async () => {
+    const [commitKanji, commitVocab] = await Promise.all([
+      prepareKanjiRefresh(),
+      prepareVocabRefresh(),
+    ]);
+    commitKanji();
+    commitVocab();
+  };
 
   const handleMark = async () => {
     if (markedThisSession) return;
@@ -32,8 +44,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
       const state = await markStoryRead(story.id);
       onChange(state);
       setMarkedThisSession(true);
-      refreshKanjiExposures();
-      refreshVocabEncounters();
+      refreshScore();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark as read");
     } finally {
@@ -48,8 +59,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
       const state = await undoStoryRead(story.id);
       onChange(state);
       setMarkedThisSession(false);
-      refreshKanjiExposures();
-      refreshVocabEncounters();
+      refreshScore();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to undo");
     } finally {

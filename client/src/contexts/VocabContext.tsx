@@ -23,7 +23,11 @@ interface VocabContextType {
   // jump when JPDB lands.
   vocabEncountersLoaded: boolean;
   getWordRank: (headword: string) => number | null;
-  refreshVocabEncounters: () => Promise<void>;
+  // Fetches the latest encounters (+ frequency index) and resolves to a commit
+  // function that writes them into state. Separating fetch from commit lets a
+  // caller refresh kanji and vocab in one React batch, so the header score
+  // updates once, not twice.
+  prepareVocabRefresh: () => Promise<() => void>;
 }
 
 const VocabContext = createContext<VocabContextType | null>(null);
@@ -41,19 +45,21 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   );
   const [vocabEncountersLoaded, setVocabEncountersLoaded] = useState(false);
 
-  const refreshVocabEncounters = useCallback(async () => {
-    if (!user) return;
+  const prepareVocabRefresh = useCallback(async (): Promise<() => void> => {
+    if (!user) return () => {};
     const [counts] = await Promise.all([
       getUserWordEncounters(),
       loadFrequencyIndex(),
     ]);
-    setVocabEncounters(counts);
-    setVocabEncountersLoaded(true);
+    return () => {
+      setVocabEncounters(counts);
+      setVocabEncountersLoaded(true);
+    };
   }, [user]);
 
   useEffect(() => {
-    refreshVocabEncounters();
-  }, [refreshVocabEncounters]);
+    prepareVocabRefresh().then((commit) => commit());
+  }, [prepareVocabRefresh]);
 
   const getWordRank = useCallback(
     (headword: string): number | null => {
@@ -76,9 +82,9 @@ export function VocabProvider({ children }: { children: ReactNode }) {
       vocabEncounters,
       vocabEncountersLoaded,
       getWordRank,
-      refreshVocabEncounters,
+      prepareVocabRefresh,
     }),
-    [vocabEncounters, vocabEncountersLoaded, getWordRank, refreshVocabEncounters]
+    [vocabEncounters, vocabEncountersLoaded, getWordRank, prepareVocabRefresh]
   );
 
   return <VocabContext.Provider value={value}>{children}</VocabContext.Provider>;
