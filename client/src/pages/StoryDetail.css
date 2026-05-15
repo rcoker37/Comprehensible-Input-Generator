@@ -30,3 +30,97 @@
   align-items: center;
   gap: 0.5rem;
 }
+
+.story-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.story-edit-help {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.story-edit-help code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+  background: var(--surface);
+  padding: 0 0.25rem;
+  border-radius: 2px;
+}
+
+.story-edit-textarea {
+  width: 100%;
+  min-height: 24rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.story-edit-textarea:focus {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.story-edit-textarea:disabled {
+  opacity: 0.6;
+}
+
+.story-edit-error {
+  color: var(--accent);
+  font-size: 0.85rem;
+}
+
+.story-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.story-edit-cancel,
+.story-edit-save {
+  padding: 0.45rem 1rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.story-edit-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.story-edit-cancel:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.story-edit-save {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+}
+
+.story-edit-save:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.story-edit-cancel:disabled,
+.story-edit-save:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

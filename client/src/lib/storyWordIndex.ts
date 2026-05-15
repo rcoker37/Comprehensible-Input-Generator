@@ -32,6 +32,14 @@ export interface WordOccurrence {
   surface: string;
   headword: string;
   reading: string;
+  /**
+   * JMdict entry id of the `WordResult` the indexer picked for this span.
+   * Stored so the popover (and other consumers) can disambiguate between
+   * homophone entries reading the same headword string — without it,
+   * looking up "ふる" returns 降る/振る/フル/古 in JMdict's natural order
+   * and `results[0]` can drift to the wrong entry.
+   */
+  entryId: number | null;
 }
 
 /**
@@ -49,8 +57,11 @@ export interface WordOccurrence {
  *   3 — `headwordFromHit` now skips `sK` (search-only) kanji forms, so the
  *       の particle's entry stamps `の` instead of `乃`, and ~80 other
  *       entries whose k[0] is sK now stamp their kana surface as canonical.
+ *   4 — `entry_id` is now stamped alongside headword/reading so the popover
+ *       can hoist the indexer's chosen JMdict entry instead of guessing
+ *       from homophone ordering (fixes いきます → 幾, ふっても → フル).
  */
-export const WORD_INDEX_VERSION = 3;
+export const WORD_INDEX_VERSION = 4;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -117,6 +128,7 @@ export async function extractWordOccurrences(
           surface: cleanText.slice(start, end),
           headword: headword.headword,
           reading: headword.reading ?? "",
+          entryId: hit.results[0]?.id ?? null,
         });
       }
     }

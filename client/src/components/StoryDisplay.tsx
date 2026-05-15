@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
-import { getStoryWordEncounters } from "../api/client";
+import {
+  getStoryOccurrences,
+  getStoryWordEncounters,
+  setStoryWordOverrides,
+  type StoryOccurrence,
+  type WordOverride,
+} from "../api/client";
 import {
   parseAnnotatedText,
   stripAnnotations,
@@ -14,7 +20,9 @@ import {
   type SegmentPart,
 } from "../lib/storySegments";
 import { regroupWords } from "../lib/regroupWords";
+import { applyOccurrences } from "../lib/applyOccurrences";
 import WordPopover from "./WordPopover";
+import StoryOverrideEditor from "./StoryOverrideEditor";
 import AnimatedDots from "./AnimatedDots";
 import type { SentenceTranslation, Story, StoryTranslations } from "../types";
 import "./StoryDisplay.css";
@@ -22,12 +30,45 @@ import "./StoryDisplay.css";
 interface Props {
   story: Story;
   showLink?: boolean;
+  // True when an external action (override save, reset, content edit)
+  // has nulled the word index and the backfill is re-stamping it. Drives
+  // the "Preparing story" loader. The parent owns this state because it
+  // also owns the post-backfill refetch that restores `word_index_at` —
+  // we'd otherwise leave popover taps disabled indefinitely.
+  regenerating?: boolean;
+  // Called when StoryDisplay itself initiates a re-index (override save).
+  // The parent flips its `regenerating` flag in response.
+  onRegenerationStart?: () => void;
 }
 
-export default function StoryDisplay({ story, showLink }: Props) {
+export default function StoryDisplay({
+  story,
+  showLink,
+  regenerating = false,
+  onRegenerationStart,
+}: Props) {
   const { state: dictState } = useDictionary();
-  const { remaining: backfillRemaining, processing: backfillProcessing } =
-    useWordIndexBackfill();
+  const {
+    remaining: backfillRemaining,
+    processing: backfillProcessing,
+    refresh: refreshBackfill,
+  } = useWordIndexBackfill();
+  const [translations, setTranslations] = useState<StoryTranslations>(
+    story.translations ?? {}
+  );
+  const [activeTap, setActiveTap] = useState<{
+    start: number;
+    end: number;
+    el: HTMLElement;
+    lookupHeadword: string | null;
+    lookupEntryId: number | null;
+  } | null>(null);
+  const [overrideSpan, setOverrideSpan] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+  const [furiganaState, setFuriganaState] = useState<"unseen" | "all" | "none">("unseen");
+
   // The popover's carousel pulls from `story_word_occurrences`, which is only
   // populated for stories that have been indexed. If this story hasn't been
   // indexed yet, or any indexing is still in flight, the carousel would be
@@ -36,15 +77,8 @@ export default function StoryDisplay({ story, showLink }: Props) {
     story.word_index_at === null ||
     backfillProcessing ||
     backfillRemaining > 0;
-  const [translations, setTranslations] = useState<StoryTranslations>(
-    story.translations ?? {}
-  );
-  const [activeTap, setActiveTap] = useState<{
-    start: number;
-    end: number;
-    el: HTMLElement;
-  } | null>(null);
-  const [furiganaState, setFuriganaState] = useState<"unseen" | "all" | "none">("unseen");
+  const tapsBlocked = popoverDisabled || overrideSpan !== null;
+
   useEffect(() => {
     setTranslations(story.translations ?? {});
   }, [story.translations]);
@@ -91,17 +125,84 @@ export default function StoryDisplay({ story, showLink }: Props) {
     };
   }, [baseParagraphs, cleanContent, rubyAnnotations, dictState]);
 
+  // Indexed occurrences (algorithm + manual rows). When loaded for a fully
+  // indexed story, we prefer these over the local regroup pass because they
+  // (a) are what the popover carousel pulls from, so the tap-target span
+  // matches the carousel cards exactly, and (b) carry manual override rows
+  // produced via `set_story_word_overrides` that the local regrouper
+  // doesn't know about. We re-fetch when the backfill finishes processing
+  // (a re-index just happened) and when the user saves new overrides.
+  const [occurrences, setOccurrences] = useState<StoryOccurrence[] | null>(
+    null
+  );
+  const [occurrencesNonce, setOccurrencesNonce] = useState(0);
+  useEffect(() => {
+    if (story.word_index_at === null) {
+      setOccurrences(null);
+      return;
+    }
+    let cancelled = false;
+    getStoryOccurrences(story.id)
+      .then((rows) => {
+        if (!cancelled) setOccurrences(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOccurrences(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [story.id, story.word_index_at, backfillProcessing, occurrencesNonce]);
+
   // Hold off rendering until kuromoji + JMdict have produced merged
   // word-shaped tap targets — char-level baseline buttons reflow noticeably
   // when the merged spans swap in, which is jarring. On dict load failure
   // fall back to the baseline so the story stays readable (just without
   // word-level taps).
-  const paragraphs: DisplayParagraph[] | null =
-    groupedState?.source === baseParagraphs
-      ? groupedState.paragraphs
-      : dictState === "error"
-        ? baseParagraphs
-        : null;
+  const paragraphs: DisplayParagraph[] | null = useMemo(() => {
+    const base =
+      groupedState?.source === baseParagraphs
+        ? groupedState.paragraphs
+        : dictState === "error"
+          ? baseParagraphs
+          : null;
+    if (!base) return null;
+    if (occurrences && occurrences.length > 0) {
+      return applyOccurrences(base, occurrences, cleanContent, rubyAnnotations);
+    }
+    return base;
+  }, [
+    groupedState,
+    baseParagraphs,
+    dictState,
+    occurrences,
+    cleanContent,
+    rubyAnnotations,
+  ]);
+
+  // Lookup map for tap-target headwords: when the tapped span has an
+  // occurrence row, pass the row's headword to the popover so its JMdict
+  // lookup uses the canonical/override lemma rather than the raw surface
+  // (which can be a deinflected form or a surface like 野さい that has no
+  // entry of its own). The entry id (when stamped) rides along so the
+  // popover can hoist the indexer's chosen homophone instead of letting
+  // JMdict's natural ordering pick `results[0]`.
+  const lookupBySpan = useMemo(() => {
+    const map = new Map<
+      string,
+      { headword: string; entryId: number | null }
+    >();
+    if (occurrences) {
+      for (const o of occurrences) {
+        if (!o.headword) continue;
+        map.set(`${o.start}-${o.end}`, {
+          headword: o.headword,
+          entryId: o.entryId,
+        });
+      }
+    }
+    return map;
+  }, [occurrences]);
 
   // Per-span encounter counts so we can mark zero-encounter spans as new
   // (accent underline). Fetched after the story is indexed; absent spans
@@ -138,8 +239,15 @@ export default function StoryDisplay({ story, showLink }: Props) {
     end: number
   ) => {
     e.stopPropagation();
-    if (popoverDisabled) return;
-    setActiveTap({ start, end, el: e.currentTarget });
+    if (tapsBlocked) return;
+    const entry = lookupBySpan.get(`${start}-${end}`);
+    setActiveTap({
+      start,
+      end,
+      el: e.currentTarget,
+      lookupHeadword: entry?.headword ?? null,
+      lookupEntryId: entry?.entryId ?? null,
+    });
   };
 
   const handleTranslationUpdated = (
@@ -209,8 +317,17 @@ export default function StoryDisplay({ story, showLink }: Props) {
   const isNew = (start: number, end: number): boolean =>
     encounters.get(`${start}-${end}`) === 0;
 
-  const tokenClass = (start: number, end: number): string =>
-    `word-token${isNew(start, end) ? " word-token--new" : ""}`;
+  const inOverrideRegion = (start: number, end: number): boolean =>
+    overrideSpan !== null &&
+    start < overrideSpan.end &&
+    end > overrideSpan.start;
+
+  const tokenClass = (start: number, end: number): string => {
+    const parts = ["word-token"];
+    if (isNew(start, end)) parts.push("word-token--new");
+    if (inOverrideRegion(start, end)) parts.push("word-token--in-override");
+    return parts.join(" ");
+  };
 
   const renderPart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
@@ -298,7 +415,7 @@ export default function StoryDisplay({ story, showLink }: Props) {
       <div
         className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
-        {paragraphs === null ? (
+        {paragraphs === null || regenerating ? (
           <div className="story-content__loading">Preparing story<AnimatedDots /></div>
         ) : (
           <div className="story-paragraphs">
@@ -322,8 +439,14 @@ export default function StoryDisplay({ story, showLink }: Props) {
           annotations: rubyAnnotations,
           start: activeTap?.start ?? 0,
           end: activeTap?.end ?? 0,
+          lookupHeadword: activeTap?.lookupHeadword ?? null,
+          lookupEntryId: activeTap?.lookupEntryId ?? null,
           translations,
           onTranslationUpdated: handleTranslationUpdated,
+          onRequestOverride: (start, end) => {
+            setActiveTap(null);
+            setOverrideSpan({ start, end });
+          },
         }}
         referenceEl={activeTap?.el ?? null}
         open={activeTap !== null}
@@ -331,6 +454,29 @@ export default function StoryDisplay({ story, showLink }: Props) {
           if (!open) setActiveTap(null);
         }}
       />
+      {overrideSpan && (
+        <div className="story-display__override-overlay">
+          <StoryOverrideEditor
+            cleanText={cleanContent}
+            annotations={rubyAnnotations}
+            initialStart={overrideSpan.start}
+            initialEnd={overrideSpan.end}
+            onCancel={() => setOverrideSpan(null)}
+            onSave={async (overrides: WordOverride[]) => {
+              onRegenerationStart?.();
+              await setStoryWordOverrides(
+                story.id,
+                overrideSpan.start,
+                overrideSpan.end,
+                overrides
+              );
+              setOverrideSpan(null);
+              setOccurrencesNonce((n) => n + 1);
+              refreshBackfill();
+            }}
+          />
+        </div>
+      )}
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">
           View full story

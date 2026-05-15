@@ -157,8 +157,10 @@ export type Database = {
       story_word_occurrences: {
         Row: {
           end_offset: number
+          entry_id: number | null
           headword: string
           id: number
+          manual: boolean
           reading: string | null
           start_offset: number
           story_id: number
@@ -167,8 +169,10 @@ export type Database = {
         }
         Insert: {
           end_offset: number
+          entry_id?: number | null
           headword: string
           id?: never
+          manual?: boolean
           reading?: string | null
           start_offset: number
           story_id: number
@@ -177,8 +181,10 @@ export type Database = {
         }
         Update: {
           end_offset?: number
+          entry_id?: number | null
           headword?: string
           id?: never
+          manual?: boolean
           reading?: string | null
           start_offset?: number
           story_id?: number
@@ -273,7 +279,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      clear_all_story_word_overrides: {
+        Args: { p_story_id: number }
+        Returns: undefined
+      }
       clear_openrouter_api_key: { Args: never; Returns: undefined }
+      clear_story_word_overrides: {
+        Args: {
+          p_region_end: number
+          p_region_start: number
+          p_story_id: number
+        }
+        Returns: undefined
+      }
       get_openrouter_api_key_for_user: {
         Args: { p_user_id: string }
         Returns: string
@@ -342,6 +360,15 @@ export type Database = {
         Returns: undefined
       }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
+      set_story_word_overrides: {
+        Args: {
+          p_overrides: Json
+          p_region_end: number
+          p_region_start: number
+          p_story_id: number
+        }
+        Returns: undefined
+      }
       strip_ruby: { Args: { t: string }; Returns: string }
       undo_story_read: {
         Args: { p_story_id: number }
@@ -352,6 +379,10 @@ export type Database = {
         }[]
       }
       update_preferences: { Args: { p_patch: Json }; Returns: Json }
+      update_story_content: {
+        Args: { p_content: string; p_story_id: number }
+        Returns: undefined
+      }
       user_underused_kanji: {
         Args: { p_limit?: number }
         Returns: {
@@ -494,3 +525,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

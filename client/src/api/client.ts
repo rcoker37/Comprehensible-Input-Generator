@@ -436,7 +436,14 @@ export async function getPerStoryWordOccurrences(): Promise<
  */
 export async function indexStoryWords(
   storyId: number,
-  occurrences: { start: number; end: number; surface: string; headword: string; reading: string }[]
+  occurrences: {
+    start: number;
+    end: number;
+    surface: string;
+    headword: string;
+    reading: string;
+    entryId: number | null;
+  }[]
 ): Promise<string> {
   const { data, error } = await supabase.rpc("index_story_words", {
     p_story_id: storyId,
@@ -488,5 +495,133 @@ export async function setOpenRouterApiKey(key: string): Promise<void> {
 
 export async function clearOpenRouterApiKey(): Promise<void> {
   const { error } = await supabase.rpc("clear_openrouter_api_key");
+  if (error) throw new Error(error.message);
+}
+
+// Stories — manual overrides + content edit
+//
+// Both flows touch the same offset-keyed caches (story_word_occurrences,
+// word_lookups, stories.translations) and rely on the backfill picking the
+// story up via a NULL word_index_at. After calling either, the caller should
+// refresh the local Story state (status fields, word_index_at) and trigger
+// WordIndexBackfillContext.refresh() so the queue rehydrates.
+
+export interface WordOverride {
+  start: number;
+  end: number;
+  surface: string;
+  headword: string;
+  reading: string;
+  /**
+   * JMdict entry id picked from the override editor's candidate list.
+   * Null when the user picked the "no dictionary entry" fallback for a
+   * surface that has no JMdict hit (e.g. a misspelling like 野さい with
+   * no entry of its own — the popover still gets the override's headword
+   * but has no entry to hoist).
+   */
+  entryId: number | null;
+}
+
+/**
+ * One row in `story_word_occurrences` — either an algorithm-derived span
+ * stamped by the backfill or a manual row placed via the override UI.
+ * Used by StoryDisplay to render tap targets directly from the index so
+ * manual overrides take effect immediately without re-tokenising client-side.
+ */
+export interface StoryOccurrence {
+  start: number;
+  end: number;
+  surface: string;
+  headword: string;
+  reading: string | null;
+  entryId: number | null;
+  manual: boolean;
+}
+
+export async function getStoryOccurrences(
+  storyId: number
+): Promise<StoryOccurrence[]> {
+  const { data, error } = await supabase
+    .from("story_word_occurrences")
+    .select("start_offset, end_offset, surface, headword, reading, entry_id, manual")
+    .eq("story_id", storyId)
+    .order("start_offset", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    start: r.start_offset,
+    end: r.end_offset,
+    surface: r.surface,
+    headword: r.headword,
+    reading: r.reading,
+    entryId: r.entry_id,
+    manual: r.manual,
+  }));
+}
+
+/**
+ * Replaces every occurrence row (manual or algorithm) intersecting
+ * [regionStart, regionEnd) with the supplied overrides. Each override is
+ * stored with `manual = TRUE` so subsequent re-indexes preserve it.
+ */
+export async function setStoryWordOverrides(
+  storyId: number,
+  regionStart: number,
+  regionEnd: number,
+  overrides: WordOverride[]
+): Promise<void> {
+  const { error } = await supabase.rpc("set_story_word_overrides", {
+    p_story_id: storyId,
+    p_region_start: regionStart,
+    p_region_end: regionEnd,
+    p_overrides: overrides,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Drops manual rows intersecting [regionStart, regionEnd) so the algorithm
+ * can re-fill the gap on the next index pass.
+ */
+export async function clearStoryWordOverrides(
+  storyId: number,
+  regionStart: number,
+  regionEnd: number
+): Promise<void> {
+  const { error } = await supabase.rpc("clear_story_word_overrides", {
+    p_story_id: storyId,
+    p_region_start: regionStart,
+    p_region_end: regionEnd,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Drops every manual row for the story (the "reset all overrides" path
+ * from StoryDetail) and nulls word_index_at so the algorithm re-fills the
+ * full story.
+ */
+export async function clearAllStoryWordOverrides(
+  storyId: number
+): Promise<void> {
+  const { error } = await supabase.rpc("clear_all_story_word_overrides", {
+    p_story_id: storyId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Replaces the story's content and wipes every offset-keyed cache
+ * (translations, word_lookups, story_word_occurrences — manual rows
+ * included, since their offsets are now stale). The backfill re-indexes
+ * the story on its next pass.
+ */
+export async function updateStoryContent(
+  storyId: number,
+  content: string
+): Promise<void> {
+  const { error } = await supabase.rpc("update_story_content", {
+    p_story_id: storyId,
+    p_content: content,
+  });
   if (error) throw new Error(error.message);
 }

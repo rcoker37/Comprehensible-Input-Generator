@@ -454,3 +454,25 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+.word-popover__override-row {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.4rem;
+}
+
+.word-popover__override-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.word-popover__override-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
