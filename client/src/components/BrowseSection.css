@@ -12,6 +12,12 @@
   min-width: 50px;
 }
 
+/* Direction caret inside an active read-based Sort chip. */
+.browse-sort-arrow {
+  font-size: 0.7em;
+  margin-left: 0.3rem;
+}
+
 .browse-slider-row {
   align-items: center;
 }

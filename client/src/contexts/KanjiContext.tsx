@@ -8,6 +8,9 @@ interface KanjiContextType {
   // from the exposures map — there's no separate "known" concept anymore.
   seenKanji: Set<string>;
   kanjiExposures: Map<string, number>;
+  // Most recent read time (epoch ms) of any story containing each kanji.
+  // Powers the Stats Browse "last read" sort.
+  kanjiLastRead: Map<string, number>;
   kanjiExposuresLoaded: boolean;
   // Fetches the latest exposures and resolves to a commit function that writes
   // them into state. Separating fetch from commit lets a caller refresh kanji
@@ -26,13 +29,15 @@ export function useSeenKanji() {
 export function KanjiProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [kanjiExposures, setKanjiExposures] = useState<Map<string, number>>(new Map());
+  const [kanjiLastRead, setKanjiLastRead] = useState<Map<string, number>>(new Map());
   const [kanjiExposuresLoaded, setKanjiExposuresLoaded] = useState(false);
 
   const prepareKanjiRefresh = useCallback(async (): Promise<() => void> => {
     if (!user) return () => {};
-    const map = await getKanjiExposures();
+    const { exposures, lastRead } = await getKanjiExposures();
     return () => {
-      setKanjiExposures(map);
+      setKanjiExposures(exposures);
+      setKanjiLastRead(lastRead);
       setKanjiExposuresLoaded(true);
     };
   }, [user]);
@@ -48,10 +53,11 @@ export function KanjiProvider({ children }: { children: ReactNode }) {
     () => ({
       seenKanji,
       kanjiExposures,
+      kanjiLastRead,
       kanjiExposuresLoaded,
       prepareKanjiRefresh,
     }),
-    [seenKanji, kanjiExposures, kanjiExposuresLoaded, prepareKanjiRefresh],
+    [seenKanji, kanjiExposures, kanjiLastRead, kanjiExposuresLoaded, prepareKanjiRefresh],
   );
 
   return (

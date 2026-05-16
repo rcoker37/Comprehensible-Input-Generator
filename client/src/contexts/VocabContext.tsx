@@ -17,6 +17,9 @@ import {
 
 interface VocabContextType {
   vocabEncounters: Map<string, number>;
+  // Most recent read time (epoch ms) of any story containing each headword.
+  // Powers the Stats Browse "last read" sort.
+  vocabLastRead: Map<string, number>;
   // Flips true only once both the encounter RPC and the JPDB frequency
   // index have resolved — scoring depends on rank weighting, so callers
   // that compute totals/deltas should gate on this to avoid a visible
@@ -43,16 +46,20 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   const [vocabEncounters, setVocabEncounters] = useState<Map<string, number>>(
     new Map()
   );
+  const [vocabLastRead, setVocabLastRead] = useState<Map<string, number>>(
+    new Map()
+  );
   const [vocabEncountersLoaded, setVocabEncountersLoaded] = useState(false);
 
   const prepareVocabRefresh = useCallback(async (): Promise<() => void> => {
     if (!user) return () => {};
-    const [counts] = await Promise.all([
+    const [encounterData] = await Promise.all([
       getUserWordEncounters(),
       loadFrequencyIndex(),
     ]);
     return () => {
-      setVocabEncounters(counts);
+      setVocabEncounters(encounterData.encounters);
+      setVocabLastRead(encounterData.lastRead);
       setVocabEncountersLoaded(true);
     };
   }, [user]);
@@ -80,11 +87,18 @@ export function VocabProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       vocabEncounters,
+      vocabLastRead,
       vocabEncountersLoaded,
       getWordRank,
       prepareVocabRefresh,
     }),
-    [vocabEncounters, vocabEncountersLoaded, getWordRank, prepareVocabRefresh]
+    [
+      vocabEncounters,
+      vocabLastRead,
+      vocabEncountersLoaded,
+      getWordRank,
+      prepareVocabRefresh,
+    ]
   );
 
   return <VocabContext.Provider value={value}>{children}</VocabContext.Provider>;

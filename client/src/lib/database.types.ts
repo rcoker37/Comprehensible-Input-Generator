@@ -320,6 +320,7 @@ export type Database = {
         Returns: {
           encounters: number
           headword: string
+          last_read_at: string
         }[]
       }
       get_word_encounters: { Args: { p_headword: string }; Returns: number }
@@ -391,6 +392,7 @@ export type Database = {
         Returns: {
           exposures: number
           kanji: string
+          last_read_at: string
         }[]
       }
     }

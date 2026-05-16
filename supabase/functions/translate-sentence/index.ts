@@ -131,6 +131,7 @@ Deno.serve(async (req) => {
       model: TRANSLATE_MODEL,
       messages,
       maxTokens: MAX_TOKENS_TRANSLATE,
+      logContext: { fn: "translate-sentence", storyId, range: rangeKey },
     });
 
     const translation: SentenceTranslation = {

@@ -14,6 +14,13 @@ import WordPopover from "./WordPopover";
 import "./BrowseSection.css";
 
 type Mode = "kanji" | "vocab";
+
+// "default" keeps the natural order (kanji: grade then character; vocab: by
+// JPDB rank window). The two read-based sorts each cycle asc⇄desc on re-click
+// via a single chip.
+type SortKey = "default" | "last-read" | "most-read";
+type SortDir = "asc" | "desc";
+
 type SeenFilter =
   | "all"
   | "seen"
@@ -54,14 +61,16 @@ const VOCAB_MAX_RANK = 50000;
 const VOCAB_WINDOW_COUNT = VOCAB_MAX_RANK / VOCAB_WINDOW_SIZE;
 
 export default function BrowseSection() {
-  const { kanjiExposures } = useSeenKanji();
-  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
+  const { kanjiExposures, kanjiLastRead } = useSeenKanji();
+  const { vocabEncounters, vocabLastRead, vocabEncountersLoaded } = useVocab();
 
   const [mode, setMode] = useState<Mode>("kanji");
   const [seenFilter, setSeenFilter] = useState<SeenFilter>("all");
   const [jlptFilters, setJlptFilters] = useState<Set<JlptFilter>>(new Set());
   const [gradeFilters, setGradeFilters] = useState<Set<GradeFilter>>(new Set());
   const [vocabWindow, setVocabWindow] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const [allKanji, setAllKanji] = useState<Kanji[] | null>(null);
   const [kanjiError, setKanjiError] = useState<string | null>(null);
@@ -103,28 +112,89 @@ export default function BrowseSection() {
       }
       return true;
     });
-    // Sort by grade ASC, then character.
-    rows.sort((a, b) => a.grade - b.grade || a.character.localeCompare(b.character));
+    const byGrade = (a: Kanji, b: Kanji) =>
+      a.grade - b.grade || a.character.localeCompare(b.character);
+    if (sortKey === "default") {
+      rows.sort(byGrade);
+    } else {
+      const mul = sortDir === "asc" ? 1 : -1;
+      const metric = (k: Kanji) =>
+        sortKey === "most-read"
+          ? kanjiExposures.get(k.character) ?? 0
+          : kanjiLastRead.get(k.character) ?? 0;
+      // Grade/character stays the tiebreaker so unseen kanji (metric 0)
+      // keep a stable, predictable order within the tie.
+      rows.sort((a, b) => (metric(a) - metric(b)) * mul || byGrade(a, b));
+    }
     return rows;
-  }, [allKanji, jlptFilters, gradeFilters, seenFilter, kanjiExposures]);
+  }, [
+    allKanji,
+    jlptFilters,
+    gradeFilters,
+    seenFilter,
+    kanjiExposures,
+    kanjiLastRead,
+    sortKey,
+    sortDir,
+  ]);
 
   const allFrequencyEntries = useMemo<FrequencyEntry[] | null>(() => {
     if (!vocabEncountersLoaded) return null;
     return getFrequencyEntriesSync().slice(0, VOCAB_MAX_RANK);
   }, [vocabEncountersLoaded]);
 
+  // headword → FrequencyEntry across the WHOLE JPDB index (not just the
+  // VOCAB_MAX_RANK rank-window cap), so the flat read-sorted list can surface
+  // any word the user has encountered regardless of its rank.
+  const frequencyByHeadword = useMemo<Map<string, FrequencyEntry> | null>(() => {
+    if (!vocabEncountersLoaded) return null;
+    const m = new Map<string, FrequencyEntry>();
+    for (const e of getFrequencyEntriesSync()) m.set(e.headword, e);
+    return m;
+  }, [vocabEncountersLoaded]);
+
   const visibleVocab = useMemo(() => {
-    if (!allFrequencyEntries) return [];
-    const startRank = vocabWindow * VOCAB_WINDOW_SIZE + 1;
-    const endRank = startRank + VOCAB_WINDOW_SIZE - 1;
-    const slice = allFrequencyEntries.filter(
-      (e) => e.rank >= startRank && e.rank <= endRank
-    );
-    if (seenFilter === "all") return slice;
-    return slice.filter((e) =>
-      matchesCountFilter(vocabEncounters.get(e.headword) ?? 0, seenFilter)
-    );
-  }, [allFrequencyEntries, vocabWindow, seenFilter, vocabEncounters]);
+    // Default sort: paginate the frequency index by the 100-rank window.
+    if (sortKey === "default") {
+      if (!allFrequencyEntries) return [];
+      const startRank = vocabWindow * VOCAB_WINDOW_SIZE + 1;
+      const endRank = startRank + VOCAB_WINDOW_SIZE - 1;
+      const slice = allFrequencyEntries.filter(
+        (e) => e.rank >= startRank && e.rank <= endRank
+      );
+      if (seenFilter === "all") return slice;
+      return slice.filter((e) =>
+        matchesCountFilter(vocabEncounters.get(e.headword) ?? 0, seenFilter)
+      );
+    }
+    // Read-based sort: flat list of every word the user has encountered,
+    // ordered by the metric. The rank window doesn't apply — the list is
+    // bounded by read history, not by the 50k-card frequency slice.
+    if (!frequencyByHeadword) return [];
+    const entries: FrequencyEntry[] = [];
+    for (const [headword, count] of vocabEncounters) {
+      if (count <= 0) continue;
+      if (seenFilter !== "all" && !matchesCountFilter(count, seenFilter)) continue;
+      const fe = frequencyByHeadword.get(headword);
+      if (fe) entries.push(fe);
+    }
+    const mul = sortDir === "asc" ? 1 : -1;
+    const metric = (e: FrequencyEntry) =>
+      sortKey === "most-read"
+        ? vocabEncounters.get(e.headword) ?? 0
+        : vocabLastRead.get(e.headword) ?? 0;
+    entries.sort((a, b) => (metric(a) - metric(b)) * mul || a.rank - b.rank);
+    return entries;
+  }, [
+    allFrequencyEntries,
+    frequencyByHeadword,
+    vocabWindow,
+    seenFilter,
+    vocabEncounters,
+    vocabLastRead,
+    sortKey,
+    sortDir,
+  ]);
 
   const windowStartRank = vocabWindow * VOCAB_WINDOW_SIZE + 1;
   const windowEndRank = windowStartRank + VOCAB_WINDOW_SIZE - 1;
@@ -144,6 +214,19 @@ export default function BrowseSection() {
       else next.add(v);
       return next;
     });
+  };
+  // A read-based chip activates at "desc" on first click, then flips
+  // asc⇄desc on every re-click. "Default" just resets.
+  const handleSort = (key: SortKey) => {
+    if (key === "default") {
+      setSortKey("default");
+      setSortDir("desc");
+    } else if (sortKey === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
   };
 
   return (
@@ -191,6 +274,44 @@ export default function BrowseSection() {
           ))}
         </div>
       </div>
+      <div className="filter-row">
+        <label>Sort</label>
+        <div className="chip-group" aria-label="Sort">
+          {(
+            [
+              ["default", "Default"],
+              ["last-read", "Last read"],
+              ["most-read", "Most read"],
+            ] as const
+          ).map(([key, label]) => {
+            const active = sortKey === key;
+            const directional = active && key !== "default";
+            return (
+              <button
+                key={key}
+                type="button"
+                className={`chip ${active ? "active" : ""}`}
+                onClick={() => handleSort(key)}
+                aria-pressed={active}
+                aria-label={
+                  directional
+                    ? `${label}, ${
+                        sortDir === "desc" ? "descending" : "ascending"
+                      }`
+                    : label
+                }
+              >
+                {label}
+                {directional && (
+                  <span className="browse-sort-arrow" aria-hidden="true">
+                    {sortDir === "desc" ? "▼" : "▲"}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       {mode === "kanji" ? (
         <>
           <div className="filter-row">
@@ -236,7 +357,7 @@ export default function BrowseSection() {
             </div>
           </div>
         </>
-      ) : (
+      ) : sortKey === "default" ? (
         <div className="filter-row browse-slider-row">
           <label htmlFor="vocab-window-slider">Range</label>
           <button
@@ -300,7 +421,7 @@ export default function BrowseSection() {
             {VOCAB_MAX_RANK.toLocaleString()}
           </span>
         </div>
-      )}
+      ) : null}
 
       {mode === "kanji" ? (
         kanjiError ? (
