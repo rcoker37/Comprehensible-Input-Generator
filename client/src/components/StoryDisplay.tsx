@@ -426,11 +426,12 @@ export default function StoryDisplay({
     return out;
   };
 
-  // Spans whose headword has zero global encounters get the accent underline.
-  // Missing entries (span not in the index yet, indexing pending, or the
-  // headword lookup miss) read as undefined and are left untreated.
+  // Whether a span gets the rarity underline. The furigana setting drives
+  // both ruby and underline visibility, so this matches `decideShowRuby`
+  // exactly: "none" underlines nothing, "all" underlines every word,
+  // "unseen" underlines only words new to the reader.
   const isNew = (start: number, end: number): boolean =>
-    encounters.get(`${start}-${end}`) === 0;
+    decideShowRuby(start, end);
 
   const inOverrideRegion = (start: number, end: number): boolean =>
     overrideSpan !== null &&
