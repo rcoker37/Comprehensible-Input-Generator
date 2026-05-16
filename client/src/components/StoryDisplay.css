@@ -12,7 +12,10 @@
  * modal container just provides the scrollable viewport so tall candidate
  * lists / many sub-spans don't overflow the screen. */
 .story-override-modal > .story-override {
-  flex: 1;
+  /* flex-basis auto (not 0) so the modal's `height: fit-content` can size
+   * to this body's content — iOS WebKit collapses a fit-content flex
+   * container whose only child has flex-basis 0. */
+  flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   border: none;
