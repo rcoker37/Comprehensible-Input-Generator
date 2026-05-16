@@ -197,14 +197,27 @@ export async function undoStoryRead(id: number): Promise<StoryReadState> {
   return row;
 }
 
-// Returns exposure counts (read_count-weighted) for every kanji the user has
-// seen in a read story. Powers the header total score, per-story score
-// sorting, and the derived "seen kanji" set in KanjiContext.
-export async function getKanjiExposures(): Promise<Map<string, number>> {
+// Returns per-kanji exposure data for every kanji the user has seen in a read
+// story: `exposures` is the read_count-weighted count (powers the header
+// score and KanjiContext's "seen kanji" set), `lastRead` is the most recent
+// read time (epoch ms) of any story containing the kanji (powers the Browse
+// "last read" sort). Every contributing story has read_count > 0 so its
+// last_read_at is set — `lastRead` has an entry for every seen kanji.
+export async function getKanjiExposures(): Promise<{
+  exposures: Map<string, number>;
+  lastRead: Map<string, number>;
+}> {
   const { data, error } = await supabase.rpc("user_underused_kanji", { p_limit: 10000 });
   if (error) throw new Error(error.message);
-  const rows = (data as { kanji: string; exposures: number }[]) || [];
-  return new Map(rows.map((r) => [r.kanji, r.exposures]));
+  const rows =
+    (data as { kanji: string; exposures: number; last_read_at: string | null }[]) || [];
+  const exposures = new Map<string, number>();
+  const lastRead = new Map<string, number>();
+  for (const r of rows) {
+    exposures.set(r.kanji, r.exposures);
+    if (r.last_read_at) lastRead.set(r.kanji, Date.parse(r.last_read_at));
+  }
+  return { exposures, lastRead };
 }
 
 export async function deleteStory(id: number): Promise<void> {
@@ -370,11 +383,17 @@ const VOCAB_PAGE_SIZE = 1000;
 
 /**
  * Per-headword read-count-weighted encounter totals across the user's read
- * stories. Powers the vocab side of the header total score (see
- * VocabContext + lib/vocabScore.ts).
+ * stories, plus the most recent read time (epoch ms) of any story containing
+ * each headword. `encounters` powers the vocab side of the header total score
+ * (see VocabContext + lib/vocabScore.ts); `lastRead` powers the Browse
+ * "last read" sort.
  */
-export async function getUserWordEncounters(): Promise<Map<string, number>> {
-  const map = new Map<string, number>();
+export async function getUserWordEncounters(): Promise<{
+  encounters: Map<string, number>;
+  lastRead: Map<string, number>;
+}> {
+  const encounters = new Map<string, number>();
+  const lastRead = new Map<string, number>();
   for (let from = 0; ; ) {
     const { data, error } = await supabase
       .rpc("get_user_word_encounters")
@@ -382,13 +401,18 @@ export async function getUserWordEncounters(): Promise<Map<string, number>> {
       .range(from, from + VOCAB_PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const rows =
-      (data as { headword: string; encounters: number }[] | null) ?? [];
+      (data as
+        | { headword: string; encounters: number; last_read_at: string | null }[]
+        | null) ?? [];
     if (rows.length === 0) break;
-    for (const r of rows) map.set(r.headword, Number(r.encounters));
+    for (const r of rows) {
+      encounters.set(r.headword, Number(r.encounters));
+      if (r.last_read_at) lastRead.set(r.headword, Date.parse(r.last_read_at));
+    }
     from += rows.length;
     if (rows.length < VOCAB_PAGE_SIZE) break;
   }
-  return map;
+  return { encounters, lastRead };
 }
 
 /**

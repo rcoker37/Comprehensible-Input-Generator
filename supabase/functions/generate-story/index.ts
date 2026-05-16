@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logOpenRouter } from "../_shared/log.ts";
 
 // Background story generation: insert a placeholder `stories` row with
 // status='generating', return the ID immediately, and run the OpenRouter call
@@ -102,31 +103,66 @@ async function loadKanjiMeta(): Promise<Map<string, KanjiMeta>> {
 
 // Stream from OpenRouter and accumulate the full content. Reasoning chunks are
 // requested (so Claude's extended thinking budget is preserved) but discarded —
-// we only persist the final story text.
+// we only persist the final story text. Every outcome (request, upstream
+// error, mid-stream drop, success) emits an `[openrouter]` log line so a
+// failed background generation can be diagnosed from the Edge Function logs.
 async function streamOpenRouterContent(args: {
   apiKey: string;
   model: string;
   prompt: string;
+  storyId: number;
 }): Promise<string> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${args.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: args.model,
-      messages: [{ role: "user", content: args.prompt }],
-      stream: true,
-      reasoning: { max_tokens: THINKING_BUDGET },
-      max_tokens: MAX_TOKENS,
-    }),
-    signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
+  const { storyId, model } = args;
+  const startedAt = Date.now();
+  logOpenRouter("generate-story.request", {
+    storyId,
+    model,
+    promptChars: args.prompt.length,
+    maxTokens: MAX_TOKENS,
+    thinkingBudget: THINKING_BUDGET,
   });
+
+  let res: Response;
+  try {
+    res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${args.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: args.prompt }],
+        stream: true,
+        reasoning: { max_tokens: THINKING_BUDGET },
+        max_tokens: MAX_TOKENS,
+      }),
+      signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // Network failure or AbortSignal timeout — no HTTP response at all.
+    logOpenRouter(
+      "generate-story.fetch-failed",
+      {
+        storyId,
+        model,
+        elapsedMs: Date.now() - startedAt,
+        error: err instanceof Error ? err.name : "Error",
+        message: err instanceof Error ? err.message : String(err),
+      },
+      true,
+    );
+    throw err;
+  }
 
   if (!res.ok) {
     const status = res.status;
     const body = await res.text();
+    logOpenRouter(
+      "generate-story.error",
+      { storyId, model, status, elapsedMs: Date.now() - startedAt, body: body.slice(0, 1000) },
+      true,
+    );
     const message =
       status === 401 ? "Invalid OpenRouter API key. Please check your key in Settings." :
       status === 402 ? "Insufficient OpenRouter credits." :
@@ -141,43 +177,95 @@ async function streamOpenRouterContent(args: {
   const decoder = new TextDecoder();
   let fullText = "";
   let buffer = "";
+  let lastFinishReason: string | undefined;
+  // Set before any throw we've already logged, so the catch below doesn't
+  // double-log it — the catch only owns unexpected mid-stream failures.
+  let loggedFailure = false;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
 
-    for (const line of lines) {
-      if (!line.startsWith("data: ")) continue;
-      const data = line.slice(6);
-      if (data === "[DONE]") continue;
-      let parsed: {
-        error?: { message?: string; code?: string };
-        choices?: { finish_reason?: string; delta?: { content?: string } }[];
-      };
-      try {
-        parsed = JSON.parse(data);
-      } catch {
-        continue;
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (data === "[DONE]") continue;
+        let parsed: {
+          error?: { message?: string; code?: string };
+          choices?: { finish_reason?: string; delta?: { content?: string } }[];
+        };
+        try {
+          parsed = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        if (parsed.error) {
+          const msg = parsed.error.message || parsed.error.code || "Model error";
+          loggedFailure = true;
+          logOpenRouter(
+            "generate-story.stream-error",
+            { storyId, model, elapsedMs: Date.now() - startedAt, error: msg },
+            true,
+          );
+          throw new Error(`Model error: ${msg}`);
+        }
+        const finishReason = parsed.choices?.[0]?.finish_reason;
+        if (finishReason) lastFinishReason = finishReason;
+        if (finishReason === "length" && !fullText.trim()) {
+          loggedFailure = true;
+          logOpenRouter(
+            "generate-story.truncated-empty",
+            { storyId, model, elapsedMs: Date.now() - startedAt },
+            true,
+          );
+          throw new Error(
+            "The model hit its token limit while thinking and produced no output."
+          );
+        }
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) fullText += content;
       }
-      if (parsed.error) {
-        const msg = parsed.error.message || parsed.error.code || "Model error";
-        throw new Error(`Model error: ${msg}`);
-      }
-      const finishReason = parsed.choices?.[0]?.finish_reason;
-      if (finishReason === "length" && !fullText.trim()) {
-        throw new Error(
-          "The model hit its token limit while thinking and produced no output."
-        );
-      }
-      const content = parsed.choices?.[0]?.delta?.content;
-      if (content) fullText += content;
     }
+  } catch (err) {
+    if (!loggedFailure) {
+      // A mid-stream network drop or timeout — would otherwise leave no
+      // OpenRouter-scoped log line. contentChars shows how far it got.
+      logOpenRouter(
+        "generate-story.stream-interrupted",
+        {
+          storyId,
+          model,
+          elapsedMs: Date.now() - startedAt,
+          contentChars: fullText.length,
+          error: err instanceof Error ? err.name : "Error",
+          message: err instanceof Error ? err.message : String(err),
+        },
+        true,
+      );
+    }
+    throw err;
   }
 
-  if (!fullText.trim()) throw new Error("No content received from the model");
+  if (!fullText.trim()) {
+    logOpenRouter(
+      "generate-story.empty",
+      { storyId, model, elapsedMs: Date.now() - startedAt, finishReason: lastFinishReason },
+      true,
+    );
+    throw new Error("No content received from the model");
+  }
+
+  logOpenRouter("generate-story.ok", {
+    storyId,
+    model,
+    elapsedMs: Date.now() - startedAt,
+    contentChars: fullText.length,
+    finishReason: lastFinishReason,
+  });
   return fullText;
 }
 
@@ -206,17 +294,17 @@ async function runGeneration(args: {
       })
       .eq("id", args.storyId);
     if (error) {
-      console.error("generate-story: complete update failed", error);
+      console.error("generate-story: complete update failed", args.storyId, error);
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Generation failed";
-    console.error("generate-story: generation failed", message);
+    console.error("generate-story: generation failed", args.storyId, message);
     const { error } = await supabaseAdmin
       .from("stories")
       .update({ status: "failed", error_message: message })
       .eq("id", args.storyId);
     if (error) {
-      console.error("generate-story: failure update failed", error);
+      console.error("generate-story: failure update failed", args.storyId, error);
     }
   }
 }

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logOpenRouter } from "../_shared/log.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,18 +45,33 @@ Deno.serve(async (req) => {
     }
 
     // Proxy OpenRouter usage lookup
+    const startedAt = Date.now();
     const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
       headers: { Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(10_000),
     });
 
     if (!res.ok) {
+      const body = await res.text();
+      logOpenRouter(
+        "usage.error",
+        { status: res.status, elapsedMs: Date.now() - startedAt, body: body.slice(0, 500) },
+        true,
+      );
       return jsonResponse({ error: "OpenRouter error" }, 502);
     }
 
     const data = await res.json();
     return jsonResponse(data);
   } catch (err) {
+    logOpenRouter(
+      "usage.failed",
+      {
+        error: err instanceof Error ? err.name : "Error",
+        message: err instanceof Error ? err.message : String(err),
+      },
+      true,
+    );
     if (err instanceof DOMException && err.name === "TimeoutError") {
       return jsonResponse({ error: "OpenRouter timed out" }, 504);
     }
