@@ -21,6 +21,13 @@ import {
 } from "../lib/storySegments";
 import { regroupWords } from "../lib/regroupWords";
 import { applyOccurrences } from "../lib/applyOccurrences";
+import {
+  loadFrequencyIndex,
+  lookupFrequencyByCanonicalSync,
+  lookupFrequencyByEntrySync,
+  lookupFrequencySync,
+  type FrequencyTier,
+} from "../lib/frequency";
 import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
 import type { SentenceTranslation, Story, StoryTranslations } from "../types";
@@ -299,6 +306,46 @@ export default function StoryDisplay({
     // its words flip from zero-encounter (new-underlined) to seen.
   }, [story.id, story.word_index_at, story.read_count, backfillProcessing]);
 
+  // JPDB frequency index — loaded once so new-word underlines can be tinted
+  // by rarity tier to match the WordPopover frequency badge. Until it
+  // resolves, `tierBySpan` stays empty and underlines fall back to the
+  // accent colour.
+  const [freqLoaded, setFreqLoaded] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadFrequencyIndex()
+      .then(() => {
+        if (!cancelled) setFreqLoaded(true);
+      })
+      .catch(() => {
+        // Leave new-word underlines at the accent fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Per-span rarity tier, resolved the same way the WordPopover badge is:
+  // by JMdict entry id first (the indexer's chosen homophone), then the
+  // canonical stamp surface, then a plain surface lookup. Names are skipped
+  // — the popover shows a "Name" badge with no frequency, so their
+  // underline stays the neutral accent colour.
+  const tierBySpan = useMemo(() => {
+    const map = new Map<string, FrequencyTier>();
+    if (!freqLoaded || !occurrences) return map;
+    for (const o of occurrences) {
+      if (!o.headword || o.isName) continue;
+      const byEntry =
+        o.entryId !== null ? lookupFrequencyByEntrySync(o.entryId) : null;
+      const tier =
+        byEntry?.tier ??
+        lookupFrequencyByCanonicalSync(o.headword)?.tier ??
+        lookupFrequencySync(o.headword, null).tier;
+      map.set(`${o.start}-${o.end}`, tier);
+    }
+    return map;
+  }, [freqLoaded, occurrences]);
+
   const handleWordClick = (
     e: React.MouseEvent<HTMLButtonElement>,
     start: number,
@@ -392,7 +439,11 @@ export default function StoryDisplay({
 
   const tokenClass = (start: number, end: number): string => {
     const parts = ["word-token"];
-    if (isNew(start, end)) parts.push("word-token--new");
+    if (isNew(start, end)) {
+      parts.push("word-token--new");
+      const tier = tierBySpan.get(`${start}-${end}`);
+      if (tier) parts.push(`word-token--freq-${tier}`);
+    }
     if (inOverrideRegion(start, end)) parts.push("word-token--in-override");
     return parts.join(" ");
   };
