@@ -549,9 +549,6 @@ export default function StoryDisplay({
         </h2>
       </div>
       <div className="story-meta">
-        <span className="type-tag">{story.content_type ?? "fiction"}</span>
-        <span className="formality-tag">{story.formality}</span>
-        {story.topic && <span className="topic-tag">{story.topic}</span>}
         <div className="furigana-control">
           <span className="furigana-label">furigana: </span>
           <button

@@ -72,22 +72,6 @@
   letter-spacing: 0.03em;
 }
 
-.story-meta .type-tag,
-.story-meta .formality-tag,
-.story-meta .topic-tag {
-  background: transparent;
-  padding: 0;
-  border-radius: 0;
-  font-size: inherit;
-  color: inherit;
-}
-
-.story-meta > * + *::before {
-  content: "·";
-  margin: 0 0.6rem;
-  color: var(--text-dim);
-}
-
 .furigana-control {
   margin-left: auto;
   display: flex;
