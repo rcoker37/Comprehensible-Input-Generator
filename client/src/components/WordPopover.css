@@ -236,34 +236,37 @@
   transform: translateY(-0.35rem);
 }
 
+/* All five badges share one soft style — tinted fill + tier-coloured text
+ * and border — so the rarity gradient reads cleanly across them. The tier
+ * colour is the --freq-* gradient defined in App.css. */
 .word-popover__freq--very-common .word-popover__freq-badge {
-  background: var(--success-soft);
-  color: var(--success);
-  border-color: var(--success);
+  background: color-mix(in srgb, var(--freq-very-common) 14%, transparent);
+  color: var(--freq-very-common);
+  border-color: var(--freq-very-common);
 }
 
 .word-popover__freq--common .word-popover__freq-badge {
-  background: var(--warning-bg);
-  color: var(--warning-fg);
-  border-color: var(--warning-fg);
+  background: color-mix(in srgb, var(--freq-common) 14%, transparent);
+  color: var(--freq-common);
+  border-color: var(--freq-common);
 }
 
 .word-popover__freq--uncommon .word-popover__freq-badge {
-  background: var(--bg-dim);
-  color: var(--text-dim);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--freq-uncommon) 14%, transparent);
+  color: var(--freq-uncommon);
+  border-color: var(--freq-uncommon);
 }
 
 .word-popover__freq--rare .word-popover__freq-badge {
-  background: var(--error-bg);
-  color: var(--error-fg);
-  border-color: var(--error-fg);
+  background: color-mix(in srgb, var(--freq-rare) 14%, transparent);
+  color: var(--freq-rare);
+  border-color: var(--freq-rare);
 }
 
 .word-popover__freq--very-rare .word-popover__freq-badge {
-  background: var(--error-fg);
-  color: #fff;
-  border-color: var(--error-fg);
+  background: color-mix(in srgb, var(--freq-very-rare) 14%, transparent);
+  color: var(--freq-very-rare);
+  border-color: var(--freq-very-rare);
 }
 
 .word-popover__name-badge {

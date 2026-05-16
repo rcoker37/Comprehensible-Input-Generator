@@ -22,6 +22,13 @@
   --warning-fg: #f5a524;
   --error-bg: #e9456022;
   --error-fg: #e94560;
+  /* Word-frequency rarity gradient (very common → very rare). Drives the
+   * WordPopover frequency badge and StoryDisplay's new-word underline. */
+  --freq-very-common: #A8D5A8;
+  --freq-common: #d7e481;
+  --freq-uncommon: #eec458;
+  --freq-rare: #f0834c;
+  --freq-very-rare: #e94560;
   --radius: 8px;
   color-scheme: dark;
 }
@@ -44,6 +51,12 @@
   --warning-fg: #8A5A0E;
   --error-bg: #B0354022;
   --error-fg: #8A2530;
+  /* Word-frequency rarity gradient — see :root. */
+  --freq-very-common: #5A7A3C;
+  --freq-common: #979b2c;
+  --freq-uncommon: #ab8421;
+  --freq-rare: #ab5426;
+  --freq-very-rare: #8A2530;
   color-scheme: light;
 }
 

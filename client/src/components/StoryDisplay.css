@@ -139,14 +139,34 @@
 }
 
 /* Zero-encounters word — never seen by the user across any read story.
- * Accent underline to call it out as new (matches the chrome accent so it
- * reads as informational rather than an error). text-underline-offset
- * keeps the underline clear of the kanji/kana descenders. */
+ * Underlined to call it out as new; the underline colour is tinted by the
+ * word's JPDB rarity tier so it matches the WordPopover frequency badge.
+ * text-underline-offset keeps the underline clear of the kanji/kana
+ * descenders. The accent colour is the fallback used until the frequency
+ * index resolves, and for names (which the popover shows with no tier). */
 .word-token--new {
   text-decoration: underline;
   text-decoration-color: var(--accent);
   text-decoration-thickness: 2px;
   text-underline-offset: 0.18em;
+}
+
+/* Rarity-tier underline colours — the --freq-* gradient from App.css, the
+ * same vars that colour the WordPopover frequency badge. */
+.word-token--new.word-token--freq-very-common {
+  text-decoration-color: var(--freq-very-common);
+}
+.word-token--new.word-token--freq-common {
+  text-decoration-color: var(--freq-common);
+}
+.word-token--new.word-token--freq-uncommon {
+  text-decoration-color: var(--freq-uncommon);
+}
+.word-token--new.word-token--freq-rare {
+  text-decoration-color: var(--freq-rare);
+}
+.word-token--new.word-token--freq-very-rare {
+  text-decoration-color: var(--freq-very-rare);
 }
 
 /* Tokens in the active override region get a soft highlight so the user
