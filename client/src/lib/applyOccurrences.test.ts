@@ -126,6 +126,39 @@ describe("applyOccurrences", () => {
     expect(parts[1]).toMatchObject({ kind: "char", offset: 2, char: "に" });
   });
 
+  it("drops an occurrence that straddles a sentence boundary instead of hanging", () => {
+    // A manual "match as name" override is the one path that can write an
+    // occurrence row spanning a 。 — name mode saves a row for the span
+    // regardless of word/sentence boundaries (the region editor's extend
+    // controls hop over newlines, so it is easy to do by accident). The
+    // walk must drop such a row and let its chars fall back to char-level
+    // parts; before the fix the cursor pinned against `occ.start <= cursor`
+    // and `applyOccurrences` spun forever, freezing the tab. If this
+    // regresses the test hangs rather than fails.
+    const text = "山田。次";
+    const base = buildDisplaySegments(text, []);
+    // 山田。 is sentence 1 (start 0); 次 is sentence 2 (start 3).
+    const occurrences: OccurrenceRow[] = [
+      {
+        start: 0,
+        end: 4,
+        surface: "山田。次",
+        headword: "山田。次",
+        reading: "",
+        manual: true,
+      },
+    ];
+    const result = applyOccurrences(base, occurrences, text, []);
+    expect(result[0]!.sentences[0]!.parts).toEqual([
+      { kind: "char", offset: 0, char: "山" },
+      { kind: "char", offset: 1, char: "田" },
+      { kind: "char", offset: 2, char: "。" },
+    ]);
+    expect(result[0]!.sentences[1]!.parts).toEqual([
+      { kind: "char", offset: 3, char: "次" },
+    ]);
+  });
+
   it("emits annotated parts in gaps when annotation falls outside any occurrence", () => {
     // ご飯《はん》 with override on (0,1) leaving 飯's annotation in the
     // gap — should render as an AnnotatedPart not raw CharPart.
