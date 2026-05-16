@@ -1,5 +1,14 @@
 .modal {
-  position: relative;
+  /* A modal <dialog> must stay fixed-positioned and centered. Overriding
+   * this to `position: relative` drops it into normal document flow, so it
+   * renders at its in-DOM location instead of the viewport center — on a
+   * scrolled page (e.g. deep in a story on iOS) the dialog ends up off
+   * screen above the fold while the top-layer ::backdrop still covers the
+   * viewport, leaving only the blurred background visible. */
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
@@ -9,7 +18,6 @@
   width: min(600px, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
-  margin: auto;
 }
 
 .modal::backdrop {
