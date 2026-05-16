@@ -9,13 +9,6 @@
   inset: 0;
   margin: auto;
   height: fit-content;
-  /* Modal bodies (.word-popover__inner, .browse-modal-body,
-   * .story-override) are `flex: 1` children that expect this container to
-   * be a flex column — without it they fall back to block layout, and the
-   * word popover's inner element (which used `height: 100%` to fill the
-   * dialog) hit a circular height dependency against `height: fit-content`
-   * that iOS WebKit collapses to zero. */
-  display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -26,6 +19,17 @@
   width: min(600px, calc(100vw - 2rem));
   max-height: calc(100vh - 4rem);
   overflow-y: auto;
+}
+
+/* `display` is gated on [open] so it does not override the UA's
+ * `dialog:not([open]) { display: none }` — author rules beat UA rules
+ * regardless of specificity, so an unconditional `display: flex` keeps
+ * always-mounted modals (e.g. GenerationModal) permanently visible.
+ * The flex column is what modal bodies (.word-popover__inner,
+ * .browse-modal-body, .story-override) rely on: they are flex children
+ * that fill the dialog and own their own scrolling. */
+.modal[open] {
+  display: flex;
 }
 
 .modal::backdrop {
