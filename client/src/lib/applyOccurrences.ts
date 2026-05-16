@@ -57,12 +57,34 @@ export function applyOccurrences(
       while (oIdx < sorted.length && sorted[oIdx]!.end <= sentStart) oIdx++;
 
       while (cursor < sentEnd) {
-        // Skip any occurrence that ended at or before the cursor — happens
-        // when an earlier emit jumped past it.
-        while (oIdx < sorted.length && sorted[oIdx]!.end <= cursor) oIdx++;
+        // Retire every occurrence that can't anchor a tap target at the
+        // cursor before reading the next one. Three cases drop a row:
+        //   - it starts before the cursor (an earlier emit already
+        //     consumed past its start, or it ended behind us);
+        //   - its span runs past this sentence's end;
+        //   - it is empty / inverted (end <= start).
+        // The middle case is the one a manual "match as name" override can
+        // hit: name mode is the only override path that writes a row
+        // without a JMdict candidate, so the user can mark a span that
+        // straddles a 。 or a line break (the region editor's extend
+        // controls hop whitespace, newlines included). Such a row can't be
+        // a single tap target inside one sentence — dropping it lets the
+        // chars fall back to char-level parts. Without the skip the cursor
+        // pins against `occ.start <= cursor` (nextStop never exceeds it)
+        // and the walk spins forever, freezing the tab.
+        while (
+          oIdx < sorted.length &&
+          (sorted[oIdx]!.end <= sorted[oIdx]!.start ||
+            sorted[oIdx]!.start < cursor ||
+            sorted[oIdx]!.end > sentEnd)
+        ) {
+          oIdx++;
+        }
         const occ = oIdx < sorted.length ? sorted[oIdx]! : null;
 
-        if (occ && occ.start === cursor && occ.end <= sentEnd) {
+        if (occ && occ.start === cursor) {
+          // The skip-loop guarantees occ.end > occ.start and
+          // occ.end <= sentEnd, so this always advances the cursor.
           const rubies = annotations.filter(
             (a) => a.start >= occ.start && a.end <= occ.end
           );
@@ -80,7 +102,9 @@ export function applyOccurrences(
 
         // No occurrence anchored at the cursor — fill chars up to the next
         // occurrence start (or the sentence end) with char-level or
-        // annotated parts.
+        // annotated parts. Any surviving `occ` now starts strictly after
+        // the cursor, so `nextStop` is always > cursor and the walk
+        // progresses.
         const nextStop = occ ? Math.min(occ.start, sentEnd) : sentEnd;
         while (cursor < nextStop) {
           const ann = annotations.find(
