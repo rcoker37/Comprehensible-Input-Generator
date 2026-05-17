@@ -12,7 +12,7 @@ import { useWordIndexBackfill } from "./WordIndexBackfillContext";
 import { useStories } from "./StoriesContext";
 
 const POLL_INTERVAL_MS = 3000;
-const STALE_THRESHOLD_MS = 3 * 60 * 1000;
+const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 
 interface GenerateParams {
   contentType: ContentType;

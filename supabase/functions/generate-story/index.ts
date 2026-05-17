@@ -23,7 +23,7 @@ const ALLOWED_MODELS = new Set([
 
 const THINKING_BUDGET = 6000;
 const MAX_TOKENS = 16000;
-const OPENROUTER_TIMEOUT_MS = 120_000;
+const OPENROUTER_TIMEOUT_MS = 240_000;
 const KANJI_REGEX_G = /[一-龯㐀-䶿]/g;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
