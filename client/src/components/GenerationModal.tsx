@@ -5,20 +5,13 @@ import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import { updatePreferences } from "../api/client";
-import type { UnseenKanjiTarget, UnseenWordTarget } from "../lib/generation";
+import type { UnseenWordTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
 import Modal from "./Modal";
 import "./GenerationModal.css";
 
 const MODEL = "anthropic/claude-opus-4.7";
-
-const UNSEEN_KANJI_OPTIONS: { value: UnseenKanjiTarget; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "1-2", label: "1–2" },
-  { value: "3-5", label: "3–5" },
-  { value: "5-10", label: "5–10" },
-];
 
 const UNSEEN_WORD_OPTIONS: { value: UnseenWordTarget; label: string }[] = [
   { value: "none", label: "None" },
@@ -41,7 +34,6 @@ export default function GenerationModal({ open, onClose }: Props) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
-  const [unseenKanjiTarget, setUnseenKanjiTarget] = useState<UnseenKanjiTarget>("none");
   const [unseenWordTarget, setUnseenWordTarget] = useState<UnseenWordTarget>("none");
 
   // Sync preferences from profile once it resolves — state initializers run
@@ -53,7 +45,6 @@ export default function GenerationModal({ open, onClose }: Props) {
     const gen = profile.preferences?.generator;
     if (gen?.contentType) setContentType(gen.contentType as ContentType);
     if (gen?.formality) setFormality(gen.formality as Formality);
-    if (gen?.unknownKanjiTarget) setUnseenKanjiTarget(gen.unknownKanjiTarget as UnseenKanjiTarget);
     if (gen?.unseenWordTarget) setUnseenWordTarget(gen.unseenWordTarget as UnseenWordTarget);
   }, [profile]);
 
@@ -66,7 +57,6 @@ export default function GenerationModal({ open, onClose }: Props) {
       formality,
       model: MODEL,
       seenKanji,
-      unseenKanjiTarget,
       unseenWordTarget,
       seenWords: new Set(vocabEncounters.keys()),
     });
@@ -75,7 +65,6 @@ export default function GenerationModal({ open, onClose }: Props) {
         model: MODEL,
         contentType,
         formality,
-        unknownKanjiTarget: unseenKanjiTarget,
         unseenWordTarget,
       },
     })
@@ -139,22 +128,6 @@ export default function GenerationModal({ open, onClose }: Props) {
                   aria-pressed={formality === f}
                 >
                   {f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Unseen kanji</label>
-            <div className="chip-group" role="radiogroup" aria-label="Unseen kanji target">
-              {UNSEEN_KANJI_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`chip ${unseenKanjiTarget === opt.value ? "active" : ""}`}
-                  onClick={() => setUnseenKanjiTarget(opt.value)}
-                  aria-pressed={unseenKanjiTarget === opt.value}
-                >
-                  {opt.label}
                 </button>
               ))}
             </div>

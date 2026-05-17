@@ -6,7 +6,7 @@ import {
   markStoryFailed,
   deleteStory,
 } from "../api/client";
-import type { UnseenKanjiTarget, UnseenWordTarget } from "../lib/generation";
+import type { UnseenWordTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import { useWordIndexBackfill } from "./WordIndexBackfillContext";
 import { useStories } from "./StoriesContext";
@@ -21,7 +21,6 @@ interface GenerateParams {
   formality: Formality;
   model: string;
   seenKanji: Set<string>;
-  unseenKanjiTarget: UnseenKanjiTarget;
   unseenWordTarget: UnseenWordTarget;
   seenWords: Set<string>;
 }
