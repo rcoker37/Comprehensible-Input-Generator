@@ -91,8 +91,14 @@ export interface WordOccurrence {
  *       高《たか》さ now merges into 高さ (JPDB has no 高さ entry, so the old
  *       unranked-only veto wrongly blocked the merge), and さ|は no longer
  *       collapses into the rare word 左派 (rank 62,243).
+ *   9 — the rare-merge veto now has a deinflection counterpart
+ *       (`deinflectionMergeStartsOnParticle` in regroupWords.ts). A merge is
+ *       refused when it deinflects across a kuromoji boundary and kuromoji
+ *       tagged its leading token as a particle: は|もう no longer collapses
+ *       into the volitional of the rare verb 食む (はむ, rank 25,527 — inside
+ *       the `rare` tier, so the kana-rank veto couldn't catch it).
  */
-export const WORD_INDEX_VERSION = 8;
+export const WORD_INDEX_VERSION = 9;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
