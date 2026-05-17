@@ -78,4 +78,39 @@ describe("buildPrompt", () => {
     const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "1-2");
     expect(result).not.toContain("minimizing usage of kanji not in the list");
   });
+
+  it("omits the unseen-words rule when unseenWordTarget is 'none'", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", "none", ["猫", "犬"]);
+    expect(result).not.toContain("of these common words");
+  });
+
+  it("omits the unseen-words rule when the word pool is empty", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", "3-5", []);
+    expect(result).not.toContain("of these common words");
+  });
+
+  it("includes the unseen-words rule with the requested range and word pool", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", "3-5", ["猫", "犬", "本"]);
+    expect(result).toContain("3–5 of these common words");
+    expect(result).toContain("猫、犬、本");
+  });
+
+  it("uses the matching range for each unseenWordTarget value", () => {
+    const r12 = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", "1-2", ["猫"]);
+    expect(r12).toContain("1–2 of these common words");
+    const r510 = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", "5-10", ["猫"]);
+    expect(r510).toContain("5–10 of these common words");
+  });
+
+  it("frames the unseen-words pool as a nudge, not the only new vocabulary", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", "3-5", ["猫"]);
+    expect(result).toContain("only a nudge");
+    expect(result).toContain("not meant to be the only unfamiliar words");
+  });
+
+  it("can request stretch kanji and unseen words at the same time", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "1-2", "3-5", ["猫"]);
+    expect(result).toContain("Include 1–2 unique kanji");
+    expect(result).toContain("3–5 of these common words");
+  });
 });

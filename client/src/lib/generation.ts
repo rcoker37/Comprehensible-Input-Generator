@@ -44,6 +44,22 @@ const UNSEEN_KANJI_RANGES: Record<UnseenKanjiTarget, [number, number] | null> = 
   "5-10": [5, 10],
 };
 
+export type UnseenWordTarget = "none" | "1-2" | "3-5" | "5-10";
+
+const UNSEEN_WORD_RANGES: Record<UnseenWordTarget, [number, number] | null> = {
+  none: null,
+  "1-2": [1, 2],
+  "3-5": [3, 5],
+  "5-10": [5, 10],
+};
+
+/**
+ * How many of the user's most-frequent never-encountered words to hand the
+ * model as a candidate pool. The model is nudged to weave a few of them in
+ * (see `UNSEEN_WORD_RANGES`); the rest of the pool is just there for choice.
+ */
+export const UNSEEN_WORD_POOL_SIZE = 50;
+
 export function buildPrompt(
   contentType: ContentType,
   paragraphs: number,
@@ -51,9 +67,12 @@ export function buildPrompt(
   formality: Formality,
   topic?: string,
   style?: string,
-  unseenKanjiTarget: UnseenKanjiTarget = "none"
+  unseenKanjiTarget: UnseenKanjiTarget = "none",
+  unseenWordTarget: UnseenWordTarget = "none",
+  unseenWords: string[] = []
 ): string {
   const range = UNSEEN_KANJI_RANGES[unseenKanjiTarget];
+  const wordRange = UNSEEN_WORD_RANGES[unseenWordTarget];
   const rules: string[] = ["Rules:"];
 
   if (range) {
@@ -68,6 +87,14 @@ export function buildPrompt(
       "- Try to only use kanji from the list above, minimizing usage of kanji not in the list. Use hiragana and katakana freely.",
       "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
       "- If a word needs kanji not in the list, rephrase with simpler vocabulary rather than writing it in hiragana."
+    );
+  }
+
+  if (wordRange && unseenWords.length > 0) {
+    const [min, max] = wordRange;
+    rules.push(
+      `- Naturally use ${min}–${max} of these common words the reader has not encountered yet, choosing ones that fit the topic and weaving them in normally (do not list them mechanically): ${unseenWords.join("、")}. If a listed word would need a kanji outside the allowed list, write that word in hiragana rather than dropping it.`,
+      "- Those words are only a nudge — keep introducing plenty of other vocabulary the reader likely hasn't seen too; that list is not meant to be the only unfamiliar words in the piece."
     );
   }
 

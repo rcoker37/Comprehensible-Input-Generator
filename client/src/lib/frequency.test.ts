@@ -340,3 +340,53 @@ describe("getVocabBrowseEntriesSync", () => {
     ]);
   });
 });
+
+describe("getTopUnseenWords", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+  });
+
+  const sampleIndex: Record<string, RawEntryRecord> = {
+    "1": { rank: 2, headword: "は", reading: null, canonical: "は" },
+    "2": { rank: 43, headword: "もの", reading: null, canonical: "物" },
+    "3": { rank: 200, headword: "食べる", reading: "たべる", canonical: "食べる" },
+  };
+
+  it("returns the most frequent words in rank order", async () => {
+    stubBothIndices({}, sampleIndex);
+    const { loadFrequencyIndex, getTopUnseenWords } = await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getTopUnseenWords(new Set(), 10)).toEqual(["は", "もの", "食べる"]);
+  });
+
+  it("skips words whose canonical the user has already encountered", async () => {
+    stubBothIndices({}, sampleIndex);
+    const { loadFrequencyIndex, getTopUnseenWords } = await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getTopUnseenWords(new Set(["物"]), 10)).toEqual(["は", "食べる"]);
+  });
+
+  it("treats a surface as seen when ANY of its canonicals is encountered", async () => {
+    // こと merges 事 (uk noun) + こと (particle) into one card with two
+    // canonicals; encountering either should hide the merged card.
+    stubBothIndices(
+      {},
+      {
+        "1": { rank: 15, headword: "こと", reading: null, canonical: "事" },
+        "2": { rank: 15, headword: "こと", reading: null, canonical: "こと" },
+        "3": { rank: 200, headword: "食べる", reading: "たべる", canonical: "食べる" },
+      }
+    );
+    const { loadFrequencyIndex, getTopUnseenWords } = await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getTopUnseenWords(new Set(["事"]), 10)).toEqual(["食べる"]);
+  });
+
+  it("caps the result at `limit`", async () => {
+    stubBothIndices({}, sampleIndex);
+    const { loadFrequencyIndex, getTopUnseenWords } = await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getTopUnseenWords(new Set(), 2)).toEqual(["は", "もの"]);
+  });
+});
