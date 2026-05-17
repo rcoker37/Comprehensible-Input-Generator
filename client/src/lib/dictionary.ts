@@ -59,9 +59,33 @@ export function initDictionary(): Promise<void> {
   return initPromise;
 }
 
+/**
+ * Stable-partition `results` so WordResults that contain `search` as a
+ * literal kanji or reading form sort ahead of ones that only matched after
+ * the JMdict IDB folded hiragana and katakana together. The IDB's lookup
+ * index treats でも and デモ as the same key, so a lookup of the hiragana
+ * conjunction でも otherwise surfaces the katakana loanword デモ first — and
+ * the word indexer, which stamps `results[0]`'s headword, then records every
+ * でも occurrence under デモ. Order within each group is preserved, so a
+ * lookup with no script ambiguity is returned untouched.
+ */
+export function preferExactScriptMatch(
+  results: WordResult[],
+  search: string
+): WordResult[] {
+  const isLiteral = (wr: WordResult): boolean =>
+    (wr.k?.some((k) => k.ent === search) ?? false) ||
+    (wr.r?.some((r) => r.ent === search) ?? false);
+  const literal: WordResult[] = [];
+  const folded: WordResult[] = [];
+  for (const wr of results) (isLiteral(wr) ? literal : folded).push(wr);
+  return [...literal, ...folded];
+}
+
 export async function lookupWord(search: string): Promise<WordResult[]> {
   if (state !== "ready" || !search) return [];
-  return getWords(search, { matchType: "exact", limit: 10 });
+  const results = await getWords(search, { matchType: "exact", limit: 10 });
+  return preferExactScriptMatch(results, search);
 }
 
 export async function lookupKanji(char: string): Promise<KanjiResult | null> {
