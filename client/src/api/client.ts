@@ -1,5 +1,12 @@
 import { supabase } from "../lib/supabase";
-import { buildPrompt, PARAGRAPH_COUNT, type UnseenKanjiTarget } from "../lib/generation";
+import {
+  buildPrompt,
+  PARAGRAPH_COUNT,
+  UNSEEN_WORD_POOL_SIZE,
+  type UnseenKanjiTarget,
+  type UnseenWordTarget,
+} from "../lib/generation";
+import { getTopUnseenWords, loadFrequencyIndex } from "../lib/frequency";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
@@ -73,6 +80,10 @@ export async function startStoryGeneration(
     model: string;
     seenKanji: Set<string>;
     unseenKanjiTarget: UnseenKanjiTarget;
+    unseenWordTarget: UnseenWordTarget;
+    // Headwords (canonical surfaces) the user has encountered in a read
+    // story — used to filter the unseen-common-words pool.
+    seenWords: Set<string>;
   }
 ): Promise<{ storyId: number }> {
   // Allowed kanji = (kanji the user has seen in any read story)
@@ -81,6 +92,20 @@ export async function startStoryGeneration(
   const n5 = await getJlptN5Kanji();
   const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
   const allowedKanji = [...allowedSet].join("");
+
+  // Hand the model a pool of the user's most-frequent never-encountered words
+  // so it can weave a few in naturally (see buildPrompt). Best-effort: a
+  // frequency-index failure just drops the nudge and generation proceeds.
+  let unseenWords: string[] = [];
+  if (params.unseenWordTarget !== "none") {
+    try {
+      await loadFrequencyIndex();
+      unseenWords = getTopUnseenWords(params.seenWords, UNSEEN_WORD_POOL_SIZE);
+    } catch (err) {
+      console.warn("Failed to build unseen-common-words pool:", err);
+    }
+  }
+
   const prompt = buildPrompt(
     params.contentType,
     PARAGRAPH_COUNT,
@@ -88,7 +113,9 @@ export async function startStoryGeneration(
     params.formality,
     params.topic,
     params.style,
-    params.unseenKanjiTarget
+    params.unseenKanjiTarget,
+    params.unseenWordTarget,
+    unseenWords
   );
 
   const { data: sessionData } = await supabase.auth.getSession();

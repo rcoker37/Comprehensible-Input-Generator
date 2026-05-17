@@ -321,6 +321,28 @@ export function getVocabBrowseEntriesSync(): VocabBrowseEntry[] {
 }
 
 /**
+ * The display surfaces of the `limit` most frequent JPDB words the user has
+ * never encountered — every word whose every canonical surface is absent from
+ * `seenHeadwords`, taken in rank order. A surface counts as seen when ANY of
+ * its canonicals has been encountered (the merged こと card carries both 事 and
+ * こと, so encountering either hides it). Built from the by-entry index via
+ * {@link getVocabBrowseEntriesSync}; requires `loadFrequencyIndex()` to have
+ * resolved. Used to nudge story generation toward common unseen vocabulary.
+ */
+export function getTopUnseenWords(
+  seenHeadwords: Set<string>,
+  limit: number
+): string[] {
+  const out: string[] = [];
+  for (const entry of getVocabBrowseEntriesSync()) {
+    if (entry.canonicals.some((c) => seenHeadwords.has(c))) continue;
+    out.push(entry.headword);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
  * Lookup the best (lowest rank) JPDB frequency across multiple candidate
  * orthographies of the same word. A JMdict entry can list several kanji
  * variants (e.g. 御供え / お供え) that share a reading; JPDB indexes them

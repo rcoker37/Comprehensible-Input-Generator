@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
+import { useVocab } from "../contexts/VocabContext";
 import { updatePreferences } from "../api/client";
-import type { UnseenKanjiTarget } from "../lib/generation";
+import type { UnseenKanjiTarget, UnseenWordTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
 import Modal from "./Modal";
@@ -13,6 +14,13 @@ import "./GenerationModal.css";
 const MODEL = "anthropic/claude-opus-4.7";
 
 const UNSEEN_KANJI_OPTIONS: { value: UnseenKanjiTarget; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "1-2", label: "1–2" },
+  { value: "3-5", label: "3–5" },
+  { value: "5-10", label: "5–10" },
+];
+
+const UNSEEN_WORD_OPTIONS: { value: UnseenWordTarget; label: string }[] = [
   { value: "none", label: "None" },
   { value: "1-2", label: "1–2" },
   { value: "3-5", label: "3–5" },
@@ -28,11 +36,13 @@ export default function GenerationModal({ open, onClose }: Props) {
   const { user, profile, refreshProfile } = useAuth();
   const { loading, generate } = useGeneration();
   const { seenKanji } = useSeenKanji();
+  const { vocabEncounters } = useVocab();
   const [contentType, setContentType] = useState<ContentType>("fiction");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
   const [unseenKanjiTarget, setUnseenKanjiTarget] = useState<UnseenKanjiTarget>("none");
+  const [unseenWordTarget, setUnseenWordTarget] = useState<UnseenWordTarget>("none");
 
   // Sync preferences from profile once it resolves — state initializers run
   // before the profile fetch completes, so defaults would always win otherwise.
@@ -44,6 +54,7 @@ export default function GenerationModal({ open, onClose }: Props) {
     if (gen?.contentType) setContentType(gen.contentType as ContentType);
     if (gen?.formality) setFormality(gen.formality as Formality);
     if (gen?.unknownKanjiTarget) setUnseenKanjiTarget(gen.unknownKanjiTarget as UnseenKanjiTarget);
+    if (gen?.unseenWordTarget) setUnseenWordTarget(gen.unseenWordTarget as UnseenWordTarget);
   }, [profile]);
 
   const handleGenerate = () => {
@@ -56,6 +67,8 @@ export default function GenerationModal({ open, onClose }: Props) {
       model: MODEL,
       seenKanji,
       unseenKanjiTarget,
+      unseenWordTarget,
+      seenWords: new Set(vocabEncounters.keys()),
     });
     updatePreferences({
       generator: {
@@ -63,6 +76,7 @@ export default function GenerationModal({ open, onClose }: Props) {
         contentType,
         formality,
         unknownKanjiTarget: unseenKanjiTarget,
+        unseenWordTarget,
       },
     })
       .then(() => refreshProfile())
@@ -139,6 +153,22 @@ export default function GenerationModal({ open, onClose }: Props) {
                   className={`chip ${unseenKanjiTarget === opt.value ? "active" : ""}`}
                   onClick={() => setUnseenKanjiTarget(opt.value)}
                   aria-pressed={unseenKanjiTarget === opt.value}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Unseen common words</label>
+            <div className="chip-group" role="radiogroup" aria-label="Unseen common words target">
+              {UNSEEN_WORD_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  className={`chip ${unseenWordTarget === opt.value ? "active" : ""}`}
+                  onClick={() => setUnseenWordTarget(opt.value)}
+                  aria-pressed={unseenWordTarget === opt.value}
                 >
                   {opt.label}
                 </button>
