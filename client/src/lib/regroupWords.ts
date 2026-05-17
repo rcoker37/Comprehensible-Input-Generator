@@ -17,10 +17,29 @@
 // rejects 「があ」 (ends mid-token) and accepts 「あります」 (ends on the
 // boundary that closes the あり|ます chain).
 //
+// One more guard runs the other way. JMdict carries expression entries for
+// particle runs like では and これは, so when kuromoji splits で|は the
+// alignment rule would happily merge them back into the JMdict entry. That
+// over-merges: kuromoji's split is correct (it keeps a real sentence-initial
+// では conjunction as one token, and splits the で|は particles otherwise).
+// So a merge is also refused when it's an exact match, it crosses a kuromoji
+// boundary, and JPDB has never ranked the merged span as a word — see
+// `jpdbUnranked`. JPDB does rank lexicalised compound particles (には, とは),
+// which keeps those merging.
+//
 // Async because both kuromoji init and dictionary lookups are async. Callers
 // await once per story; the tokenizer init is amortised across calls.
 
-import { annotationContradictsHit, lookupAtBoundary } from "./lookupAtCursor";
+import {
+  annotationContradictsHit,
+  lookupAtBoundary,
+  type LookupHit,
+} from "./lookupAtCursor";
+import {
+  loadFrequencyIndex,
+  lookupFrequencyByEntrySync,
+  lookupFrequencySync,
+} from "./frequency";
 import { tokenizeText, type KuromojiTokenInfo } from "./tokenizer";
 import { KANJI_REGEX } from "./constants";
 import type {
@@ -34,12 +53,20 @@ import type { FuriganaAnnotation } from "./furigana";
 export type LookupAtBoundaryFn = typeof lookupAtBoundary;
 export type TokenizeFn = (text: string) => Promise<KuromojiTokenInfo[]>;
 
+/**
+ * A merge-veto probe. Given a candidate exact-match hit, returns true to
+ * refuse the merge. Injectable so tests can drive the veto deterministically
+ * without real frequency data; production uses {@link jpdbUnranked}.
+ */
+export type RareMergeProbe = (hit: LookupHit) => boolean | Promise<boolean>;
+
 export async function regroupWords(
   paragraphs: DisplayParagraph[],
   cleanText: string,
   annotations: FuriganaAnnotation[],
   lookup: LookupAtBoundaryFn = lookupAtBoundary,
-  tokenize: TokenizeFn = tokenizeText
+  tokenize: TokenizeFn = tokenizeText,
+  rareMergeProbe: RareMergeProbe = jpdbUnranked
 ): Promise<DisplayParagraph[]> {
   const tokens = await tokenize(cleanText);
   const boundaries = tokens.map((t) => t.end); // sorted ascending by construction
@@ -78,7 +105,8 @@ export async function regroupWords(
         lookup,
         boundaries,
         auxAfterVerbBoundaries,
-        posByStart
+        posByStart,
+        rareMergeProbe
       );
       newSentences.push({ ...sent, parts: newParts });
     }
@@ -100,7 +128,8 @@ async function regroupParts(
   lookup: LookupAtBoundaryFn,
   boundaries: number[],
   auxAfterVerbBoundaries: Set<number>,
-  posByStart: Map<number, string>
+  posByStart: Map<number, string>,
+  rareMergeProbe: RareMergeProbe
 ): Promise<SegmentPart[]> {
   if (parts.length === 0) return [];
 
@@ -154,10 +183,22 @@ async function regroupParts(
       const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
       // Reject a hit whose entry reading the LLM furigana contradict — e.g.
       // 今日《きょう》は must not merge into the greeting こんにちは.
-      if (hit && !annotationContradictsHit(hit, annotations)) {
-        mergedTo = pi;
-        break;
+      if (!hit || annotationContradictsHit(hit, annotations)) continue;
+      // Refuse a merge that glues a kuromoji-split span into a JMdict entry
+      // JPDB has never ranked as a word: で|は → では, これ|は → これは.
+      // Kuromoji already draws the right boundary in context (and keeps a
+      // genuine sentence-initial では conjunction as one token), so deferring
+      // to its split is safe. Exact matches only — a deinflection chain like
+      // 食べ|まし|た → 食べました must still merge.
+      if (
+        !hit.base &&
+        crossesKuromojiBoundary(start, b, boundaries) &&
+        (await rareMergeProbe(hit))
+      ) {
+        continue;
       }
+      mergedTo = pi;
+      break;
     }
 
     // Pass 2: kanji-containing fallback at non-aligned part ends. Catches
@@ -225,4 +266,43 @@ function hasKanji(text: string, start: number, end: number): boolean {
     if (KANJI_REGEX.test(text[i]!)) return true;
   }
   return false;
+}
+
+/**
+ * True when at least one kuromoji token boundary falls strictly inside
+ * [start, end) — i.e. kuromoji split this span into two or more tokens.
+ * `boundaries` is the sorted list of every token end offset in the text.
+ * Exposed for unit tests.
+ */
+export function crossesKuromojiBoundary(
+  start: number,
+  end: number,
+  boundaries: number[]
+): boolean {
+  return boundaries.some((b) => b > start && b < end);
+}
+
+/**
+ * The default {@link RareMergeProbe}: true when JPDB has no frequency data
+ * for the hit at all — neither for any of its JMdict entries nor for the raw
+ * surface string. JPDB is a word-frequency corpus drawn from a large body of
+ * text, so a span it has never ranked is almost never a real standalone
+ * word. Particle / expression runs like では and これは are absent from it
+ * entirely even though their constituents で・は・これ rank in the top ~50,
+ * whereas JPDB *does* rank lexicalised compound particles (には rank 22, とは
+ * rank 71) — so those keep merging.
+ *
+ * Awaits the (idempotent, cached) frequency-index load and degrades to
+ * `false` — never veto a merge — if the index can't be fetched.
+ */
+async function jpdbUnranked(hit: LookupHit): Promise<boolean> {
+  try {
+    await loadFrequencyIndex();
+    for (const wr of hit.results) {
+      if (lookupFrequencyByEntrySync(wr.id) !== null) return false;
+    }
+    return lookupFrequencySync(hit.surface, null).rank === null;
+  } catch {
+    return false;
+  }
 }

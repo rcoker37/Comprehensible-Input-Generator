@@ -36,18 +36,18 @@ import "./StoryDisplay.css";
 // Furigana display modes, in toggle-cycle order. Tapping the furigana
 // control advances to the next mode and wraps back to the start:
 //   unseen    — ruby only on words new to the reader (zero encounters)
+//   very-rare — ruby only on words in the JPDB "very rare" frequency tier
 //   all       — ruby on every word
 //   none      — no ruby
-//   very-rare — ruby only on words in the JPDB "very rare" frequency tier
-type FuriganaMode = "unseen" | "all" | "none" | "very-rare";
+type FuriganaMode = "unseen" | "very-rare" | "all" | "none";
 
-const FURIGANA_ORDER: FuriganaMode[] = ["unseen", "all", "none", "very-rare"];
+const FURIGANA_ORDER: FuriganaMode[] = ["unseen", "very-rare", "all", "none"];
 
 const FURIGANA_LABEL: Record<FuriganaMode, string> = {
   unseen: "unseen",
+  "very-rare": "very rare",
   all: "all",
   none: "off",
-  "very-rare": "very rare",
 };
 
 interface Props {

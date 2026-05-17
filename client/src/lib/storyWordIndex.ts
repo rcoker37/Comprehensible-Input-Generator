@@ -80,8 +80,13 @@ export interface WordOccurrence {
  *       deinflection (いきたい → 行く). (b) The regroup pass refuses a merge the
  *       LLM furigana contradict (`annotationContradictsHit`), so 今日《きょう》は
  *       is no longer swallowed into the greeting こんにちは.
+ *   7 — the regroup pass refuses to merge a kuromoji-split span into a JMdict
+ *       entry JPDB has never ranked as a word (`jpdbUnranked` in
+ *       regroupWords.ts): で|は stays split instead of collapsing into the
+ *       unranked では expression, これ|は instead of これは. Lexicalised
+ *       compound particles JPDB does rank (には, とは) still merge.
  */
-export const WORD_INDEX_VERSION = 6;
+export const WORD_INDEX_VERSION = 7;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
