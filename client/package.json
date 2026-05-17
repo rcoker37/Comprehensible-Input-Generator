@@ -8,14 +8,16 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:index": "vitest run --project word-index --reporter=verbose",
+    "test:index:accept": "INDEX_ACCEPT=1 vitest run --project word-index --reporter=verbose"
   },
   "dependencies": {
     "@aiktb/kuromoji": "^1.0.2",
     "@birchill/jpdict-idb": "^3.3.0",
     "@birchill/normal-jp": "^1.6.0",
-"@supabase/supabase-js": "^2.101.1",
+    "@supabase/supabase-js": "^2.101.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.14.0"
@@ -29,6 +31,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "fake-indexeddb": "^6.2.5",
     "globals": "^17.4.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",

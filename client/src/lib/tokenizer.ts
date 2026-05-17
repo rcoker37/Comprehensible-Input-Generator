@@ -14,8 +14,14 @@ function getTokenizer(): Promise<kuromoji.Tokenizer<kuromoji.IpadicFeatures>> {
   if (tokenizer) return Promise.resolve(tokenizer);
   if (loading) return loading;
 
+  // App build serves the dict from /dict/ (copied into public/ by the root
+  // postinstall). Headless tests (Node) point this at the real .dat files via
+  // VITE_KUROMOJI_DICT_PATH. Read lazily so a test can set it before first use.
+  const dicPath =
+    (import.meta.env as Record<string, string | undefined>)
+      .VITE_KUROMOJI_DICT_PATH ?? "/dict/";
   loading = new Promise((resolve, reject) => {
-    kuromoji.builder({ dicPath: "/dict/" }).build((err, t) => {
+    kuromoji.builder({ dicPath }).build((err, t) => {
       if (err) {
         loading = null;
         reject(err);

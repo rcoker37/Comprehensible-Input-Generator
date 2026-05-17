@@ -4,8 +4,14 @@ import {
   clearAllStoryWordOverrides,
   deleteStory,
   getStory,
+  getStoryOccurrences,
   updateStoryContent,
 } from "../api/client";
+import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
+import {
+  FIXTURE_FORMAT_VERSION,
+  type WordIndexFixture,
+} from "../lib/wordIndexFixture";
 import { useStories } from "../contexts/StoriesContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import type { Story } from "../types";
@@ -164,6 +170,58 @@ export default function StoryDetail() {
     }
   };
 
+  // Download the story's curated word index as a regression-test fixture —
+  // see client/src/test/fixtures/word-index/README.md for the loop.
+  const handleExportFixture = async () => {
+    if (!story) return;
+    setError(null);
+    try {
+      const occurrences = await getStoryOccurrences(story.id);
+      const fixture: WordIndexFixture = {
+        meta: {
+          title: story.title,
+          sourceStoryId: story.id,
+          exportedAt: new Date().toISOString(),
+          wordIndexVersion: WORD_INDEX_VERSION,
+          jmdictVersion: null,
+          fixtureFormatVersion: FIXTURE_FORMAT_VERSION,
+        },
+        content: story.content,
+        expected: occurrences.map((o) => ({
+          start: o.start,
+          end: o.end,
+          surface: o.surface,
+          headword: o.headword,
+          reading: o.reading ?? "",
+          entryId: o.entryId,
+          manual: o.manual,
+          isName: o.isName,
+        })),
+      };
+      const base =
+        story.title
+          .trim()
+          .replace(/[^\p{L}\p{N}_ -]/gu, "")
+          .replace(/\s+/g, "-")
+          .slice(0, 50) || `story-${story.id}`;
+      const blob = new Blob([JSON.stringify(fixture, null, 2) + "\n"], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${base}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to export fixture"
+      );
+    }
+  };
+
   if (loading) return <div className="loading">Loading<AnimatedDots /></div>;
   if (error && !story) return <div className="error">{error}</div>;
   if (!story) return <div className="error">Story not found</div>;
@@ -181,6 +239,34 @@ export default function StoryDetail() {
         <div className="story-detail-actions-right">
           {!editing && (
             <>
+              <button
+                type="button"
+                className="story-action-btn"
+                onClick={handleExportFixture}
+                title={
+                  story.word_index_at
+                    ? "Export this story's word index as a regression-test fixture"
+                    : "Word index not built yet — can't export a fixture"
+                }
+                aria-label="Export test fixture"
+                disabled={!story.word_index_at || resettingOverrides}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M8 2v7" />
+                  <path d="M5 6.5l3 3 3-3" />
+                  <path d="M2.5 11.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" />
+                </svg>
+              </button>
               <button
                 type="button"
                 className="story-action-btn"
