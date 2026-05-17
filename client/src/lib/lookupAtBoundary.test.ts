@@ -10,18 +10,27 @@ vi.mock("./dictionary", () => ({
   lookupWord: vi.fn(),
 }));
 
+vi.mock("./frequency", () => ({
+  loadFrequencyIndex: vi.fn(async () => {}),
+  lookupFrequencyByEntrySync: vi.fn(() => null),
+}));
+
 import { lookupWord } from "./dictionary";
+import { lookupFrequencyByEntrySync } from "./frequency";
 import { lookupAtBoundary } from "./lookupAtCursor";
 
 const mockLookup = vi.mocked(lookupWord);
+const mockRank = vi.mocked(lookupFrequencyByEntrySync);
 
 function wr(opts: {
   k?: string[];
   r: string[];
   pos: string[];
   misc?: string[];
+  id?: number;
 }): WordResult {
   return {
+    id: opts.id ?? 0,
     k: (opts.k ?? []).map((ent) => ({ ent })),
     r: opts.r.map((ent) => ({ ent })),
     s: [{ pos: opts.pos, misc: opts.misc }],
@@ -184,5 +193,94 @@ describe("lookupAtBoundary posHint='動詞' override", () => {
     const hit = await lookupAtBoundary("いく", 0, 2, [], "動詞");
     expect(hit).not.toBeNull();
     expect(hit!.base).toBeUndefined();
+  });
+});
+
+describe("lookupAtBoundary frequency-gated kana-canonical match", () => {
+  beforeEach(() => {
+    mockLookup.mockReset();
+    mockRank.mockReset();
+  });
+
+  it("keeps the common exact match over a rare deinflection (のせる → 乗せる, not 伸す)", async () => {
+    // 「のせる」 in kana. The exact match is the common ichidan verb 乗せる /
+    // 載せる; the potential-form rule せる→す reduces it to the rare godan
+    // verb 伸す. isKanjiCanonicalKanaMatch flags the pure-kana match, so JPDB
+    // rank is what must keep the exact match here.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "のせる") {
+        return [
+          wr({ k: ["乗せる"], r: ["のせる"], pos: ["v1", "vt"], id: 100 }),
+          wr({ k: ["載せる"], r: ["のせる"], pos: ["v1", "vt"], id: 101 }),
+        ];
+      }
+      if (search === "のす") {
+        return [wr({ k: ["伸す"], r: ["のす"], pos: ["v5s", "vt"], id: 200 })];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 100) {
+        return { rank: 4200, tier: "common", headword: "乗せる", reading: "のせる" };
+      }
+      if (id === 200) {
+        return { rank: 38000, tier: "very-rare", headword: "伸す", reading: "のす" };
+      }
+      return null;
+    });
+
+    const hit = await lookupAtBoundary("のせる", 0, 3, [], "動詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBeUndefined();
+    expect(hit!.surface).toBe("のせる");
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("乗せる");
+  });
+
+  it("yields to the deinflection when the kana-canonical exact match is the rarer reading", async () => {
+    // Same shapes, ranks inverted: the exact match is now the rare reading
+    // and the deinflection lemma is common — the deinflection wins, mirroring
+    // the いきたい → 行く case through the same potential-form chain.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "のせる") {
+        return [wr({ k: ["乗せる"], r: ["のせる"], pos: ["v1", "vt"], id: 100 })];
+      }
+      if (search === "のす") {
+        return [wr({ k: ["伸す"], r: ["のす"], pos: ["v5s", "vt"], id: 200 })];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 200) {
+        return { rank: 90, tier: "very-common", headword: "伸す", reading: "のす" };
+      }
+      return null; // 乗せる absent from JPDB
+    });
+
+    const hit = await lookupAtBoundary("のせる", 0, 3, [], "動詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("のす");
+  });
+
+  it("falls back to the deinflection when no by-entry rank resolves either side", async () => {
+    // Neither id is in the by-entry index (rank > 100k or unranked) — bestRank
+    // returns null for both, exactRankWins keeps the pre-frequency behaviour
+    // (deinflection preferred for a kanji-canonical kana match). No throw.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "のせる") {
+        return [wr({ k: ["乗せる"], r: ["のせる"], pos: ["v1", "vt"], id: 100 })];
+      }
+      if (search === "のす") {
+        return [wr({ k: ["伸す"], r: ["のす"], pos: ["v5s", "vt"], id: 200 })];
+      }
+      return [];
+    });
+    // mockRank left unimplemented after reset → returns undefined for every id.
+
+    const hit = await lookupAtBoundary("のせる", 0, 3, [], "動詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("のす");
   });
 });
