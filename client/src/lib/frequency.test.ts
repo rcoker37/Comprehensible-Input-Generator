@@ -276,76 +276,67 @@ describe("by-entry frequency lookups", () => {
   });
 });
 
-describe("getCanonicalFrequencyEntriesSync", () => {
+describe("getVocabBrowseEntriesSync", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.unstubAllGlobals();
   });
 
-  it("flattens the by-entry index to one entry per canonical, rank-sorted", async () => {
+  it("merges by-entry records sharing a display surface into one card", async () => {
+    // The duplicate-card bug: こと is both 事's `uk` noun entry (canonical
+    // 事) and a kana-only particle entry (canonical こと). They must collapse
+    // to one browse card carrying both canonicals, not render twice.
     stubBothIndices(
       {},
       {
-        "1": { rank: 300, headword: "もの", reading: null, canonical: "物" },
-        "2": { rank: 100, headword: "こと", reading: null, canonical: "事" },
-        "3": {
-          rank: 200,
-          headword: "食べる",
-          reading: "たべる",
-          canonical: "食べる",
-        },
+        "1313580": { rank: 15, headword: "こと", reading: null, canonical: "事" },
+        "2524270": { rank: 15, headword: "こと", reading: null, canonical: "こと" },
       }
     );
-    const { loadFrequencyIndex, getCanonicalFrequencyEntriesSync } =
-      await import("./frequency");
+    const { loadFrequencyIndex, getVocabBrowseEntriesSync } = await import(
+      "./frequency"
+    );
     await loadFrequencyIndex();
-    expect(getCanonicalFrequencyEntriesSync()).toEqual([
-      { canonical: "事", headword: "こと", reading: null, rank: 100 },
-      { canonical: "食べる", headword: "食べる", reading: "たべる", rank: 200 },
-      { canonical: "物", headword: "もの", reading: null, rank: 300 },
+    expect(getVocabBrowseEntriesSync()).toEqual([
+      { headword: "こと", reading: null, rank: 15, canonicals: ["事", "こと"] },
     ]);
   });
 
-  it("keeps the canonical distinct from the display headword for uk words", async () => {
-    // The browse-card bug: keying a card on the JPDB display surface (こと)
-    // can't find encounters the word indexer stamped under the canonical (事).
+  it("keeps the lowest rank and its reading when merging a surface", async () => {
     stubBothIndices(
       {},
       {
-        "1313580": {
-          rank: 79,
-          headword: "こと",
-          reading: null,
-          canonical: "事",
-        },
+        "1": { rank: 497, headword: "事", reading: "ごと", canonical: "事" },
+        "2": { rank: 80401, headword: "事", reading: "じ", canonical: "事" },
       }
     );
-    const { loadFrequencyIndex, getCanonicalFrequencyEntriesSync } =
-      await import("./frequency");
+    const { loadFrequencyIndex, getVocabBrowseEntriesSync } = await import(
+      "./frequency"
+    );
     await loadFrequencyIndex();
-    expect(getCanonicalFrequencyEntriesSync()).toEqual([
-      { canonical: "事", headword: "こと", reading: null, rank: 79 },
+    expect(getVocabBrowseEntriesSync()).toEqual([
+      { headword: "事", reading: "ごと", rank: 497, canonicals: ["事"] },
     ]);
   });
 
-  it("collapses canonical collisions to the lowest-rank entry", async () => {
+  it("returns one entry per surface, sorted by rank ascending", async () => {
     stubBothIndices(
       {},
       {
-        "1000090": { rank: 8217, headword: "丸", reading: null, canonical: "〇" },
-        "2839962": {
-          rank: 2658,
-          headword: "ゼロ",
-          reading: null,
-          canonical: "〇",
-        },
+        "1": { rank: 43, headword: "もの", reading: null, canonical: "物" },
+        "2": { rank: 200, headword: "食べる", reading: "たべる", canonical: "食べる" },
+        "3": { rank: 2, headword: "は", reading: null, canonical: "は" },
+        "4": { rank: 9001, headword: "は", reading: null, canonical: "はあ" },
       }
     );
-    const { loadFrequencyIndex, getCanonicalFrequencyEntriesSync } =
-      await import("./frequency");
+    const { loadFrequencyIndex, getVocabBrowseEntriesSync } = await import(
+      "./frequency"
+    );
     await loadFrequencyIndex();
-    expect(getCanonicalFrequencyEntriesSync()).toEqual([
-      { canonical: "〇", headword: "ゼロ", reading: null, rank: 2658 },
+    expect(getVocabBrowseEntriesSync()).toEqual([
+      { headword: "は", reading: null, rank: 2, canonicals: ["は", "はあ"] },
+      { headword: "もの", reading: null, rank: 43, canonicals: ["物"] },
+      { headword: "食べる", reading: "たべる", rank: 200, canonicals: ["食べる"] },
     ]);
   });
 });

@@ -250,52 +250,73 @@ export function lookupFrequencyByCanonicalSync(
 }
 
 /**
- * One canonical headword + rank tuple from the by-entry JPDB index.
- * `canonical` is the JMdict k[0]/r[0] surface the word indexer stamps on
- * story_word_occurrences (and that VocabContext keys encounter counts by) —
- * the join key for vocab read counts. `headword`/`reading` is the
- * rank-winning JPDB variant to display (kana variants return `reading: null`).
+ * One vocab-browse entry: a single JPDB display surface plus every canonical
+ * the word indexer might stamp for it.
+ *
+ * `headword`/`reading` is the rank-winning JPDB variant to display (kana
+ * variants return `reading: null`); `rank` is its JPDB rank. `canonicals`
+ * lists the JMdict k[0]/r[0] surfaces — the keys VocabContext counts
+ * encounters under — of every by-entry record sharing this display surface.
+ * JMdict routinely splits what JPDB ranks as one surface into several entries
+ * (こと is both 事's `uk` noun entry and a kana-only particle entry), so a
+ * surface maps to several canonicals; the browse card sums encounter counts
+ * across all of them so the count is right whichever entry the indexer chose.
  */
-export interface CanonicalFrequencyEntry {
-  canonical: string;
+export interface VocabBrowseEntry {
   headword: string;
   reading: string | null;
   rank: number;
+  canonicals: string[];
 }
 
-let canonicalEntriesCache: CanonicalFrequencyEntry[] | null = null;
+let vocabBrowseCache: VocabBrowseEntry[] | null = null;
 
 /**
- * Returns one frequency entry per canonical headword, sorted by rank
- * ascending — built from the by-entry index so the canonical surface (the
- * key the word indexer and VocabContext use) rides along with the rank and
- * display variant. Multiple JMdict entries can share a canonical (≈3%, e.g.
- * 〇 spans まる/れい/ゼロ); the lowest-rank entry wins, matching
- * `lookupFrequencyByCanonicalSync`. Requires `loadFrequencyIndex()` to have
- * resolved — throws otherwise. Result is cached.
+ * Returns one vocab-browse entry per JPDB display surface, sorted by rank
+ * ascending — built from the by-entry index. Every by-entry record sharing a
+ * `headword` is merged into a single entry (lowest rank and its reading win;
+ * every distinct `canonical` is collected), so each word is one browse card
+ * rather than one card per JMdict entry. Requires `loadFrequencyIndex()` to
+ * have resolved — throws otherwise. Result is cached.
  */
-export function getCanonicalFrequencyEntriesSync(): CanonicalFrequencyEntry[] {
-  if (canonicalEntriesCache) return canonicalEntriesCache;
+export function getVocabBrowseEntriesSync(): VocabBrowseEntry[] {
+  if (vocabBrowseCache) return vocabBrowseCache;
   if (!entryCached) {
     throw new Error(
-      "getCanonicalFrequencyEntriesSync called before loadFrequencyIndex resolved"
+      "getVocabBrowseEntriesSync called before loadFrequencyIndex resolved"
     );
   }
-  const byCanonical = new Map<string, CanonicalFrequencyEntry>();
+  const byHeadword = new Map<
+    string,
+    { reading: string | null; rank: number; canonicals: Set<string> }
+  >();
   for (const rec of Object.values(entryCached)) {
-    const existing = byCanonical.get(rec.canonical);
-    if (existing === undefined || rec.rank < existing.rank) {
-      byCanonical.set(rec.canonical, {
-        canonical: rec.canonical,
-        headword: rec.headword,
+    const existing = byHeadword.get(rec.headword);
+    if (existing === undefined) {
+      byHeadword.set(rec.headword, {
         reading: rec.reading,
         rank: rec.rank,
+        canonicals: new Set([rec.canonical]),
       });
+    } else {
+      existing.canonicals.add(rec.canonical);
+      if (rec.rank < existing.rank) {
+        existing.rank = rec.rank;
+        existing.reading = rec.reading;
+      }
     }
   }
-  const out = Array.from(byCanonical.values());
+  const out: VocabBrowseEntry[] = [];
+  for (const [headword, v] of byHeadword) {
+    out.push({
+      headword,
+      reading: v.reading,
+      rank: v.rank,
+      canonicals: [...v.canonicals],
+    });
+  }
   out.sort((a, b) => a.rank - b.rank);
-  canonicalEntriesCache = out;
+  vocabBrowseCache = out;
   return out;
 }
 
