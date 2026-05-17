@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stripBold, cleanGeneratedText } from "./text";
+import { stripBold, cleanGeneratedText, isPunctuation } from "./text";
 
 describe("stripBold", () => {
   it("returns empty string unchanged", () => {
@@ -60,5 +60,40 @@ describe("cleanGeneratedText", () => {
 
   it("preserves Aozora ruby annotations untouched", () => {
     expect(cleanGeneratedText("# 二人《ふたり》")).toBe("二人《ふたり》");
+  });
+});
+
+describe("isPunctuation", () => {
+  it("matches Japanese punctuation", () => {
+    for (const ch of [
+      "、", "。", "！", "？", "「", "」", "『", "』", "（", "）", "・", "…",
+    ]) {
+      expect(isPunctuation(ch)).toBe(true);
+    }
+  });
+
+  it("matches ASCII punctuation", () => {
+    for (const ch of [",", ".", "!", "?", "(", ")", '"', "'", ":", ";"]) {
+      expect(isPunctuation(ch)).toBe(true);
+    }
+  });
+
+  it("matches the fullwidth tilde and wave dash", () => {
+    expect(isPunctuation("～")).toBe(true);
+    expect(isPunctuation("〜")).toBe(true);
+  });
+
+  it("does not match kana or kanji", () => {
+    for (const ch of ["あ", "ア", "猫", "水", "が", "ん"]) {
+      expect(isPunctuation(ch)).toBe(false);
+    }
+  });
+
+  it("does not match the prolonged sound mark, iteration mark or 〇", () => {
+    // ー / 々 / 〇 are letter/number categories — they form part of real
+    // words (コーヒー, 人々) and must stay tappable.
+    expect(isPunctuation("ー")).toBe(false);
+    expect(isPunctuation("々")).toBe(false);
+    expect(isPunctuation("〇")).toBe(false);
   });
 });
