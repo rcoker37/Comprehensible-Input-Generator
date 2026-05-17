@@ -518,7 +518,7 @@ export function hasVerbPos(results: WordResult[]): boolean {
   return false;
 }
 
-function isPureKana(s: string): boolean {
+export function isPureKana(s: string): boolean {
   for (const ch of s) {
     const c = ch.codePointAt(0) ?? 0;
     const hira = c >= 0x3040 && c <= 0x309f;
