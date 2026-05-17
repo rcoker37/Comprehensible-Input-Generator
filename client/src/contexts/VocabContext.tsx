@@ -35,6 +35,7 @@ interface VocabContextType {
 
 const VocabContext = createContext<VocabContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider
 export function useVocab() {
   const ctx = useContext(VocabContext);
   if (!ctx) throw new Error("useVocab must be used within VocabProvider");

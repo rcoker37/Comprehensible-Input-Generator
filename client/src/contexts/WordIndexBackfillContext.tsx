@@ -45,6 +45,7 @@ interface WordIndexBackfillContextType {
 const WordIndexBackfillContext =
   createContext<WordIndexBackfillContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider
 export function useWordIndexBackfill() {
   const ctx = useContext(WordIndexBackfillContext);
   if (!ctx) {

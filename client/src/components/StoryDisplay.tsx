@@ -110,12 +110,16 @@ export default function StoryDisplay({
   const tapsBlocked = popoverDisabled || overrideSpan !== null;
 
   useEffect(() => {
+    // Sync the server-owned translation map into local state whenever the
+    // story prop changes; local edits bubble back up via onTranslationUpdated.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTranslations(story.translations ?? {});
   }, [story.translations]);
 
   // Close any open popover if indexing kicks in mid-view (e.g., the user is
   // reading and a freshly-generated story enters the backfill queue).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (popoverDisabled) setActiveTap(null);
   }, [popoverDisabled]);
 
@@ -211,6 +215,7 @@ export default function StoryDisplay({
   const [occurrencesNonce, setOccurrencesNonce] = useState(0);
   useEffect(() => {
     if (story.word_index_at === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOccurrences(null);
       return;
     }
@@ -304,6 +309,7 @@ export default function StoryDisplay({
   );
   useEffect(() => {
     if (story.word_index_at === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEncounters(new Map());
       return;
     }

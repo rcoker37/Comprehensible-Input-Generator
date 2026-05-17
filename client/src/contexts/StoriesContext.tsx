@@ -40,6 +40,7 @@ interface StoriesContextType {
 
 const StoriesContext = createContext<StoriesContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider
 export function useStories() {
   const ctx = useContext(StoriesContext);
   if (!ctx) throw new Error("useStories must be used within StoriesProvider");

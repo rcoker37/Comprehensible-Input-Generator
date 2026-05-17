@@ -31,9 +31,12 @@ export default function KanjiInlineDetail({
 
   useEffect(() => {
     if (initialRow && initialRow.character === char) {
+      /* eslint-disable react-hooks/set-state-in-effect -- resync to the passed
+         row when char/initialRow change without a remount. */
       setRow(initialRow);
       setLoading(false);
       setError(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
     let cancelled = false;

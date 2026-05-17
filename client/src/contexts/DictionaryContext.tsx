@@ -26,6 +26,7 @@ interface DictionaryContextType {
 
 const DictionaryContext = createContext<DictionaryContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider
 export function useDictionary() {
   const ctx = useContext(DictionaryContext);
   if (!ctx) throw new Error("useDictionary must be used within DictionaryProvider");

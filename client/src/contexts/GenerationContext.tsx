@@ -34,6 +34,7 @@ interface GenerationContextType {
 
 const GenerationContext = createContext<GenerationContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider
 export function useGeneration() {
   const ctx = useContext(GenerationContext);
   if (!ctx) throw new Error("useGeneration must be used within GenerationProvider");
