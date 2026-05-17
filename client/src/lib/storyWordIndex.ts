@@ -81,12 +81,18 @@ export interface WordOccurrence {
  *       LLM furigana contradict (`annotationContradictsHit`), so 今日《きょう》は
  *       is no longer swallowed into the greeting こんにちは.
  *   7 — the regroup pass refuses to merge a kuromoji-split span into a JMdict
- *       entry JPDB has never ranked as a word (`jpdbUnranked` in
- *       regroupWords.ts): で|は stays split instead of collapsing into the
- *       unranked では expression, これ|は instead of これは. Lexicalised
- *       compound particles JPDB does rank (には, とは) still merge.
+ *       entry JPDB has never ranked as a word: で|は stays split instead of
+ *       collapsing into the unranked では expression, これ|は instead of これは.
+ *       Lexicalised compound particles JPDB does rank (には, とは) still merge.
+ *   8 — that rare-merge veto is now kana-aware (`rareKanaMergeProbe` in
+ *       regroupWords.ts). It fires only when the merged surface is kana-only
+ *       AND JPDB ranks it no better than the very-rare tier (or not at all);
+ *       a kanji-bearing surface is never vetoed. Fixes two regressions:
+ *       高《たか》さ now merges into 高さ (JPDB has no 高さ entry, so the old
+ *       unranked-only veto wrongly blocked the merge), and さ|は no longer
+ *       collapses into the rare word 左派 (rank 62,243).
  */
-export const WORD_INDEX_VERSION = 7;
+export const WORD_INDEX_VERSION = 8;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

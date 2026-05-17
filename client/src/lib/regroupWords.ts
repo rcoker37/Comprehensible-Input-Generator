@@ -17,21 +17,25 @@
 // rejects 「があ」 (ends mid-token) and accepts 「あります」 (ends on the
 // boundary that closes the あり|ます chain).
 //
-// One more guard runs the other way. JMdict carries expression entries for
-// particle runs like では and これは, so when kuromoji splits で|は the
-// alignment rule would happily merge them back into the JMdict entry. That
-// over-merges: kuromoji's split is correct (it keeps a real sentence-initial
-// では conjunction as one token, and splits the で|は particles otherwise).
-// So a merge is also refused when it's an exact match, it crosses a kuromoji
-// boundary, and JPDB has never ranked the merged span as a word — see
-// `jpdbUnranked`. JPDB does rank lexicalised compound particles (には, とは),
-// which keeps those merging.
+// One more guard runs the other way. JMdict carries entries for kana runs
+// that aren't the word the reader is looking at — particle runs like では and
+// これは, and reading coincidences like さは (which exact-matches 左派, "left
+// wing"). When kuromoji splits で|は or さ|は the alignment rule would happily
+// merge them back into that JMdict entry. So a merge is also refused when
+// it's an exact match, it crosses a kuromoji boundary, the merged surface is
+// kana-only, and JPDB ranks it no better than the very-rare tier (or not at
+// all) — see `rareKanaMergeProbe`. JPDB ranks lexicalised compound particles
+// well (には 22, とは 71) so those keep merging; 左派 sits at 62,243 so さ|は
+// stays split. The kana-only gate is also what lets a kanji compound JPDB
+// happens not to list — 高さ, which JPDB folds into the adjective 高い —
+// merge anyway: the rare-merge veto never touches a kanji-bearing surface.
 //
 // Async because both kuromoji init and dictionary lookups are async. Callers
 // await once per story; the tokenizer init is amortised across calls.
 
 import {
   annotationContradictsHit,
+  isPureKana,
   lookupAtBoundary,
   type LookupHit,
 } from "./lookupAtCursor";
@@ -56,7 +60,7 @@ export type TokenizeFn = (text: string) => Promise<KuromojiTokenInfo[]>;
 /**
  * A merge-veto probe. Given a candidate exact-match hit, returns true to
  * refuse the merge. Injectable so tests can drive the veto deterministically
- * without real frequency data; production uses {@link jpdbUnranked}.
+ * without real frequency data; production uses {@link rareKanaMergeProbe}.
  */
 export type RareMergeProbe = (hit: LookupHit) => boolean | Promise<boolean>;
 
@@ -66,7 +70,7 @@ export async function regroupWords(
   annotations: FuriganaAnnotation[],
   lookup: LookupAtBoundaryFn = lookupAtBoundary,
   tokenize: TokenizeFn = tokenizeText,
-  rareMergeProbe: RareMergeProbe = jpdbUnranked
+  rareMergeProbe: RareMergeProbe = rareKanaMergeProbe
 ): Promise<DisplayParagraph[]> {
   const tokens = await tokenize(cleanText);
   const boundaries = tokens.map((t) => t.end); // sorted ascending by construction
@@ -283,25 +287,64 @@ export function crossesKuromojiBoundary(
 }
 
 /**
- * The default {@link RareMergeProbe}: true when JPDB has no frequency data
- * for the hit at all — neither for any of its JMdict entries nor for the raw
- * surface string. JPDB is a word-frequency corpus drawn from a large body of
- * text, so a span it has never ranked is almost never a real standalone
- * word. Particle / expression runs like では and これは are absent from it
- * entirely even though their constituents で・は・これ rank in the top ~50,
- * whereas JPDB *does* rank lexicalised compound particles (には rank 22, とは
- * rank 71) — so those keep merging.
+ * Rank ceiling for the kana-merge veto. A kana-only merged span whose best
+ * JPDB rank is worse than this — or unranked entirely — is treated as too
+ * rare to be the word the reader is looking at. 30,000 is the `rare` /
+ * `very-rare` tier boundary (see `rankToTier`): 左派 (さは) sits at 62,243 so
+ * さ|は stays split, while JPDB-ranked compound particles には (22) / とは (71)
+ * clear it comfortably and keep merging.
+ */
+export const RARE_KANA_MERGE_MAX_RANK = 30_000;
+
+/**
+ * Pure veto decision for {@link rareKanaMergeProbe}: should a kuromoji-split
+ * exact-match merge be refused, given the merged `surface` and its best known
+ * JPDB `rank` (null = unranked / absent from JPDB)?
+ *
+ * Only kana-only surfaces are eligible. A surface containing a kanji is a word
+ * the LLM deliberately wrote and JMdict exact-matched, so it always merges —
+ * this is what keeps 高《たか》さ → 高さ working even though JPDB has no entry
+ * for 高さ at all (JPDB folds it into the adjective 高い, just as kuromoji tags
+ * 高 as 形容詞 + さ as 接尾辞). Among kana-only surfaces, the merge is refused
+ * when the span is unranked or ranked no better than the very-rare tier — a
+ * reading coincidence like さ|は = 左派, or a particle run like で|は = では,
+ * is not the word the reader is looking at.
+ *
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function kanaSpanTooRareToMerge(
+  surface: string,
+  rank: number | null
+): boolean {
+  if (!isPureKana(surface)) return false;
+  return rank === null || rank > RARE_KANA_MERGE_MAX_RANK;
+}
+
+/**
+ * The default {@link RareMergeProbe}. Vetoes a kuromoji-split exact merge when
+ * its surface is kana-only and JPDB ranks it no better than the very-rare tier
+ * (or not at all) — see {@link kanaSpanTooRareToMerge}. The span's rank is the
+ * best (lowest) across each candidate JMdict entry's by-entry rank and the raw
+ * surface's own rank.
  *
  * Awaits the (idempotent, cached) frequency-index load and degrades to
  * `false` — never veto a merge — if the index can't be fetched.
  */
-async function jpdbUnranked(hit: LookupHit): Promise<boolean> {
+async function rareKanaMergeProbe(hit: LookupHit): Promise<boolean> {
+  // Kanji-bearing surfaces are never vetoed; skip the index load for them.
+  if (!isPureKana(hit.surface)) return false;
   try {
     await loadFrequencyIndex();
+    let best: number | null = null;
     for (const wr of hit.results) {
-      if (lookupFrequencyByEntrySync(wr.id) !== null) return false;
+      const rank = lookupFrequencyByEntrySync(wr.id)?.rank ?? null;
+      if (rank !== null && (best === null || rank < best)) best = rank;
     }
-    return lookupFrequencySync(hit.surface, null).rank === null;
+    const surfaceRank = lookupFrequencySync(hit.surface, null).rank;
+    if (surfaceRank !== null && (best === null || surfaceRank < best)) {
+      best = surfaceRank;
+    }
+    return kanaSpanTooRareToMerge(hit.surface, best);
   } catch {
     return false;
   }

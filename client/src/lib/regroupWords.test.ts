@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import {
   regroupWords,
   crossesKuromojiBoundary,
+  kanaSpanTooRareToMerge,
+  RARE_KANA_MERGE_MAX_RANK,
   type LookupAtBoundaryFn,
+  type RareMergeProbe,
   type TokenizeFn,
 } from "./regroupWords";
 import { buildDisplaySegments } from "./storySegments";
@@ -447,6 +450,85 @@ describe("regroupWords", () => {
     ]);
   });
 
+  it("merges 高さ even though JPDB has no entry for it (kanji surface escapes the veto)", async () => {
+    // The user's regression: 「高《たか》さは…」 — clean text 高さは, with 高
+    // annotated. kuromoji splits 高|さ|は (高=形容詞, さ=接尾辞, は=助詞). 高さ
+    // ("height") is absent from JPDB entirely — JPDB folds it into the
+    // adjective 高い — so the old unranked-only veto refused the 高さ merge:
+    // 高 was emitted alone and the leftover さ|は then collapsed into 左派
+    // (さは, "left wing"). The kana-aware probe never vetoes a kanji-bearing
+    // surface, so 高さ merges and さ is no longer free to join は.
+    const text = "高さは";
+    const anns = [{ start: 0, end: 1, reading: "たか" }];
+    const base = buildDisplaySegments(text, anns);
+    const lookup: LookupAtBoundaryFn = async (t, start, end) => {
+      const sub = t.slice(start, end);
+      if (sub === "高さ") {
+        return {
+          start,
+          end,
+          surface: sub,
+          results: [{ r: [{ ent: "たかさ" }] } as never],
+        };
+      }
+      if (sub === "さは") {
+        return {
+          start,
+          end,
+          surface: sub,
+          results: [{ r: [{ ent: "さは" }] } as never],
+        };
+      }
+      return null;
+    };
+    // Real probe, driven by JPDB-faithful ranks: 左派/さは rank 62,243, 高さ
+    // absent (null). The kanji in 高さ is what spares it from the veto.
+    const probe: RareMergeProbe = (hit) =>
+      kanaSpanTooRareToMerge(hit.surface, hit.surface === "さは" ? 62243 : null);
+    const out = await regroupWords(
+      base,
+      text,
+      anns,
+      lookup,
+      tokens(["高", "さ", "は"]),
+      probe
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      {
+        kind: "word",
+        start: 0,
+        end: 2,
+        surface: "高さ",
+        rubies: [{ start: 0, end: 1, reading: "たか" }],
+      },
+      { kind: "char", offset: 2, char: "は" },
+    ]);
+  });
+
+  it("splits さ|は instead of merging the very-rare 左派 (さは)", async () => {
+    // With no preceding kanji to absorb さ, a bare さ|は must still not collapse
+    // into 左派 (さは): the surface is kana-only and 左派 sits at rank 62,243,
+    // well into the very-rare tier, so the kana-aware probe vetoes the merge.
+    const text = "さは";
+    const base = buildDisplaySegments(text, []);
+    const probe: RareMergeProbe = (hit) =>
+      kanaSpanTooRareToMerge(hit.surface, hit.surface === "さは" ? 62243 : null);
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      mockLookup(new Set(["さは"])),
+      tokens(["さ", "は"]),
+      probe
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "char", offset: 0, char: "さ" },
+      { kind: "char", offset: 1, char: "は" },
+    ]);
+  });
+
   it("never vetoes a deinflected merge even when the probe flags it", async () => {
     // The veto is scoped to exact matches. 食べ|まし|た → 食べました is a
     // deinflection chain (hit.base set), so it merges regardless of what the
@@ -494,5 +576,34 @@ describe("crossesKuromojiBoundary", () => {
 
   it("ignores boundaries that sit exactly on the span edges", () => {
     expect(crossesKuromojiBoundary(2, 4, [2, 4])).toBe(false);
+  });
+});
+
+describe("kanaSpanTooRareToMerge", () => {
+  it("never vetoes a surface containing a kanji, even when unranked", () => {
+    // 高さ is absent from JPDB (rank null) but is a real word the LLM wrote —
+    // the kanji is the signal that it's deliberate, not a reading collision.
+    expect(kanaSpanTooRareToMerge("高さ", null)).toBe(false);
+    expect(kanaSpanTooRareToMerge("高さ", 99999)).toBe(false);
+  });
+
+  it("vetoes a kana-only surface that is unranked", () => {
+    // で|は → では: JPDB never ranked the expression.
+    expect(kanaSpanTooRareToMerge("では", null)).toBe(true);
+  });
+
+  it("vetoes a kana-only surface ranked in the very-rare tier", () => {
+    // さは exact-matches 左派 (rank 62,243) — a reading coincidence.
+    expect(kanaSpanTooRareToMerge("さは", 62243)).toBe(true);
+  });
+
+  it("keeps a kana-only surface JPDB ranks well (compound particles)", () => {
+    expect(kanaSpanTooRareToMerge("には", 22)).toBe(false);
+    expect(kanaSpanTooRareToMerge("とは", 71)).toBe(false);
+  });
+
+  it("treats the very-rare tier boundary as the inclusive keep ceiling", () => {
+    expect(kanaSpanTooRareToMerge("では", RARE_KANA_MERGE_MAX_RANK)).toBe(false);
+    expect(kanaSpanTooRareToMerge("では", RARE_KANA_MERGE_MAX_RANK + 1)).toBe(true);
   });
 });
