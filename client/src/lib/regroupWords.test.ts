@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   regroupWords,
   crossesKuromojiBoundary,
+  deinflectionMergeStartsOnParticle,
   kanaSpanTooRareToMerge,
   RARE_KANA_MERGE_MAX_RANK,
   type LookupAtBoundaryFn,
@@ -561,6 +562,77 @@ describe("regroupWords", () => {
     expect(parts).toEqual([
       { kind: "word", start: 0, end: 5, surface: "食べました" },
     ]);
+  });
+  it("refuses a deinflection merge whose leading kuromoji token is a particle", async () => {
+    // 「外はもう…」 — kuromoji splits 外|は|もう (は=助詞, もう=副詞). JMdict
+    // deinflects 「はもう」 to the volitional of the rare verb 食む, but a
+    // conjugation can't begin on a particle, so the merge is refused: は stays
+    // a bare char and もう regroups on its own.
+    const text = "外はもう";
+    const base = buildDisplaySegments(text, []);
+    const lookup: LookupAtBoundaryFn = async (t, start, end) => {
+      const sub = t.slice(start, end);
+      if (sub === "はもう") {
+        return {
+          start,
+          end,
+          surface: sub,
+          base: "食む",
+          derivations: ["volitional"],
+          results: [{} as never],
+        };
+      }
+      if (sub === "もう") {
+        return { start, end, surface: sub, results: [{} as never] };
+      }
+      return null;
+    };
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      lookup,
+      tokens([
+        { surface: "外", pos: "名詞" },
+        { surface: "は", pos: "助詞" },
+        { surface: "もう", pos: "副詞" },
+      ])
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "char", offset: 0, char: "外" },
+      { kind: "char", offset: 1, char: "は" },
+      { kind: "word", start: 2, end: 4, surface: "もう" },
+    ]);
+  });
+});
+
+describe("deinflectionMergeStartsOnParticle", () => {
+  const deinflectionHit = {
+    start: 0,
+    end: 3,
+    surface: "はもう",
+    base: "食む",
+    results: [],
+  };
+  const exactHit = { start: 0, end: 3, surface: "はもう", results: [] };
+
+  it("vetoes a deinflection hit whose leading token is a particle", () => {
+    expect(deinflectionMergeStartsOnParticle(deinflectionHit, "助詞")).toBe(true);
+  });
+
+  it("allows a deinflection hit that starts on a content word", () => {
+    expect(deinflectionMergeStartsOnParticle(deinflectionHit, "動詞")).toBe(false);
+    expect(deinflectionMergeStartsOnParticle(deinflectionHit, "形容詞")).toBe(
+      false
+    );
+    expect(deinflectionMergeStartsOnParticle(deinflectionHit, undefined)).toBe(
+      false
+    );
+  });
+
+  it("never vetoes an exact match — those have their own rank-based guard", () => {
+    expect(deinflectionMergeStartsOnParticle(exactHit, "助詞")).toBe(false);
   });
 });
 

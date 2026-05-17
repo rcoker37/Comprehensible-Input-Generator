@@ -1,0 +1,485 @@
+{
+  "generatedAt": "2026-05-17T23:47:39.675Z",
+  "occurrences": [
+    {
+      "start": 0,
+      "end": 2,
+      "surface": "夕方",
+      "headword": "夕方",
+      "reading": "ゆうがた",
+      "entryId": 1542790
+    },
+    {
+      "start": 3,
+      "end": 5,
+      "surface": "部屋",
+      "headword": "部屋",
+      "reading": "へや",
+      "entryId": 1499320
+    },
+    {
+      "start": 5,
+      "end": 6,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800
+    },
+    {
+      "start": 6,
+      "end": 7,
+      "surface": "中",
+      "headword": "中",
+      "reading": "なか",
+      "entryId": 1423310
+    },
+    {
+      "start": 7,
+      "end": 8,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 8,
+      "end": 10,
+      "surface": "暗く",
+      "headword": "暗い",
+      "reading": "くらい",
+      "entryId": 1154330
+    },
+    {
+      "start": 10,
+      "end": 15,
+      "surface": "なりました",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610
+    },
+    {
+      "start": 16,
+      "end": 17,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110
+    },
+    {
+      "start": 17,
+      "end": 18,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 18,
+      "end": 19,
+      "surface": "窓",
+      "headword": "窓",
+      "reading": "まど",
+      "entryId": 1401400
+    },
+    {
+      "start": 19,
+      "end": 21,
+      "surface": "から",
+      "headword": "から",
+      "reading": "から",
+      "entryId": 1002980
+    },
+    {
+      "start": 21,
+      "end": 22,
+      "surface": "空",
+      "headword": "空",
+      "reading": "そら",
+      "entryId": 1245290
+    },
+    {
+      "start": 22,
+      "end": 23,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010
+    },
+    {
+      "start": 23,
+      "end": 25,
+      "surface": "見て",
+      "headword": "見る",
+      "reading": "みる",
+      "entryId": 1259290
+    },
+    {
+      "start": 26,
+      "end": 27,
+      "surface": "星",
+      "headword": "星",
+      "reading": "ほし",
+      "entryId": 1376310
+    },
+    {
+      "start": 27,
+      "end": 28,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930
+    },
+    {
+      "start": 28,
+      "end": 30,
+      "surface": "三つ",
+      "headword": "三つ",
+      "reading": "みっつ",
+      "entryId": 1299740
+    },
+    {
+      "start": 30,
+      "end": 33,
+      "surface": "くらい",
+      "headword": "くらい",
+      "reading": "くらい",
+      "entryId": 1154340
+    },
+    {
+      "start": 33,
+      "end": 38,
+      "surface": "数えました",
+      "headword": "数える",
+      "reading": "かぞえる",
+      "entryId": 1372900
+    },
+    {
+      "start": 42,
+      "end": 44,
+      "surface": "貴方",
+      "headword": "貴方",
+      "reading": "あなた",
+      "entryId": 1223615
+    },
+    {
+      "start": 45,
+      "end": 47,
+      "surface": "ご飯",
+      "headword": "ご飯",
+      "reading": "ごはん",
+      "entryId": 1270590
+    },
+    {
+      "start": 47,
+      "end": 49,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500
+    },
+    {
+      "start": 49,
+      "end": 50,
+      "surface": "よ",
+      "headword": "よ",
+      "reading": "よ",
+      "entryId": 2029090
+    },
+    {
+      "start": 51,
+      "end": 52,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490
+    },
+    {
+      "start": 52,
+      "end": 53,
+      "surface": "母",
+      "headword": "母",
+      "reading": "はは",
+      "entryId": 1514990
+    },
+    {
+      "start": 53,
+      "end": 54,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800
+    },
+    {
+      "start": 54,
+      "end": 55,
+      "surface": "声",
+      "headword": "声",
+      "reading": "こえ",
+      "entryId": 1380440
+    },
+    {
+      "start": 55,
+      "end": 56,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930
+    },
+    {
+      "start": 56,
+      "end": 62,
+      "surface": "聞こえました",
+      "headword": "聞こえる",
+      "reading": "きこえる",
+      "entryId": 1591150
+    },
+    {
+      "start": 63,
+      "end": 64,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110
+    },
+    {
+      "start": 64,
+      "end": 65,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 66,
+      "end": 67,
+      "surface": "今",
+      "headword": "今",
+      "reading": "いま",
+      "entryId": 1288850
+    },
+    {
+      "start": 67,
+      "end": 71,
+      "surface": "行きます",
+      "headword": "行く",
+      "reading": "いく",
+      "entryId": 1578850
+    },
+    {
+      "start": 72,
+      "end": 73,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490
+    },
+    {
+      "start": 73,
+      "end": 78,
+      "surface": "答えました",
+      "headword": "答える",
+      "reading": "こたえる",
+      "entryId": 1449540
+    },
+    {
+      "start": 81,
+      "end": 83,
+      "surface": "台所",
+      "headword": "台所",
+      "reading": "だいどころ",
+      "entryId": 1412640
+    },
+    {
+      "start": 83,
+      "end": 84,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980
+    },
+    {
+      "start": 84,
+      "end": 85,
+      "surface": "母",
+      "headword": "母",
+      "reading": "はは",
+      "entryId": 1514990
+    },
+    {
+      "start": 85,
+      "end": 86,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 87,
+      "end": 89,
+      "surface": "今日",
+      "headword": "今日",
+      "reading": "きょう",
+      "entryId": 1579110
+    },
+    {
+      "start": 89,
+      "end": 90,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 90,
+      "end": 92,
+      "surface": "何時",
+      "headword": "何時",
+      "reading": "なんじ",
+      "entryId": 1188770
+    },
+    {
+      "start": 92,
+      "end": 95,
+      "surface": "くらい",
+      "headword": "くらい",
+      "reading": "くらい",
+      "entryId": 1154340
+    },
+    {
+      "start": 95,
+      "end": 96,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990
+    },
+    {
+      "start": 96,
+      "end": 101,
+      "surface": "帰りました",
+      "headword": "帰る",
+      "reading": "かえる",
+      "entryId": 1221270
+    },
+    {
+      "start": 101,
+      "end": 102,
+      "surface": "か",
+      "headword": "か",
+      "reading": "か",
+      "entryId": 2028970
+    },
+    {
+      "start": 103,
+      "end": 104,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490
+    },
+    {
+      "start": 104,
+      "end": 109,
+      "surface": "聞きました",
+      "headword": "聞く",
+      "reading": "きく",
+      "entryId": 1591110
+    },
+    {
+      "start": 110,
+      "end": 111,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110
+    },
+    {
+      "start": 111,
+      "end": 112,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 113,
+      "end": 115,
+      "surface": "六時",
+      "headword": "六時",
+      "reading": "ろくじ",
+      "entryId": 2583620
+    },
+    {
+      "start": 115,
+      "end": 118,
+      "surface": "くらい",
+      "headword": "くらい",
+      "reading": "くらい",
+      "entryId": 1154340
+    },
+    {
+      "start": 118,
+      "end": 120,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500
+    },
+    {
+      "start": 121,
+      "end": 122,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490
+    },
+    {
+      "start": 122,
+      "end": 127,
+      "surface": "答えました",
+      "headword": "答える",
+      "reading": "こたえる",
+      "entryId": 1449540
+    },
+    {
+      "start": 128,
+      "end": 129,
+      "surface": "外",
+      "headword": "外",
+      "reading": "そと",
+      "entryId": 1203250
+    },
+    {
+      "start": 129,
+      "end": 130,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920
+    },
+    {
+      "start": 130,
+      "end": 132,
+      "surface": "もう",
+      "headword": "もう",
+      "reading": "もう",
+      "entryId": 1012480
+    },
+    {
+      "start": 132,
+      "end": 136,
+      "surface": "暗かった",
+      "headword": "暗い",
+      "reading": "くらい",
+      "entryId": 1154330
+    },
+    {
+      "start": 136,
+      "end": 138,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500
+    }
+  ]
+}

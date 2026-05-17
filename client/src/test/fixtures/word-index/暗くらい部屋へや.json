@@ -1,0 +1,613 @@
+{
+  "meta": {
+    "title": "暗《くら》い部屋《へや》",
+    "sourceStoryId": 10,
+    "exportedAt": "2026-05-17T23:35:41.862Z",
+    "wordIndexVersion": 8,
+    "jmdictVersion": null,
+    "fixtureFormatVersion": 1
+  },
+  "content": "夕方《ゆうがた》、部屋《へや》の中《なか》は暗《くら》くなりました。私《わたし》は窓《まど》から空《そら》を見《み》て、星《ほし》が三《みっ》つくらい数《かぞ》えました。\n\n「貴方《あなた》、ご飯《はん》ですよ」と母《はは》の声《こえ》が聞《き》こえました。私《わたし》は「今《いま》行《い》きます」と答《こた》えました。\n\n台所《だいどころ》で母《はは》は「今日《きょう》は何時《なんじ》くらいに帰《かえ》りましたか」と聞《き》きました。私《わたし》は「六時《ろくじ》くらいです」と答《こた》えました。外《そと》はもう暗《くら》かったです。",
+  "expected": [
+    {
+      "start": 0,
+      "end": 2,
+      "surface": "夕方",
+      "headword": "夕方",
+      "reading": "ゆうがた",
+      "entryId": 1542790,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 3,
+      "end": 5,
+      "surface": "部屋",
+      "headword": "部屋",
+      "reading": "へや",
+      "entryId": 1499320,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 5,
+      "end": 6,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 6,
+      "end": 7,
+      "surface": "中",
+      "headword": "中",
+      "reading": "なか",
+      "entryId": 1423310,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 7,
+      "end": 8,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 8,
+      "end": 10,
+      "surface": "暗く",
+      "headword": "暗い",
+      "reading": "くらい",
+      "entryId": 1154330,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 10,
+      "end": 15,
+      "surface": "なりました",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 16,
+      "end": 17,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 17,
+      "end": 18,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 18,
+      "end": 19,
+      "surface": "窓",
+      "headword": "窓",
+      "reading": "まど",
+      "entryId": 1401400,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 19,
+      "end": 21,
+      "surface": "から",
+      "headword": "から",
+      "reading": "から",
+      "entryId": 1002980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 21,
+      "end": 22,
+      "surface": "空",
+      "headword": "空",
+      "reading": "そら",
+      "entryId": 1245290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 22,
+      "end": 23,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 23,
+      "end": 25,
+      "surface": "見て",
+      "headword": "見る",
+      "reading": "みる",
+      "entryId": 1259290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 26,
+      "end": 27,
+      "surface": "星",
+      "headword": "星",
+      "reading": "ほし",
+      "entryId": 1376310,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 27,
+      "end": 28,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 28,
+      "end": 30,
+      "surface": "三つ",
+      "headword": "三つ",
+      "reading": "みっつ",
+      "entryId": 1299740,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 30,
+      "end": 33,
+      "surface": "くらい",
+      "headword": "くらい",
+      "reading": "くらい",
+      "entryId": 1154340,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 33,
+      "end": 38,
+      "surface": "数えました",
+      "headword": "数える",
+      "reading": "かぞえる",
+      "entryId": 1372900,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 42,
+      "end": 44,
+      "surface": "貴方",
+      "headword": "貴方",
+      "reading": "あなた",
+      "entryId": 1223615,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 45,
+      "end": 47,
+      "surface": "ご飯",
+      "headword": "ご飯",
+      "reading": "ごはん",
+      "entryId": 1270590,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 47,
+      "end": 49,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 49,
+      "end": 50,
+      "surface": "よ",
+      "headword": "よ",
+      "reading": "よ",
+      "entryId": 2029090,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 51,
+      "end": 52,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 52,
+      "end": 53,
+      "surface": "母",
+      "headword": "母",
+      "reading": "はは",
+      "entryId": 1514990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 53,
+      "end": 54,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 54,
+      "end": 55,
+      "surface": "声",
+      "headword": "声",
+      "reading": "こえ",
+      "entryId": 1380440,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 55,
+      "end": 56,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 56,
+      "end": 62,
+      "surface": "聞こえました",
+      "headword": "聞こえる",
+      "reading": "きこえる",
+      "entryId": 1591150,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 63,
+      "end": 64,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 64,
+      "end": 65,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 66,
+      "end": 67,
+      "surface": "今",
+      "headword": "今",
+      "reading": "いま",
+      "entryId": 1288850,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 67,
+      "end": 71,
+      "surface": "行きます",
+      "headword": "行く",
+      "reading": "いく",
+      "entryId": 1578850,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 72,
+      "end": 73,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 73,
+      "end": 78,
+      "surface": "答えました",
+      "headword": "答える",
+      "reading": "こたえる",
+      "entryId": 1449540,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 81,
+      "end": 83,
+      "surface": "台所",
+      "headword": "台所",
+      "reading": "だいどころ",
+      "entryId": 1412640,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 83,
+      "end": 84,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 84,
+      "end": 85,
+      "surface": "母",
+      "headword": "母",
+      "reading": "はは",
+      "entryId": 1514990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 85,
+      "end": 86,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 87,
+      "end": 89,
+      "surface": "今日",
+      "headword": "今日",
+      "reading": "きょう",
+      "entryId": 1579110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 89,
+      "end": 90,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 90,
+      "end": 92,
+      "surface": "何時",
+      "headword": "何時",
+      "reading": "なんじ",
+      "entryId": 1188770,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 92,
+      "end": 95,
+      "surface": "くらい",
+      "headword": "くらい",
+      "reading": "くらい",
+      "entryId": 1154340,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 95,
+      "end": 96,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 96,
+      "end": 101,
+      "surface": "帰りました",
+      "headword": "帰る",
+      "reading": "かえる",
+      "entryId": 1221270,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 101,
+      "end": 102,
+      "surface": "か",
+      "headword": "か",
+      "reading": "か",
+      "entryId": 2028970,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 103,
+      "end": 104,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 104,
+      "end": 109,
+      "surface": "聞きました",
+      "headword": "聞く",
+      "reading": "きく",
+      "entryId": 1591110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 110,
+      "end": 111,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 111,
+      "end": 112,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 113,
+      "end": 115,
+      "surface": "六時",
+      "headword": "六時",
+      "reading": "ろくじ",
+      "entryId": 2583620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 115,
+      "end": 118,
+      "surface": "くらい",
+      "headword": "くらい",
+      "reading": "くらい",
+      "entryId": 1154340,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 118,
+      "end": 120,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 121,
+      "end": 122,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 122,
+      "end": 127,
+      "surface": "答えました",
+      "headword": "答える",
+      "reading": "こたえる",
+      "entryId": 1449540,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 128,
+      "end": 129,
+      "surface": "外",
+      "headword": "外",
+      "reading": "そと",
+      "entryId": 1203250,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 129,
+      "end": 130,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 130,
+      "end": 132,
+      "surface": "もう",
+      "headword": "もう",
+      "reading": "もう",
+      "entryId": 1012480,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 132,
+      "end": 136,
+      "surface": "暗かった",
+      "headword": "暗い",
+      "reading": "くらい",
+      "entryId": 1154330,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 136,
+      "end": 138,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    }
+  ]
+}

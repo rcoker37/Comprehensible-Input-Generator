@@ -30,6 +30,15 @@
 // happens not to list — 高さ, which JPDB folds into the adjective 高い —
 // merge anyway: the rare-merge veto never touches a kanji-bearing surface.
 //
+// That rank veto only covers exact matches; a parallel guard catches the
+// deinflection version. 「外はもう…」 splits は|もう, but JMdict deinflects
+// 「はもう」 to the volitional of the rare verb 食む (はむ) — and 食む sits at
+// rank 25,527, inside the `rare` tier, so the rank veto would let it through.
+// A deinflection chain can only *start* on a content word, though, so a merge
+// is also refused when it's a deinflection that crosses a kuromoji boundary
+// and kuromoji tagged its leading token as a particle — see
+// `deinflectionMergeStartsOnParticle`.
+//
 // Async because both kuromoji init and dictionary lookups are async. Callers
 // await once per story; the tokenizer init is amortised across calls.
 
@@ -201,6 +210,15 @@ async function regroupParts(
       ) {
         continue;
       }
+      // Refuse a deinflection merge whose leading kuromoji token is a
+      // particle: a verb/adjective conjugation can't begin on one. 「は|もう」
+      // would otherwise deinflect to the volitional of the rare verb 食む.
+      if (
+        crossesKuromojiBoundary(start, b, boundaries) &&
+        deinflectionMergeStartsOnParticle(hit, posByStart.get(start))
+      ) {
+        continue;
+      }
       mergedTo = pi;
       break;
     }
@@ -284,6 +302,30 @@ export function crossesKuromojiBoundary(
   boundaries: number[]
 ): boolean {
   return boundaries.some((b) => b > start && b < end);
+}
+
+/** kuromoji's part-of-speech tag for particles (助詞). */
+const PARTICLE_POS = "助詞";
+
+/**
+ * Veto decision for the deinflection counterpart of the rare-kana-merge guard:
+ * should a kuromoji-split deinflection merge be refused, given the candidate
+ * `hit` and the kuromoji POS of the span's leading token?
+ *
+ * A deinflection chain (食べ|まし|た → 食べる) is a conjugated verb or
+ * adjective, so it can only *start* on a content word. When kuromoji tags the
+ * leading token as a particle, the "deinflection" is a coincidence — は|もう
+ * deinflects to the volitional of the rare verb 食む — and the merge is wrong.
+ * Exact matches are out of scope here (they have their own rank-based veto and
+ * cover lexicalised compound particles like には); only `hit.base` hits apply.
+ *
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function deinflectionMergeStartsOnParticle(
+  hit: LookupHit,
+  leadingPos: string | undefined
+): boolean {
+  return Boolean(hit.base) && leadingPos === PARTICLE_POS;
 }
 
 /**
