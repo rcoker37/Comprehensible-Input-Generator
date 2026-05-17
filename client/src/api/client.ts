@@ -3,7 +3,6 @@ import {
   buildPrompt,
   PARAGRAPH_COUNT,
   UNSEEN_WORD_POOL_SIZE,
-  type UnseenKanjiTarget,
   type UnseenWordTarget,
 } from "../lib/generation";
 import { getTopUnseenWords, loadFrequencyIndex } from "../lib/frequency";
@@ -79,7 +78,6 @@ export async function startStoryGeneration(
     formality: Formality;
     model: string;
     seenKanji: Set<string>;
-    unseenKanjiTarget: UnseenKanjiTarget;
     unseenWordTarget: UnseenWordTarget;
     // Headwords (canonical surfaces) the user has encountered in a read
     // story — used to filter the unseen-common-words pool.
@@ -113,7 +111,6 @@ export async function startStoryGeneration(
     params.formality,
     params.topic,
     params.style,
-    params.unseenKanjiTarget,
     params.unseenWordTarget,
     unseenWords
   );

@@ -35,15 +35,6 @@ function sanitizeUserText(raw: string): string {
   return raw.replace(/[\n\r#`]/g, "").trim();
 }
 
-export type UnseenKanjiTarget = "none" | "1-2" | "3-5" | "5-10";
-
-const UNSEEN_KANJI_RANGES: Record<UnseenKanjiTarget, [number, number] | null> = {
-  none: null,
-  "1-2": [1, 2],
-  "3-5": [3, 5],
-  "5-10": [5, 10],
-};
-
 export type UnseenWordTarget = "none" | "1-2" | "3-5" | "5-10";
 
 const UNSEEN_WORD_RANGES: Record<UnseenWordTarget, [number, number] | null> = {
@@ -67,33 +58,36 @@ export function buildPrompt(
   formality: Formality,
   topic?: string,
   style?: string,
-  unseenKanjiTarget: UnseenKanjiTarget = "none",
   unseenWordTarget: UnseenWordTarget = "none",
   unseenWords: string[] = []
 ): string {
-  const range = UNSEEN_KANJI_RANGES[unseenKanjiTarget];
   const wordRange = UNSEEN_WORD_RANGES[unseenWordTarget];
+  const hasUnseenWords = wordRange != null && unseenWords.length > 0;
   const rules: string[] = ["Rules:"];
 
-  if (range) {
-    const [min, max] = range;
-    rules.push(
-      `- Include ${min}–${max} unique kanji that are NOT in the allowed list ("stretch kanji"). Pick ones natural to the topic; weave them in normally.`,
-      "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
-      "- Beyond those stretch kanji, only use kanji from the allowed list. If a word would need a non-allowed, non-stretch kanji, rephrase with simpler vocabulary rather than writing it in hiragana."
-    );
-  } else {
-    rules.push(
-      "- Try to only use kanji from the list above, minimizing usage of kanji not in the list. Use hiragana and katakana freely.",
-      "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
-      "- If a word needs kanji not in the list, rephrase with simpler vocabulary rather than writing it in hiragana."
-    );
-  }
+  // Kanji scope is loosened to three groups rather than a hard "allowed list
+  // only" constraint: the allowed list, kanji carried by the unseen common
+  // words we nudge in, and kanji the chosen topic / style genuinely needs.
+  // Group 2 is only described when an unseen-words pool is actually supplied.
+  const kanjiGroups = [
+    "kanji from the allowed list above",
+    ...(hasUnseenWords
+      ? ["kanji that appear in the unseen common words listed below"]
+      : []),
+    "kanji genuinely needed for the topic, the writing style, or vocabulary that naturally belongs in this piece",
+  ];
+  rules.push(
+    `- Keep the kanji you use within these groups: ${kanjiGroups
+      .map((g, i) => `(${i + 1}) ${g}`)
+      .join("; ")}. Outside these groups, prefer simpler wording over reaching for another kanji.`,
+    "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
+    "- Write each word with its ordinary modern spelling: do not spell a word in hiragana or katakana just to avoid a kanji when that word is normally written with kanji, and when a word has more than one kanji form, use the common form rather than a rare or archaic one."
+  );
 
   if (wordRange && unseenWords.length > 0) {
     const [min, max] = wordRange;
     rules.push(
-      `- Naturally use ${min}–${max} of these common words the reader has not encountered yet, choosing ones that fit the topic and weaving them in normally (do not list them mechanically): ${unseenWords.join("、")}. If a listed word would need a kanji outside the allowed list, write that word in hiragana rather than dropping it.`,
+      `- Naturally use ${min}–${max} of these common words the reader has not encountered yet, choosing ones that fit the topic and weaving them in normally (do not list them mechanically): ${unseenWords.join("、")}.`,
       "- Those words are only a nudge — keep introducing plenty of other vocabulary the reader likely hasn't seen too; that list is not meant to be the only unfamiliar words in the piece."
     );
   }

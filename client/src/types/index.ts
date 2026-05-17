@@ -87,9 +87,6 @@ export interface GeneratorPreferences {
   model: string;
   formality: Formality;
   contentType: ContentType;
-  // Legacy JSON key — the UI labels this "Unseen kanji" since the meaning is
-  // "kanji not in the user's allowed list".
-  unknownKanjiTarget: string;
   // How many common words the reader has never encountered to nudge the model
   // into using (UI: "Unseen common words"). One of "none"/"1-2"/"3-5"/"5-10".
   unseenWordTarget: string;
