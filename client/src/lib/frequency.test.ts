@@ -275,3 +275,77 @@ describe("by-entry frequency lookups", () => {
     expect(lookupFrequencyByCanonicalSync("乃")).toBeNull();
   });
 });
+
+describe("getCanonicalFrequencyEntriesSync", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllGlobals();
+  });
+
+  it("flattens the by-entry index to one entry per canonical, rank-sorted", async () => {
+    stubBothIndices(
+      {},
+      {
+        "1": { rank: 300, headword: "もの", reading: null, canonical: "物" },
+        "2": { rank: 100, headword: "こと", reading: null, canonical: "事" },
+        "3": {
+          rank: 200,
+          headword: "食べる",
+          reading: "たべる",
+          canonical: "食べる",
+        },
+      }
+    );
+    const { loadFrequencyIndex, getCanonicalFrequencyEntriesSync } =
+      await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getCanonicalFrequencyEntriesSync()).toEqual([
+      { canonical: "事", headword: "こと", reading: null, rank: 100 },
+      { canonical: "食べる", headword: "食べる", reading: "たべる", rank: 200 },
+      { canonical: "物", headword: "もの", reading: null, rank: 300 },
+    ]);
+  });
+
+  it("keeps the canonical distinct from the display headword for uk words", async () => {
+    // The browse-card bug: keying a card on the JPDB display surface (こと)
+    // can't find encounters the word indexer stamped under the canonical (事).
+    stubBothIndices(
+      {},
+      {
+        "1313580": {
+          rank: 79,
+          headword: "こと",
+          reading: null,
+          canonical: "事",
+        },
+      }
+    );
+    const { loadFrequencyIndex, getCanonicalFrequencyEntriesSync } =
+      await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getCanonicalFrequencyEntriesSync()).toEqual([
+      { canonical: "事", headword: "こと", reading: null, rank: 79 },
+    ]);
+  });
+
+  it("collapses canonical collisions to the lowest-rank entry", async () => {
+    stubBothIndices(
+      {},
+      {
+        "1000090": { rank: 8217, headword: "丸", reading: null, canonical: "〇" },
+        "2839962": {
+          rank: 2658,
+          headword: "ゼロ",
+          reading: null,
+          canonical: "〇",
+        },
+      }
+    );
+    const { loadFrequencyIndex, getCanonicalFrequencyEntriesSync } =
+      await import("./frequency");
+    await loadFrequencyIndex();
+    expect(getCanonicalFrequencyEntriesSync()).toEqual([
+      { canonical: "〇", headword: "ゼロ", reading: null, rank: 2658 },
+    ]);
+  });
+});

@@ -250,40 +250,52 @@ export function lookupFrequencyByCanonicalSync(
 }
 
 /**
- * One headword/rank tuple from the JPDB index, with the reading that produced
- * the rank (kana-only entries return `reading: null` since the headword itself
- * is already kana). Used by the Stats browse view to paginate top-N vocab.
+ * One canonical headword + rank tuple from the by-entry JPDB index.
+ * `canonical` is the JMdict k[0]/r[0] surface the word indexer stamps on
+ * story_word_occurrences (and that VocabContext keys encounter counts by) —
+ * the join key for vocab read counts. `headword`/`reading` is the
+ * rank-winning JPDB variant to display (kana variants return `reading: null`).
  */
-export interface FrequencyEntry {
+export interface CanonicalFrequencyEntry {
+  canonical: string;
   headword: string;
   reading: string | null;
   rank: number;
 }
 
-let sortedEntriesCache: FrequencyEntry[] | null = null;
+let canonicalEntriesCache: CanonicalFrequencyEntry[] | null = null;
 
 /**
- * Returns every JPDB headword sorted by rank ascending, one entry per
- * headword (the lowest-rank reading wins when a headword has multiple).
- * Requires `loadFrequencyIndex()` to have resolved — throws otherwise.
- * Result is cached so subsequent calls are O(1).
+ * Returns one frequency entry per canonical headword, sorted by rank
+ * ascending — built from the by-entry index so the canonical surface (the
+ * key the word indexer and VocabContext use) rides along with the rank and
+ * display variant. Multiple JMdict entries can share a canonical (≈3%, e.g.
+ * 〇 spans まる/れい/ゼロ); the lowest-rank entry wins, matching
+ * `lookupFrequencyByCanonicalSync`. Requires `loadFrequencyIndex()` to have
+ * resolved — throws otherwise. Result is cached.
  */
-export function getFrequencyEntriesSync(): FrequencyEntry[] {
-  if (sortedEntriesCache) return sortedEntriesCache;
-  if (!cached) {
+export function getCanonicalFrequencyEntriesSync(): CanonicalFrequencyEntry[] {
+  if (canonicalEntriesCache) return canonicalEntriesCache;
+  if (!entryCached) {
     throw new Error(
-      "getFrequencyEntriesSync called before loadFrequencyIndex resolved"
+      "getCanonicalFrequencyEntriesSync called before loadFrequencyIndex resolved"
     );
   }
-  const out: FrequencyEntry[] = [];
-  for (const [headword, entries] of Object.entries(cached)) {
-    // Entries are pre-sorted asc by rank, so [0] is the lowest rank.
-    const best = entries[0];
-    if (!best) continue;
-    out.push({ headword, reading: best[0], rank: best[1] });
+  const byCanonical = new Map<string, CanonicalFrequencyEntry>();
+  for (const rec of Object.values(entryCached)) {
+    const existing = byCanonical.get(rec.canonical);
+    if (existing === undefined || rec.rank < existing.rank) {
+      byCanonical.set(rec.canonical, {
+        canonical: rec.canonical,
+        headword: rec.headword,
+        reading: rec.reading,
+        rank: rec.rank,
+      });
+    }
   }
+  const out = Array.from(byCanonical.values());
   out.sort((a, b) => a.rank - b.rank);
-  sortedEntriesCache = out;
+  canonicalEntriesCache = out;
   return out;
 }
 
