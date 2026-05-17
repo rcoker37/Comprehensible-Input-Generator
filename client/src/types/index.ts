@@ -80,6 +80,9 @@ export interface WordUsage {
 // reopens with the user's most recent choices.
 export type ReadFilter = "all" | "unread" | "read";
 export type SortMode = "newest" | "score" | "adjustedScore" | "lastRead";
+// Direction for the directional sorts ("newest" / "lastRead"). The score
+// sorts ignore it — they're always highest-first.
+export type SortDir = "asc" | "desc";
 export type ParagraphFilter = number | "all";
 
 export interface GeneratorPreferences {
@@ -96,6 +99,7 @@ export interface StoriesPreferences {
   readFilter: ReadFilter;
   paragraphFilter: ParagraphFilter;
   sortMode: SortMode;
+  sortDir: SortDir;
 }
 
 export interface Preferences {
