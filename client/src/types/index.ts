@@ -35,7 +35,6 @@ export interface Story {
   title: string;
   content: string;
   content_type: ContentType;
-  paragraphs: number;
   topic: string | null;
   formality: Formality;
   difficulty: DifficultyEstimate;
@@ -79,16 +78,14 @@ export interface WordUsage {
 // Stories-page filter shapes are persisted on the profile so the page
 // reopens with the user's most recent choices.
 export type ReadFilter = "all" | "unread" | "read";
-export type SortMode = "newest" | "score" | "adjustedScore" | "lastRead";
+export type SortMode = "newest" | "score" | "lastRead";
 // Direction for the directional sorts ("newest" / "lastRead"). The score
-// sorts ignore it — they're always highest-first.
+// sort ignores it — it's always highest-first.
 export type SortDir = "asc" | "desc";
-export type ParagraphFilter = number | "all";
 
 export interface GeneratorPreferences {
   model: string;
   formality: Formality;
-  paragraphs: number;
   contentType: ContentType;
   // Legacy JSON key — the UI labels this "Unseen kanji" since the meaning is
   // "kanji not in the user's allowed list".
@@ -97,7 +94,6 @@ export interface GeneratorPreferences {
 
 export interface StoriesPreferences {
   readFilter: ReadFilter;
-  paragraphFilter: ParagraphFilter;
   sortMode: SortMode;
   sortDir: SortDir;
 }

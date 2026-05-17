@@ -29,7 +29,6 @@ export default function GenerationModal({ open, onClose }: Props) {
   const { loading, generate } = useGeneration();
   const { seenKanji } = useSeenKanji();
   const [contentType, setContentType] = useState<ContentType>("fiction");
-  const [paragraphs, setParagraphs] = useState(5);
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
@@ -43,7 +42,6 @@ export default function GenerationModal({ open, onClose }: Props) {
     profileSyncedRef.current = true;
     const gen = profile.preferences?.generator;
     if (gen?.contentType) setContentType(gen.contentType as ContentType);
-    if (gen?.paragraphs) setParagraphs(gen.paragraphs);
     if (gen?.formality) setFormality(gen.formality as Formality);
     if (gen?.unknownKanjiTarget) setUnseenKanjiTarget(gen.unknownKanjiTarget as UnseenKanjiTarget);
   }, [profile]);
@@ -52,7 +50,6 @@ export default function GenerationModal({ open, onClose }: Props) {
     if (!profile?.has_openrouter_api_key) return;
     generate(user!.id, {
       contentType,
-      paragraphs,
       topic: topic.trim() || undefined,
       style: style.trim() || undefined,
       formality,
@@ -65,7 +62,6 @@ export default function GenerationModal({ open, onClose }: Props) {
         model: MODEL,
         contentType,
         formality,
-        paragraphs,
         unknownKanjiTarget: unseenKanjiTarget,
       },
     })
@@ -102,17 +98,6 @@ export default function GenerationModal({ open, onClose }: Props) {
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="form-group">
-            <label>
-              Paragraphs
-              <select value={paragraphs} onChange={(e) => setParagraphs(Number(e.target.value))}>
-                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </select>
-            </label>
           </div>
 
           <div className="form-group">

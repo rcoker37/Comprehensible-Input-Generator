@@ -12,7 +12,6 @@ import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
 import type {
-  ParagraphFilter,
   ReadFilter,
   SortDir,
   SortMode,
@@ -21,9 +20,15 @@ import type {
 import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
 
-// Sorts whose chip toggles asc⇄desc on re-click. The score sorts are always
-// highest-first, so they aren't directional.
+// Sorts whose chip toggles asc⇄desc on re-click. The score sort is always
+// highest-first, so it isn't directional.
 const DIRECTIONAL_SORTS = new Set<SortMode>(["newest", "lastRead"]);
+
+// "adjustedScore" was removed as a sort option; an older saved profile may
+// still carry it, so anything unrecognized falls back to "newest".
+function sanitizeSortMode(mode: SortMode | undefined): SortMode {
+  return mode === "score" || mode === "lastRead" ? mode : "newest";
+}
 
 export default function Stories() {
   const {
@@ -40,8 +45,7 @@ export default function Stories() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>(saved?.readFilter ?? "all");
-  const [paragraphFilter, setParagraphFilter] = useState<ParagraphFilter>(saved?.paragraphFilter ?? "all");
-  const [sortMode, setSortMode] = useState<SortMode>(saved?.sortMode ?? "newest");
+  const [sortMode, setSortMode] = useState<SortMode>(sanitizeSortMode(saved?.sortMode));
   const [sortDir, setSortDir] = useState<SortDir>(saved?.sortDir ?? "desc");
   const { kanjiExposures } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
@@ -55,9 +59,9 @@ export default function Stories() {
       return;
     }
     updatePreferences({
-      stories: { readFilter, paragraphFilter, sortMode, sortDir },
+      stories: { readFilter, sortMode, sortDir },
     }).catch((err) => console.warn("Failed to save filter preferences:", err));
-  }, [readFilter, paragraphFilter, sortMode, sortDir]);
+  }, [readFilter, sortMode, sortDir]);
 
   // Selecting a directional sort that's already active flips its direction;
   // any other selection activates the sort fresh at desc. Mirrors the Stats
@@ -127,39 +131,19 @@ export default function Stories() {
 
   if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;
 
-  const paragraphCounts = Array.from(
-    new Set(stories.map((s) => s.paragraphs)),
-  ).sort((a, b) => a - b);
-
-  // The saved paragraph filter may target a count the user no longer has
-  // stories for (e.g. all 5-paragraph stories were deleted). Filter and
-  // render as "all" in that case, but keep the saved value so the filter
-  // re-activates if a matching story reappears.
-  const effectiveParagraphFilter: ParagraphFilter =
-    paragraphFilter === "all" || paragraphCounts.includes(paragraphFilter as number)
-      ? paragraphFilter
-      : "all";
-
   const filtered = stories.filter((s) => {
     if (readFilter === "unread" && s.read_count !== 0) return false;
     if (readFilter === "read" && s.read_count === 0) return false;
-    if (effectiveParagraphFilter !== "all" && s.paragraphs !== effectiveParagraphFilter) return false;
     return true;
   });
 
   const scoreFor = (s: Story) => deltaById.get(s.id) ?? 0;
-  const adjustedScoreFor = (s: Story) => {
-    const chars = stripAnnotations(s.content).length;
-    return chars > 0 ? scoreFor(s) / chars : 0;
-  };
 
-  // asc compares low→high; desc flips it. The score sorts ignore direction.
+  // asc compares low→high; desc flips it. The score sort ignores direction.
   const dirMul = sortDir === "asc" ? 1 : -1;
   const visibleStories =
     sortMode === "score"
       ? [...filtered].sort((a, b) => scoreFor(b) - scoreFor(a))
-      : sortMode === "adjustedScore"
-      ? [...filtered].sort((a, b) => adjustedScoreFor(b) - adjustedScoreFor(a))
       : sortMode === "lastRead"
       ? [...filtered].sort((a, b) => {
           // Never-read stories have no timestamp — treat as the earliest
@@ -205,30 +189,6 @@ export default function Stories() {
               ))}
             </div>
           </div>
-          {paragraphCounts.length > 1 && (
-            <div className="filter-row">
-              <label>Paragraphs</label>
-              <div className="chip-group" role="radiogroup" aria-label="Paragraph count filter">
-                <button
-                  className={`chip ${effectiveParagraphFilter === "all" ? "active" : ""}`}
-                  onClick={() => setParagraphFilter("all")}
-                  aria-pressed={effectiveParagraphFilter === "all"}
-                >
-                  All
-                </button>
-                {paragraphCounts.map((n) => (
-                  <button
-                    key={n}
-                    className={`chip ${effectiveParagraphFilter === n ? "active" : ""}`}
-                    onClick={() => setParagraphFilter(n)}
-                    aria-pressed={effectiveParagraphFilter === n}
-                  >
-                    {n}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           <div className="filter-row">
             <label>Sort</label>
             <div className="chip-group" role="radiogroup" aria-label="Sort mode">
@@ -236,9 +196,8 @@ export default function Stories() {
                 ["newest", "Created At"],
                 ["lastRead", "Last Read"],
                 ["score", "Score"],
-                ["adjustedScore", "Adjusted Score"],
               ] as const).map(([v, label]) => {
-                const scoreSort = v === "score" || v === "adjustedScore";
+                const scoreSort = v === "score";
                 const isDisabled = scoreSort && !scoresReady;
                 const active = sortMode === v;
                 const directional = active && DIRECTIONAL_SORTS.has(v);
@@ -324,9 +283,6 @@ export default function Stories() {
                   </span>
                 )}
                 <span className="type-tag">{story.content_type ?? "fiction"}</span>
-                <span className="paragraphs-tag">
-                  {story.paragraphs} {story.paragraphs === 1 ? "paragraph" : "paragraphs"}
-                </span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
               </div>

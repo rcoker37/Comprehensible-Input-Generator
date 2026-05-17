@@ -1,5 +1,12 @@
 import type { ContentType, Formality } from "../types";
 
+/**
+ * Every generated story is fixed at this many paragraphs. The count is no
+ * longer user-selectable; `buildPrompt` still takes it as a parameter so the
+ * value stays explicit at the call site.
+ */
+export const PARAGRAPH_COUNT = 3;
+
 export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
   impolite:
     "Use casual/rough speech (タメ口, ぞ/ぜ sentence endings, masculine rough style).",

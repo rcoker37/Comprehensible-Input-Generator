@@ -16,7 +16,6 @@ const STALE_THRESHOLD_MS = 3 * 60 * 1000;
 
 interface GenerateParams {
   contentType: ContentType;
-  paragraphs: number;
   topic?: string;
   style?: string;
   formality: Formality;
