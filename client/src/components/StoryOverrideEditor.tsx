@@ -31,8 +31,12 @@ interface CandidatesState {
   loading: boolean;
   candidates: SpanCandidate[];
   mode: "dictionary" | "name";
-  // Candidate index when mode='dictionary'; null = "skip" (algorithm fills in).
+  // Candidate index when mode='dictionary'; null = no candidate picked yet.
   selected: number | null;
+  // When true, no manual row is written for this sub-span — the algorithm
+  // fills it in. `selected` / `mode` are preserved underneath so the user can
+  // toggle skip back off ("Restore") without losing their choice.
+  skipped: boolean;
   // User-typed reading when mode='name'. Pre-filled from any ruby annotation
   // that exactly covers the sub-span so kanji names like 田中《たなか》 don't
   // require re-typing the reading.
@@ -135,6 +139,7 @@ export default function StoryOverrideEditor({
           candidates: [],
           mode: "dictionary",
           selected: null,
+          skipped: false,
           nameReading: initialNameReading(annotations, s.start, s.end, s.surface),
         });
         return next;
@@ -213,18 +218,37 @@ export default function StoryOverrideEditor({
       const cur = prev.get(key);
       if (!cur) return prev;
       const next = new Map(prev);
-      next.set(key, { ...cur, mode: "dictionary", selected: index });
+      next.set(key, {
+        ...cur,
+        mode: "dictionary",
+        selected: index,
+        skipped: false,
+      });
       return next;
     });
   };
 
-  const handleClearSelection = (subspan: Subspan) => {
+  // Skip is a toggle: it sets `skipped` but preserves the underlying
+  // `selected` / `mode`, so the user can press "Restore" to undo an
+  // accidental skip without re-picking the candidate.
+  const handleSkip = (subspan: Subspan) => {
     const key = subspanKey(subspan.start, subspan.end);
     setCandidatesBySpan((prev) => {
       const cur = prev.get(key);
       if (!cur) return prev;
       const next = new Map(prev);
-      next.set(key, { ...cur, mode: "dictionary", selected: null });
+      next.set(key, { ...cur, skipped: true });
+      return next;
+    });
+  };
+
+  const handleRestore = (subspan: Subspan) => {
+    const key = subspanKey(subspan.start, subspan.end);
+    setCandidatesBySpan((prev) => {
+      const cur = prev.get(key);
+      if (!cur) return prev;
+      const next = new Map(prev);
+      next.set(key, { ...cur, skipped: false });
       return next;
     });
   };
@@ -259,7 +283,9 @@ export default function StoryOverrideEditor({
   // benefit from being marked so the popover stops trying to look them up).
   const anySelected = subspans.some((s) => {
     const st = candidatesBySpan.get(subspanKey(s.start, s.end));
-    return !!st && (st.mode === "name" || st.selected !== null);
+    return (
+      !!st && !st.skipped && (st.mode === "name" || st.selected !== null)
+    );
   });
   const canSave = !saving && !anyLoading && anySelected;
 
@@ -269,6 +295,7 @@ export default function StoryOverrideEditor({
     for (const s of subspans) {
       const state = candidatesBySpan.get(subspanKey(s.start, s.end));
       if (!state) continue;
+      if (state.skipped) continue;
       if (state.mode === "name") {
         overrides.push({
           start: s.start,
@@ -395,7 +422,8 @@ export default function StoryOverrideEditor({
               subspan={s}
               state={state}
               onSelect={(idx) => handleSelect(s, idx)}
-              onClear={() => handleClearSelection(s)}
+              onSkip={() => handleSkip(s)}
+              onRestore={() => handleRestore(s)}
               onEnterNameMode={() => handleEnterNameMode(s)}
               onNameReadingChange={(r) => handleNameReadingChange(s, r)}
               disabled={saving}
@@ -434,7 +462,8 @@ interface SubspanPanelProps {
   subspan: Subspan;
   state: CandidatesState | undefined;
   onSelect: (index: number) => void;
-  onClear: () => void;
+  onSkip: () => void;
+  onRestore: () => void;
   onEnterNameMode: () => void;
   onNameReadingChange: (reading: string) => void;
   disabled: boolean;
@@ -444,7 +473,8 @@ function SubspanPanel({
   subspan,
   state,
   onSelect,
-  onClear,
+  onSkip,
+  onRestore,
   onEnterNameMode,
   onNameReadingChange,
   disabled,
@@ -462,6 +492,7 @@ function SubspanPanel({
     );
   }
 
+  const skipped = state.skipped;
   const isNameMode = state.mode === "name";
   const selected =
     !isNameMode && state.selected !== null
@@ -470,9 +501,17 @@ function SubspanPanel({
   const hasCandidates = state.candidates.length > 0;
 
   return (
-    <div className="story-override__subspan">
+    <div
+      className={`story-override__subspan${
+        skipped ? " is-skipped" : ""
+      }`}
+    >
       <div className="story-override__subspan-surface">{subspan.surface}</div>
-      {isNameMode ? (
+      {skipped ? (
+        <div className="story-override__subspan-skipped">
+          Skipped — the algorithm will index this part.
+        </div>
+      ) : isNameMode ? (
         <div className="story-override__subspan-selected">
           <div className="story-override__subspan-headword">
             {state.nameReading && state.nameReading !== subspan.surface ? (
@@ -535,44 +574,54 @@ function SubspanPanel({
         </div>
       )}
       <div className="story-override__subspan-controls">
-        {!isNameMode && hasCandidates && (
+        {skipped ? (
           <button
             type="button"
-            className="story-override__subspan-toggle"
-            onClick={() => setExpanded((v) => !v)}
+            className="story-override__subspan-restore"
+            onClick={onRestore}
             disabled={disabled}
+            title="Write a manual row for this sub-span again"
           >
-            {expanded ? "Hide" : `Choose (${state.candidates.length})`}
+            Restore
           </button>
-        )}
-        {!isNameMode && (
-          <button
-            type="button"
-            className="story-override__subspan-name-btn"
-            onClick={onEnterNameMode}
-            disabled={disabled}
-            title="Match this span as a name (proper noun) — skips JMdict lookup"
-          >
-            Match as name
-          </button>
-        )}
-        {(isNameMode || selected) && (
-          <button
-            type="button"
-            className="story-override__subspan-clear"
-            onClick={onClear}
-            disabled={disabled}
-            title={
-              isNameMode
-                ? "Exit name mode — let the algorithm decide instead"
-                : "Don't write a manual row for this sub-span (let the algorithm decide)"
-            }
-          >
-            Skip
-          </button>
+        ) : (
+          <>
+            {!isNameMode && hasCandidates && (
+              <button
+                type="button"
+                className="story-override__subspan-toggle"
+                onClick={() => setExpanded((v) => !v)}
+                disabled={disabled}
+              >
+                {expanded ? "Hide" : `Choose (${state.candidates.length})`}
+              </button>
+            )}
+            {!isNameMode && (
+              <button
+                type="button"
+                className="story-override__subspan-name-btn"
+                onClick={onEnterNameMode}
+                disabled={disabled}
+                title="Match this span as a name (proper noun) — skips JMdict lookup"
+              >
+                Match as name
+              </button>
+            )}
+            {(isNameMode || selected) && (
+              <button
+                type="button"
+                className="story-override__subspan-clear"
+                onClick={onSkip}
+                disabled={disabled}
+                title="Don't write a manual row for this sub-span (let the algorithm decide). You can Restore it afterwards."
+              >
+                Skip
+              </button>
+            )}
+          </>
         )}
       </div>
-      {!isNameMode && expanded && hasCandidates && (
+      {!skipped && !isNameMode && expanded && hasCandidates && (
         <ul className="story-override__candidate-list">
           {state.candidates.map((c, i) => (
             <li key={`${c.entryId}-${i}`}>

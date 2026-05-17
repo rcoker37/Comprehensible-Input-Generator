@@ -143,6 +143,17 @@
   color: var(--text-dim);
 }
 
+.story-override__subspan.is-skipped {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.story-override__subspan-skipped {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .story-override__subspan-selected {
   display: flex;
   flex-direction: column;
@@ -177,6 +188,7 @@
 
 .story-override__subspan-toggle,
 .story-override__subspan-clear,
+.story-override__subspan-restore,
 .story-override__subspan-name-btn {
   background: transparent;
   border: 1px solid var(--border);
@@ -190,6 +202,7 @@
 
 .story-override__subspan-toggle:hover:not(:disabled),
 .story-override__subspan-clear:hover:not(:disabled),
+.story-override__subspan-restore:hover:not(:disabled),
 .story-override__subspan-name-btn:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--accent);
@@ -197,9 +210,17 @@
 
 .story-override__subspan-toggle:disabled,
 .story-override__subspan-clear:disabled,
+.story-override__subspan-restore:disabled,
 .story-override__subspan-name-btn:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+/* The Restore button is the way back from an accidental Skip — give it an
+   accent tint so it reads as the obvious affordance, not a dim secondary. */
+.story-override__subspan-restore {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .story-override__subspan-name-tag {
