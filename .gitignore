@@ -3,3 +3,4 @@ dist/
 .env.local
 client/.env.local
 client/public/dict/
+client/src/test/jpdict/

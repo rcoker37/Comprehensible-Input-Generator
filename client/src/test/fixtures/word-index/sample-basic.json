@@ -1,0 +1,93 @@
+{
+  "meta": {
+    "title": "Sample — basic detection snapshot",
+    "sourceStoryId": null,
+    "exportedAt": "2026-05-17T22:36:14.285Z",
+    "wordIndexVersion": 8,
+    "jmdictVersion": "2.0.474",
+    "fixtureFormatVersion": 1
+  },
+  "content": "猫《ねこ》が魚《さかな》を食《た》べました。とても楽《たの》しかったです。",
+  "expected": [
+    {
+      "start": 0,
+      "end": 1,
+      "surface": "猫",
+      "headword": "猫",
+      "reading": "ねこ",
+      "entryId": 1467640,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 1,
+      "end": 2,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 2,
+      "end": 3,
+      "surface": "魚",
+      "headword": "魚",
+      "reading": "さかな",
+      "entryId": 1578010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 3,
+      "end": 4,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 4,
+      "end": 9,
+      "surface": "食べました",
+      "headword": "食べる",
+      "reading": "たべる",
+      "entryId": 1358280,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 10,
+      "end": 13,
+      "surface": "とても",
+      "headword": "迚も",
+      "reading": "とても",
+      "entryId": 1008630,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 13,
+      "end": 18,
+      "surface": "楽しかった",
+      "headword": "楽しい",
+      "reading": "たのしい",
+      "entryId": 1207240,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 18,
+      "end": 20,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    }
+  ]
+}
