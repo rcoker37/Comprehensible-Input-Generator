@@ -20,6 +20,7 @@ interface KanjiContextType {
 
 const KanjiContext = createContext<KanjiContextType | null>(null);
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocated with its provider
 export function useSeenKanji() {
   const ctx = useContext(KanjiContext);
   if (!ctx) throw new Error("useSeenKanji must be used within KanjiProvider");

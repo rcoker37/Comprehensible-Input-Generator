@@ -43,9 +43,12 @@ export default function GenerationModal({ open, onClose }: Props) {
     if (profileSyncedRef.current || !profile) return;
     profileSyncedRef.current = true;
     const gen = profile.preferences?.generator;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time sync from the
+       async-resolved profile; state initializers run before the fetch lands. */
     if (gen?.contentType) setContentType(gen.contentType as ContentType);
     if (gen?.formality) setFormality(gen.formality as Formality);
     if (gen?.unseenWordTarget) setUnseenWordTarget(gen.unseenWordTarget as UnseenWordTarget);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [profile]);
 
   const handleGenerate = () => {
