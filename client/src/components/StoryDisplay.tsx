@@ -13,7 +13,7 @@ import {
   parseAnnotatedText,
   type FuriganaAnnotation,
 } from "../lib/furigana";
-import { stripBold } from "../lib/text";
+import { stripBold, isPunctuation } from "../lib/text";
 import {
   buildDisplaySegments,
   type DisplayParagraph,
@@ -32,6 +32,23 @@ import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
 import type { SentenceTranslation, Story, StoryTranslations } from "../types";
 import "./StoryDisplay.css";
+
+// Furigana display modes, in toggle-cycle order. Tapping the furigana
+// control advances to the next mode and wraps back to the start:
+//   unseen    — ruby only on words new to the reader (zero encounters)
+//   all       — ruby on every word
+//   none      — no ruby
+//   very-rare — ruby only on words in the JPDB "very rare" frequency tier
+type FuriganaMode = "unseen" | "all" | "none" | "very-rare";
+
+const FURIGANA_ORDER: FuriganaMode[] = ["unseen", "all", "none", "very-rare"];
+
+const FURIGANA_LABEL: Record<FuriganaMode, string> = {
+  unseen: "unseen",
+  all: "all",
+  none: "off",
+  "very-rare": "very rare",
+};
 
 interface Props {
   story: Story;
@@ -80,7 +97,7 @@ export default function StoryDisplay({
     start: number;
     end: number;
   } | null>(null);
-  const [furiganaState, setFuriganaState] = useState<"unseen" | "all" | "none">("unseen");
+  const [furiganaState, setFuriganaState] = useState<FuriganaMode>("unseen");
 
   // The popover's carousel pulls from `story_word_occurrences`, which is only
   // populated for stories that have been indexed. If this story hasn't been
@@ -372,11 +389,16 @@ export default function StoryDisplay({
     setTranslations((prev) => ({ ...prev, [rangeKey]: translation }));
   };
 
-  // "Unseen" = the whole word's headword has zero encounters across the
-  // user's read stories. Decision is per-word (the tap-target span), not
-  // per-character — a word is shown with ruby iff it's new to the reader.
-  // Falls back to "no ruby" when the encounters lookup is missing
-  // (unindexed story, indexing pending, or the headword lookup missed).
+  // Ruby visibility, decided per-word (the tap-target span) not per
+  // character. The furigana toggle drives it:
+  //   all       — every word
+  //   none      — nothing
+  //   unseen    — words whose headword has zero encounters across the
+  //               user's read stories (new to the reader)
+  //   very-rare — words in the JPDB "very rare" frequency tier
+  // The "unseen"/"very-rare" lookups fall back to "no ruby" when the span
+  // isn't in the map (unindexed story, indexing pending, frequency index
+  // still loading, or the headword lookup missed).
   const decideShowRuby = (start: number, end: number): boolean => {
     switch (furiganaState) {
       case "all":
@@ -385,6 +407,8 @@ export default function StoryDisplay({
         return false;
       case "unseen":
         return encounters.get(`${start}-${end}`) === 0;
+      case "very-rare":
+        return tierBySpan.get(`${start}-${end}`) === "very-rare";
       default:
         return false;
     }
@@ -515,6 +539,10 @@ export default function StoryDisplay({
         </button>
       );
     }
+    // Punctuation isn't a dictionary word — render it as inert text.
+    if (isPunctuation(part.char)) {
+      return <span key={key}>{part.char}</span>;
+    }
     return (
       <button
         key={key}
@@ -569,6 +597,12 @@ export default function StoryDisplay({
         </button>
       );
     }
+    // CharPart. Punctuation (commas, stops, brackets, middle dots, …) is
+    // never a dictionary word — render it as inert text with no tap target,
+    // popover, or new-word underline.
+    if (isPunctuation(part.char)) {
+      return <span key={key}>{part.char}</span>;
+    }
     return (
       <button
         key={key}
@@ -607,16 +641,15 @@ export default function StoryDisplay({
             type="button"
             className="furigana-toggle"
             onClick={() =>
-              setFuriganaState((s) =>
-                s === "unseen" ? "all" : s === "all" ? "none" : "unseen"
+              setFuriganaState(
+                (s) =>
+                  FURIGANA_ORDER[
+                    (FURIGANA_ORDER.indexOf(s) + 1) % FURIGANA_ORDER.length
+                  ]!
               )
             }
           >
-            {furiganaState === "all"
-              ? "all"
-              : furiganaState === "unseen"
-                ? "unseen"
-                : "off"}
+            {FURIGANA_LABEL[furiganaState]}
           </button>
         </div>
       </div>
