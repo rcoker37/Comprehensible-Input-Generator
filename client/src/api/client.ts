@@ -450,11 +450,13 @@ export async function getPerStoryWordOccurrences(): Promise<
 
 /**
  * Bulk-replace the calling user's word-occurrence index for a story. Server
- * deletes existing rows for the story, inserts the new set, and stamps
- * `stories.word_index_at` + `word_index_version` so the indexer doesn't
- * re-run on subsequent reads unless `WORD_INDEX_VERSION` has since moved
- * past the stamped value. Returns the timestamp the row was stamped with
- * so the client can update its local Story state without a refetch.
+ * deletes the story's existing non-manual rows, inserts the new set, and
+ * stamps `stories.word_index_at` + `word_index_version`. Once `word_index_at`
+ * is set the backfill won't touch the story again unless something nulls it
+ * (content edit, override save / reset) — a `WORD_INDEX_VERSION` bump no
+ * longer forces a re-index; the version is recorded as provenance only.
+ * Returns the timestamp the row was stamped with so the client can update
+ * its local Story state without a refetch.
  */
 export async function indexStoryWords(
   storyId: number,
@@ -477,13 +479,17 @@ export async function indexStoryWords(
 }
 
 /**
- * Returns every complete story whose word index is missing OR was stamped
- * against an older `WORD_INDEX_VERSION` — oldest first so the backfill
- * processes least-recent stories first. Read state is intentionally not a
- * gate here — the popover's "other usages" carousel filters to read
- * stories at the SQL layer (`get_word_usages`), but we want the index
- * built ahead of time so the carousel is instant the moment a story is
- * marked read.
+ * Returns every complete story whose word index is missing — `word_index_at`
+ * is null — oldest first so the backfill processes least-recent stories
+ * first. A null stamp means the story was never indexed, or its index was
+ * explicitly cleared (content edit, override save / reset, which all null
+ * `word_index_at` server-side). An algorithm change alone does NOT re-index
+ * already-stamped stories; see `WORD_INDEX_VERSION` in `lib/storyWordIndex.ts`.
+ *
+ * Read state is intentionally not a gate here — the popover's "other usages"
+ * carousel filters to read stories at the SQL layer (`get_word_usages`), but
+ * we want the index built ahead of time so the carousel is instant the
+ * moment a story is marked read.
  */
 export async function getStoriesNeedingIndex(): Promise<
   { id: number; content: string }[]
@@ -492,9 +498,7 @@ export async function getStoriesNeedingIndex(): Promise<
     .from("stories")
     .select("id, content")
     .eq("status", "complete")
-    .or(
-      `word_index_at.is.null,word_index_version.is.null,word_index_version.lt.${WORD_INDEX_VERSION}`
-    )
+    .is("word_index_at", null)
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data as { id: number; content: string }[]) || [];

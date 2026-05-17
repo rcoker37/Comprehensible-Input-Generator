@@ -43,14 +43,23 @@ export interface WordOccurrence {
 }
 
 /**
- * Bump whenever the regroup / deinflection / lookup pipeline produces
- * materially different headwords for existing stories. The backfill context
- * treats every story whose stamped `word_index_version` is null or below
- * this constant as out-of-date and re-indexes it.
+ * The algorithm version stamped onto `stories.word_index_version` every time
+ * the indexer runs. It is a provenance record — *which* generation of the
+ * regroup / deinflection / lookup pipeline produced a story's index — not a
+ * re-index trigger.
+ *
+ * Bumping this constant does NOT auto-re-index existing stories. The backfill
+ * only picks up stories whose `word_index_at` is null (never indexed, or
+ * explicitly cleared by a content edit / override save / override reset). To
+ * re-index already-stamped stories after a pipeline change, ship a one-off
+ * migration that nulls `word_index_at` for the rows you want rebuilt — e.g.
+ * `UPDATE stories SET word_index_at = NULL WHERE word_index_version < 6`.
+ *
+ * Still worth bumping on every materially-different pipeline change so the
+ * stamp stays accurate and such a migration has a clean predicate to target.
  *
  * History:
- *   1 — initial. POS-hinted continuative deinflection (なり → なる, etc.)
- *       lands; bump from a null/legacy version forces a full re-index.
+ *   1 — initial. POS-hinted continuative deinflection (なり → なる, etc.).
  *   2 — pure-kana single-char CharParts (particles like が / を / は, etc.)
  *       are now also indexed so encounter counts and the new-word
  *       underline cover them.
