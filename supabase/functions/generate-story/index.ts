@@ -340,7 +340,6 @@ Deno.serve(async (req) => {
       prompt,
       model,
       contentType,
-      paragraphs,
       topic,
       formality,
       allowedKanji,
@@ -348,7 +347,6 @@ Deno.serve(async (req) => {
       prompt?: string;
       model?: string;
       contentType?: string;
-      paragraphs?: number;
       topic?: string | null;
       formality?: string;
       allowedKanji?: string;
@@ -356,7 +354,7 @@ Deno.serve(async (req) => {
 
     if (!prompt || !model) return jsonResponse({ error: "Missing prompt or model" }, 400);
     if (!ALLOWED_MODELS.has(model)) return jsonResponse({ error: "Unsupported model" }, 400);
-    if (!contentType || !paragraphs || !formality || typeof allowedKanji !== "string") {
+    if (!contentType || !formality || typeof allowedKanji !== "string") {
       return jsonResponse({ error: "Missing story params" }, 400);
     }
 
@@ -382,7 +380,9 @@ Deno.serve(async (req) => {
         title: "",
         content: "",
         content_type: contentType,
-        paragraphs,
+        // Paragraph count is fixed — the client no longer offers a choice.
+        // The column is NOT NULL, so a constant 3 is still written.
+        paragraphs: 3,
         topic: topic || null,
         formality,
         filters: { knownOnly: true, jlptLevels: [], grades: [] },

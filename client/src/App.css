@@ -356,7 +356,6 @@ button {
 .type-tag,
 .formality-tag,
 .topic-tag,
-.paragraphs-tag,
 .score-tag,
 .unknown-tag {
   display: inline-block;

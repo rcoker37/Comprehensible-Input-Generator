@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { buildPrompt, type UnseenKanjiTarget } from "../lib/generation";
+import { buildPrompt, PARAGRAPH_COUNT, type UnseenKanjiTarget } from "../lib/generation";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
@@ -67,7 +67,6 @@ export async function startStoryGeneration(
   _userId: string,
   params: {
     contentType: ContentType;
-    paragraphs: number;
     topic?: string;
     style?: string;
     formality: Formality;
@@ -84,7 +83,7 @@ export async function startStoryGeneration(
   const allowedKanji = [...allowedSet].join("");
   const prompt = buildPrompt(
     params.contentType,
-    params.paragraphs,
+    PARAGRAPH_COUNT,
     allowedKanji,
     params.formality,
     params.topic,
@@ -107,7 +106,6 @@ export async function startStoryGeneration(
       prompt,
       model: params.model,
       contentType: params.contentType,
-      paragraphs: params.paragraphs,
       topic: params.topic || null,
       formality: params.formality,
       allowedKanji,
@@ -153,7 +151,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, paragraphs, topic, formality, difficulty, translations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, created_at"
+      "id, title, content, content_type, topic, formality, difficulty, translations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, created_at"
     )
     .eq("status", "complete")
     .order("created_at", { ascending: false });
