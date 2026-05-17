@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { WordResult } from "@birchill/jpdict-idb";
 import {
+  annotationContradictsHit,
   applyAnnotatedReading,
+  exactRankWins,
   hasVerbPos,
   isKanjiCanonicalKanaMatch,
   type LookupHit,
@@ -244,5 +246,91 @@ describe("isKanjiCanonicalKanaMatch", () => {
     const kanjiOnly = wrFull({ k: ["生き体"], r: ["いきたい"] });
     const ukEntry = wrFull({ k: ["行く"], r: ["いきたい"], misc: ["uk"] });
     expect(isKanjiCanonicalKanaMatch([kanjiOnly, ukEntry], "いきたい")).toBe(false);
+  });
+});
+
+describe("exactRankWins", () => {
+  it("keeps the exact match when the deinflection lemma is unranked (のせる → 乗せる)", () => {
+    // 乗せる is common; the potential-form lemma 伸す isn't in JPDB at all.
+    expect(exactRankWins(4200, null)).toBe(true);
+  });
+
+  it("yields to the deinflection when the exact match is unranked (いきたい → 行く)", () => {
+    // The noun 生き体 isn't in JPDB; 行く is rank ~tens.
+    expect(exactRankWins(null, 35)).toBe(false);
+  });
+
+  it("yields to the deinflection when neither side is ranked", () => {
+    // No frequency signal at all — fall back to the pre-frequency behaviour
+    // (deinflection preferred for a kanji-canonical kana match).
+    expect(exactRankWins(null, null)).toBe(false);
+  });
+
+  it("picks the lower (more common) rank when both sides are ranked", () => {
+    expect(exactRankWins(100, 5000)).toBe(true);
+    expect(exactRankWins(5000, 100)).toBe(false);
+  });
+
+  it("keeps the exact match on a rank tie (simpler, non-inflected reading)", () => {
+    expect(exactRankWins(2000, 2000)).toBe(true);
+  });
+});
+
+describe("annotationContradictsHit", () => {
+  it("flags a greedy match the furigana rule out (今日《きょう》は ≠ こんにちは)", () => {
+    // JMdict 今日は is the greeting こんにちは; the LLM annotated 今日 as きょう
+    // (today + topic particle は), so the composed reading is きょうは.
+    const h = hit({ start: 0, end: 3, surface: "今日は", results: [wr("こんにちは")] });
+    const ann: FuriganaAnnotation[] = [{ start: 0, end: 2, reading: "きょう" }];
+    expect(annotationContradictsHit(h, ann)).toBe(true);
+  });
+
+  it("does not flag a match whose reading agrees with the furigana (今日 = きょう)", () => {
+    const h = hit({ start: 0, end: 2, surface: "今日", results: [wr("こんにち", "きょう")] });
+    const ann: FuriganaAnnotation[] = [{ start: 0, end: 2, reading: "きょう" }];
+    expect(annotationContradictsHit(h, ann)).toBe(false);
+  });
+
+  it("abstains for deinflected hits (annotation describes the inflected surface)", () => {
+    const h = hit({
+      start: 0,
+      end: 3,
+      surface: "今日は",
+      base: "今日は",
+      derivations: ["x"],
+      results: [wr("こんにちは")],
+    });
+    expect(
+      annotationContradictsHit(h, [{ start: 0, end: 2, reading: "きょう" }])
+    ).toBe(false);
+  });
+
+  it("abstains when there are no annotations", () => {
+    const h = hit({ start: 0, end: 3, surface: "今日は", results: [wr("こんにちは")] });
+    expect(annotationContradictsHit(h, [])).toBe(false);
+  });
+
+  it("abstains when the hit has no results", () => {
+    const h = hit({ start: 0, end: 3, surface: "今日は", results: [] });
+    expect(
+      annotationContradictsHit(h, [{ start: 0, end: 2, reading: "きょう" }])
+    ).toBe(false);
+  });
+
+  it("abstains when the results carry no reading data (test stand-ins)", () => {
+    const noReadings = {} as unknown as WordResult;
+    const h = hit({ start: 0, end: 3, surface: "今日は", results: [noReadings] });
+    expect(
+      annotationContradictsHit(h, [{ start: 0, end: 2, reading: "きょう" }])
+    ).toBe(false);
+  });
+
+  it("abstains when no annotation covers the matched span", () => {
+    // Annotation belongs to a kanji elsewhere in the story — there is no
+    // composed reading for this span, so nothing to contradict.
+    const h = hit({ start: 10, end: 13, surface: "今日は", results: [wr("こんにちは")] });
+    expect(
+      annotationContradictsHit(h, [{ start: 0, end: 2, reading: "きょう" }])
+    ).toBe(false);
   });
 });

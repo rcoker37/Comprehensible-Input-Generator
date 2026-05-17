@@ -20,7 +20,7 @@
 // Async because both kuromoji init and dictionary lookups are async. Callers
 // await once per story; the tokenizer init is amortised across calls.
 
-import { lookupAtBoundary } from "./lookupAtCursor";
+import { annotationContradictsHit, lookupAtBoundary } from "./lookupAtCursor";
 import { tokenizeText, type KuromojiTokenInfo } from "./tokenizer";
 import { KANJI_REGEX } from "./constants";
 import type {
@@ -152,7 +152,9 @@ async function regroupParts(
       if (!isAligned(b)) continue;
       if (auxAfterVerbBoundaries.has(b)) continue;
       const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
-      if (hit) {
+      // Reject a hit whose entry reading the LLM furigana contradict — e.g.
+      // 今日《きょう》は must not merge into the greeting こんにちは.
+      if (hit && !annotationContradictsHit(hit, annotations)) {
         mergedTo = pi;
         break;
       }
@@ -170,7 +172,7 @@ async function regroupParts(
         if (isAligned(b)) continue;
         if (!hasKanji(cleanText, start, b)) continue;
         const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
-        if (hit) {
+        if (hit && !annotationContradictsHit(hit, annotations)) {
           mergedTo = pi;
           break;
         }

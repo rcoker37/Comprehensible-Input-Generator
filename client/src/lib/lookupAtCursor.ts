@@ -8,6 +8,7 @@
 import type { WordResult } from "@birchill/jpdict-idb";
 import { deinflect, posMatches, type DeinflectionCandidate } from "./japaneseDeinflect";
 import { lookupWord } from "./dictionary";
+import { loadFrequencyIndex, lookupFrequencyByEntrySync } from "./frequency";
 import {
   surfaceReadingFromAnnotations,
   type FuriganaAnnotation,
@@ -93,33 +94,34 @@ export async function lookupAtCursor(
       );
     }
 
-    for (const c of deinflect(prefix)) {
-      if (exact.length > 0 && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) {
-        // Exact match exists; only let a substantive deinflection override it.
-        continue;
-      }
-      const hits = await lookupWord(c.base);
-      const filtered = filterByPos(hits, c);
-      if (filtered.length > 0) {
-        return {
-          start: offset,
-          end: offset + len,
-          surface: prefix,
-          base: c.base,
-          derivations: c.derivations,
-          results: filtered,
-        };
-      }
-    }
+    const deinflected = await firstDeinflectionHit(prefix, exact.length > 0);
 
-    // Exact match existed but was kanji-canonical AND no deinflection won —
-    // fall back to the exact match rather than letting the loop try a shorter
-    // span (which would mangle 「いきたい」 into 「いき」 alone).
-    if (exact.length > 0) {
+    // The exact match here is pure-kana against a kanji-canonical entry (the
+    // branch above didn't fire). Keep it only when JPDB frequency rates it at
+    // least as common as the deinflection's lemma — 「のせる」 stays 乗せる
+    // instead of the rare potential-form 伸す, while 「いきたい」 still yields
+    // to 行く. With no deinflection candidate the exact match is the only
+    // answer, and falling through to a shorter span would mangle it.
+    if (
+      exact.length > 0 &&
+      (!deinflected ||
+        (await exactOutranksDeinflection(exact, deinflected.results)))
+    ) {
       return applyAnnotatedReading(
         { start: offset, end: offset + len, surface: prefix, results: exact },
         annotations
       );
+    }
+
+    if (deinflected) {
+      return {
+        start: offset,
+        end: offset + len,
+        surface: prefix,
+        base: deinflected.base,
+        derivations: deinflected.derivations,
+        results: deinflected.results,
+      };
     }
   }
 
@@ -185,29 +187,32 @@ export async function lookupAtBoundary(
     );
   }
 
-  for (const c of deinflect(prefix)) {
-    if (exact.length > 0 && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) {
-      continue;
-    }
-    const hits = await lookupWord(c.base);
-    const filtered = filterByPos(hits, c);
-    if (filtered.length > 0) {
-      return {
-        start,
-        end,
-        surface: prefix,
-        base: c.base,
-        derivations: c.derivations,
-        results: filtered,
-      };
-    }
-  }
+  const deinflected = await firstDeinflectionHit(prefix, exact.length > 0);
 
-  if (exact.length > 0) {
+  // Pure-kana exact match against a kanji-canonical entry: kept only when
+  // JPDB frequency rates it at least as common as the deinflection's lemma
+  // (「のせる」 → 乗せる, not the rare potential-form 伸す), otherwise the
+  // deinflection wins (「いきたい」 → 行く). No deinflection candidate ⇒ the
+  // exact match stands.
+  if (
+    exact.length > 0 &&
+    (!deinflected || (await exactOutranksDeinflection(exact, deinflected.results)))
+  ) {
     return applyAnnotatedReading(
       { start, end, surface: prefix, results: exact },
       annotations
     );
+  }
+
+  if (deinflected) {
+    return {
+      start,
+      end,
+      surface: prefix,
+      base: deinflected.base,
+      derivations: deinflected.derivations,
+      results: deinflected.results,
+    };
   }
 
   return null;
@@ -395,6 +400,38 @@ export function applyAnnotatedReading(
   return { ...hit, results, preferredReading: annotatedReading };
 }
 
+/**
+ * True when `hit` is an exact (non-deinflected) JMdict match whose surface is
+ * fully reading-composable from the LLM's furigana, yet none of the entry's
+ * readings equal that composed reading — i.e. the annotations directly rule
+ * the entry out. The regroup pass uses this to refuse a merge the furigana
+ * contradict: 「今日は」 annotated 今日《きょう》 must not be merged into the
+ * greeting こんにちは (whose 今日 reads こんにち).
+ *
+ * Abstains (returns false) for deinflected hits — the annotation describes the
+ * inflected surface, not the lemma — and whenever there is no reading evidence
+ * to judge against: no annotation covers the span, the composed reading isn't
+ * fully kana (an un-annotated kanji leaked through), or the results carry no
+ * readings (e.g. test stand-ins). Pure / no I/O — exposed for unit tests.
+ */
+export function annotationContradictsHit(
+  hit: LookupHit,
+  annotations: FuriganaAnnotation[]
+): boolean {
+  if (hit.base || annotations.length === 0 || hit.results.length === 0) {
+    return false;
+  }
+  const composed = surfaceReadingFromAnnotations(
+    hit.surface,
+    hit.start,
+    annotations
+  );
+  if (!composed || !isPureKana(composed)) return false;
+  const readings = hit.results.flatMap((wr) => wr.r?.map((r) => r.ent) ?? []);
+  if (readings.length === 0) return false;
+  return !readings.includes(composed);
+}
+
 type Script = "hira" | "kata" | "kanji" | "other";
 
 function getScript(ch: string): Script {
@@ -508,4 +545,89 @@ function filterByPos(
     }
     return false;
   });
+}
+
+interface DeinflectionHit {
+  base: string;
+  derivations: string[];
+  results: WordResult[];
+}
+
+/**
+ * Run the deinflection candidates for `surface` in priority order (consumed
+ * descending, as `deinflect` sorts them) and return the first whose base
+ * resolves to a POS-compatible JMdict entry. When `hasExact` is true an exact
+ * match already exists, so only deinflections substantial enough to override
+ * it (consumed ≥ DEINFLECTION_OVERRIDE_MIN_CONSUMED) are considered.
+ */
+async function firstDeinflectionHit(
+  surface: string,
+  hasExact: boolean
+): Promise<DeinflectionHit | null> {
+  for (const c of deinflect(surface)) {
+    if (hasExact && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) continue;
+    const hits = await lookupWord(c.base);
+    const filtered = filterByPos(hits, c);
+    if (filtered.length > 0) {
+      return { base: c.base, derivations: c.derivations, results: filtered };
+    }
+  }
+  return null;
+}
+
+/**
+ * Best (lowest = most common) JPDB rank across `results`, via the by-entry
+ * frequency index. Returns null when none of the entries are ranked — or when
+ * the index can't be loaded — so callers treat null as "no frequency signal".
+ * Never throws: a failed index fetch degrades to the pre-frequency behaviour.
+ */
+async function bestRank(results: WordResult[]): Promise<number | null> {
+  if (results.length === 0) return null;
+  try {
+    await loadFrequencyIndex();
+    let best: number | null = null;
+    for (const wr of results) {
+      const rank = lookupFrequencyByEntrySync(wr.id)?.rank;
+      if (rank == null) continue;
+      if (best === null || rank < best) best = rank;
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True when a pure-kana surface's exact match should be kept instead of the
+ * competing deinflection. Resolves each side to its best JPDB rank and defers
+ * to `exactRankWins` for the arithmetic.
+ */
+async function exactOutranksDeinflection(
+  exact: WordResult[],
+  deinflection: WordResult[]
+): Promise<boolean> {
+  return exactRankWins(await bestRank(exact), await bestRank(deinflection));
+}
+
+/**
+ * Given each side's best JPDB rank (lower = more common; null = unranked,
+ * absent from JPDB, or no frequency data), decide whether a pure-kana exact
+ * match beats a competing deinflection:
+ *   - exact unranked           → deinflection wins (「いきたい」: the noun 生き体
+ *                                 isn't in JPDB, 行く is).
+ *   - exact ranked, other null → exact wins (「のせる」: 乗せる is common, the
+ *                                 potential-form lemma 伸す isn't ranked).
+ *   - both ranked              → the lower rank wins; a tie keeps the exact
+ *                                 (non-inflected) reading as the simpler
+ *                                 hypothesis.
+ *
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function exactRankWins(
+  exactRank: number | null,
+  deinflectionRank: number | null
+): boolean {
+  if (exactRank === null) return false;
+  if (deinflectionRank === null) return true;
+  return exactRank <= deinflectionRank;
 }

@@ -72,8 +72,16 @@ export interface WordOccurrence {
  *   5 — dictionary lookups now prefer a script-exact match over a
  *       hiragana/katakana-folded one, so the hiragana conjunction でも no
  *       longer stamps the katakana loanword デモ (and similar kana pairs).
+ *   6 — two lookup-pipeline fixes. (a) A pure-kana surface whose only exact
+ *       match is a kanji-canonical entry is arbitrated against its best
+ *       deinflection by JPDB frequency (`exactRankWins` in lookupAtCursor.ts):
+ *       the common 乗せる is kept for 「のせる」 instead of the rare potential-
+ *       form lemma 伸す, while a rare exact match still yields to a common
+ *       deinflection (いきたい → 行く). (b) The regroup pass refuses a merge the
+ *       LLM furigana contradict (`annotationContradictsHit`), so 今日《きょう》は
+ *       is no longer swallowed into the greeting こんにちは.
  */
-export const WORD_INDEX_VERSION = 5;
+export const WORD_INDEX_VERSION = 6;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

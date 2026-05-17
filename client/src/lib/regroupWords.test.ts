@@ -215,6 +215,42 @@ describe("regroupWords", () => {
     ]);
   });
 
+  it("refuses a greedy merge the furigana contradict (今日《きょう》は ≠ こんにちは)", async () => {
+    // 「今日は」 with 今日 annotated きょう — today + topic particle は. JMdict
+    // has 今日は as the greeting (reading こんにちは); the composed furigana
+    // reading きょうは contradicts it, so the merge is refused and 今日 keeps
+    // its own ruby with は left as a separate Char.
+    const text = "今日は";
+    const anns = [{ start: 0, end: 2, reading: "きょう" }];
+    const base = buildDisplaySegments(text, anns);
+    const lookup: LookupAtBoundaryFn = async (t, start, end) => {
+      const sub = t.slice(start, end);
+      if (sub === "今日は") {
+        return {
+          start,
+          end,
+          surface: sub,
+          results: [{ r: [{ ent: "こんにちは" }] } as never],
+        };
+      }
+      if (sub === "今日") {
+        return {
+          start,
+          end,
+          surface: sub,
+          results: [{ r: [{ ent: "きょう" }] } as never],
+        };
+      }
+      return null;
+    };
+    const out = await regroupWords(base, text, anns, lookup, tokens(["今日", "は"]));
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "annotated", start: 0, end: 2, surface: "今日", reading: "きょう" },
+      { kind: "char", offset: 2, char: "は" },
+    ]);
+  });
+
   it("keeps annotation atomic when only the shorter span is in JMdict", async () => {
     // Counterpart of the merge case: when no dict entry spans the
     // annotation boundary, the merge stops at the boundary and the
