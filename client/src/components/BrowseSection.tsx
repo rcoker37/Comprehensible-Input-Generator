@@ -4,8 +4,8 @@ import { getAllKanji } from "../api/client";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import {
-  getCanonicalFrequencyEntriesSync,
-  type CanonicalFrequencyEntry,
+  getVocabBrowseEntriesSync,
+  type VocabBrowseEntry,
 } from "../lib/frequency";
 import type { Kanji } from "../types";
 import AnimatedDots from "./AnimatedDots";
@@ -47,6 +47,17 @@ function matchesCountFilter(count: number, filter: SeenFilter): boolean {
     case "10+":
       return count >= 10;
   }
+}
+
+// A vocab entry's read count / last-read time sums (resp. maxes) over its
+// candidate canonicals. JMdict can split one JPDB surface across several
+// entries; only the canonical the indexer actually stamped carries
+// encounters, the rest contribute 0 — so summing is exact, not double-count.
+function entryCount(e: VocabBrowseEntry, counts: Map<string, number>): number {
+  return e.canonicals.reduce((sum, c) => sum + (counts.get(c) ?? 0), 0);
+}
+function entryLastRead(e: VocabBrowseEntry, times: Map<string, number>): number {
+  return e.canonicals.reduce((max, c) => Math.max(max, times.get(c) ?? 0), 0);
 }
 
 const JLPT_LEVELS = [5, 4, 3, 2, 1] as const;
@@ -138,61 +149,70 @@ export default function BrowseSection() {
     sortDir,
   ]);
 
-  const allFrequencyEntries = useMemo<CanonicalFrequencyEntry[] | null>(() => {
+  const allVocabEntries = useMemo<VocabBrowseEntry[] | null>(() => {
     if (!vocabEncountersLoaded) return null;
-    return getCanonicalFrequencyEntriesSync().slice(0, VOCAB_MAX_RANK);
+    return getVocabBrowseEntriesSync().slice(0, VOCAB_MAX_RANK);
   }, [vocabEncountersLoaded]);
 
-  // canonical surface → CanonicalFrequencyEntry across the WHOLE by-entry
-  // index (not just the VOCAB_MAX_RANK rank-window cap), so the flat
-  // read-sorted list can surface any word the user has encountered regardless
-  // of its rank. Keyed by canonical — the surface the word indexer stamps —
-  // so it joins against vocabEncounters / vocabLastRead.
-  const frequencyByCanonical = useMemo<Map<
-    string,
-    CanonicalFrequencyEntry
-  > | null>(() => {
+  // canonical → its browse entry across the WHOLE by-entry index (not just
+  // the VOCAB_MAX_RANK rank-window cap), so the read-sorted mode (which
+  // iterates vocabEncounters' canonical keys) can resolve any encountered
+  // word back to its card. A canonical can ride several entries' `canonicals`
+  // lists; the lowest-rank entry wins so the word shows at its most common
+  // surface.
+  const entryByCanonical = useMemo<Map<string, VocabBrowseEntry> | null>(() => {
     if (!vocabEncountersLoaded) return null;
-    const m = new Map<string, CanonicalFrequencyEntry>();
-    for (const e of getCanonicalFrequencyEntriesSync()) m.set(e.canonical, e);
+    const m = new Map<string, VocabBrowseEntry>();
+    for (const e of getVocabBrowseEntriesSync()) {
+      for (const c of e.canonicals) {
+        const prev = m.get(c);
+        if (!prev || e.rank < prev.rank) m.set(c, e);
+      }
+    }
     return m;
   }, [vocabEncountersLoaded]);
 
   const visibleVocab = useMemo(() => {
     // Default sort: paginate the frequency index by the 100-rank window.
     if (sortKey === "default") {
-      if (!allFrequencyEntries) return [];
+      if (!allVocabEntries) return [];
       const startRank = vocabWindow * VOCAB_WINDOW_SIZE + 1;
       const endRank = startRank + VOCAB_WINDOW_SIZE - 1;
-      const slice = allFrequencyEntries.filter(
+      const slice = allVocabEntries.filter(
         (e) => e.rank >= startRank && e.rank <= endRank
       );
       if (seenFilter === "all") return slice;
       return slice.filter((e) =>
-        matchesCountFilter(vocabEncounters.get(e.canonical) ?? 0, seenFilter)
+        matchesCountFilter(entryCount(e, vocabEncounters), seenFilter)
       );
     }
     // Read-based sort: flat list of every word the user has encountered,
     // ordered by the metric. The rank window doesn't apply — the list is
-    // bounded by read history, not by the 50k-card frequency slice.
-    if (!frequencyByCanonical) return [];
-    const entries: CanonicalFrequencyEntry[] = [];
+    // bounded by read history, not by the 50k-card frequency slice. Several
+    // canonicals can map to the same entry, so dedupe through a Set.
+    if (!entryByCanonical) return [];
+    const hits = new Set<VocabBrowseEntry>();
     for (const [canonical, count] of vocabEncounters) {
       if (count <= 0) continue;
-      if (seenFilter !== "all" && !matchesCountFilter(count, seenFilter)) continue;
-      const fe = frequencyByCanonical.get(canonical);
-      if (fe) entries.push(fe);
+      const e = entryByCanonical.get(canonical);
+      if (e) hits.add(e);
+    }
+    let entries = [...hits];
+    if (seenFilter !== "all") {
+      entries = entries.filter((e) =>
+        matchesCountFilter(entryCount(e, vocabEncounters), seenFilter)
+      );
     }
     const mul = sortDir === "asc" ? 1 : -1;
-    const metric = (e: CanonicalFrequencyEntry) =>
+    const metric = (e: VocabBrowseEntry) =>
       sortKey === "most-read"
-        ? vocabEncounters.get(e.canonical) ?? 0
-        : vocabLastRead.get(e.canonical) ?? 0;
+        ? entryCount(e, vocabEncounters)
+        : entryLastRead(e, vocabLastRead);
     entries.sort((a, b) => (metric(a) - metric(b)) * mul || a.rank - b.rank);
     return entries;
   }, [
-    allFrequencyEntries,
-    frequencyByCanonical,
+    allVocabEntries,
+    entryByCanonical,
     vocabWindow,
     seenFilter,
     vocabEncounters,
@@ -477,10 +497,10 @@ export default function BrowseSection() {
       ) : (
         <ol className="browse-grid browse-grid--vocab">
           {visibleVocab.map((v) => {
-            const count = vocabEncounters.get(v.canonical) ?? 0;
+            const count = entryCount(v, vocabEncounters);
             const seen = count > 0;
             return (
-              <li key={v.canonical}>
+              <li key={v.headword}>
                 <button
                   type="button"
                   className={`browse-card browse-card--vocab${
@@ -488,7 +508,7 @@ export default function BrowseSection() {
                   }`}
                   onClick={(e) =>
                     setActiveHeadword({
-                      headword: v.canonical,
+                      headword: v.headword,
                       el: e.currentTarget,
                     })
                   }

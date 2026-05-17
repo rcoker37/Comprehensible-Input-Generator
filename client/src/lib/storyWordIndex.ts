@@ -60,8 +60,11 @@ export interface WordOccurrence {
  *   4 — `entry_id` is now stamped alongside headword/reading so the popover
  *       can hoist the indexer's chosen JMdict entry instead of guessing
  *       from homophone ordering (fixes いきます → 幾, ふっても → フル).
+ *   5 — dictionary lookups now prefer a script-exact match over a
+ *       hiragana/katakana-folded one, so the hiragana conjunction でも no
+ *       longer stamps the katakana loanword デモ (and similar kana pairs).
  */
-export const WORD_INDEX_VERSION = 4;
+export const WORD_INDEX_VERSION = 5;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
