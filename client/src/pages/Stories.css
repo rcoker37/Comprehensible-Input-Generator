@@ -98,3 +98,9 @@
   min-width: 45px;
 }
 
+/* Direction caret inside an active directional Sort chip. */
+.stories-page .sort-arrow {
+  font-size: 0.7em;
+  margin-left: 0.3rem;
+}
+
