@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   regroupWords,
+  crossesKuromojiBoundary,
   type LookupAtBoundaryFn,
   type TokenizeFn,
 } from "./regroupWords";
@@ -361,5 +362,137 @@ describe("regroupWords", () => {
     expect(out).toHaveLength(2);
     expect(out[0]!.sentences[0]!.start).toBe(0);
     expect(out[1]!.sentences[0]!.start).toBe(8); // after "今日は晴れ。\n\n"
+  });
+
+  it("splits で|は instead of merging the JPDB-unranked では expression", async () => {
+    // 学校では… — kuromoji segments で|は as separate particles. JMdict has
+    // a では expression entry, but JPDB has never ranked では as a word (its
+    // parts で・は are top-10 entries), so the rare-merge probe vetoes the
+    // merge and kuromoji's correct split stands.
+    const text = "学校では";
+    const base = buildDisplaySegments(text, []);
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      mockLookup(new Set(["学校", "では"])),
+      tokens(["学校", "で", "は"]),
+      (hit) => hit.surface === "では"
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "word", start: 0, end: 2, surface: "学校" },
+      { kind: "char", offset: 2, char: "で" },
+      { kind: "char", offset: 3, char: "は" },
+    ]);
+  });
+
+  it("keeps では merged when kuromoji reads it as a single token", async () => {
+    // A sentence-initial では is the 接続詞 conjunction — kuromoji emits it
+    // as one token. There's no internal boundary to defer to, so the merge
+    // stands even when the probe would flag every candidate.
+    const text = "では";
+    const base = buildDisplaySegments(text, []);
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      mockLookup(new Set(["では"])),
+      tokens(["では"]),
+      () => true
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([{ kind: "word", start: 0, end: 2, surface: "では" }]);
+  });
+
+  it("splits これ|は instead of merging the JPDB-unranked これは expression", async () => {
+    // Kuromoji always segments これ|は. The merge to JMdict's これは
+    // expression entry is vetoed because JPDB doesn't rank these, leaving
+    // これ as its own tap target and は a separate particle.
+    const text = "これは";
+    const base = buildDisplaySegments(text, []);
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      mockLookup(new Set(["これ", "これは"])),
+      tokens(["これ", "は"]),
+      (hit) => hit.surface === "これは"
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "word", start: 0, end: 2, surface: "これ" },
+      { kind: "char", offset: 2, char: "は" },
+    ]);
+  });
+
+  it("still merges compound particles JPDB ranks (には)", async () => {
+    // Counterpart to the では split: JPDB ranks には (rank 22), so the real
+    // probe never flags it. Here the probe flags only では, leaving には to
+    // merge as before.
+    const text = "日本には";
+    const base = buildDisplaySegments(text, []);
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      mockLookup(new Set(["日本", "には"])),
+      tokens(["日本", "に", "は"]),
+      (hit) => hit.surface === "では"
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "word", start: 0, end: 2, surface: "日本" },
+      { kind: "word", start: 2, end: 4, surface: "には" },
+    ]);
+  });
+
+  it("never vetoes a deinflected merge even when the probe flags it", async () => {
+    // The veto is scoped to exact matches. 食べ|まし|た → 食べました is a
+    // deinflection chain (hit.base set), so it merges regardless of what the
+    // probe says.
+    const text = "食べました";
+    const base = buildDisplaySegments(text, []);
+    const lookup: LookupAtBoundaryFn = async (t, start, end) => {
+      const sub = t.slice(start, end);
+      if (sub === "食べました") {
+        return {
+          start,
+          end,
+          surface: sub,
+          base: "食べる",
+          derivations: ["polite", "past"],
+          results: [{} as never],
+        };
+      }
+      return null;
+    };
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      lookup,
+      tokens(["食べ", "まし", "た"]),
+      () => true
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "word", start: 0, end: 5, surface: "食べました" },
+    ]);
+  });
+});
+
+describe("crossesKuromojiBoundary", () => {
+  it("is true when a token boundary falls strictly inside the span", () => {
+    expect(crossesKuromojiBoundary(0, 2, [1, 2])).toBe(true);
+    expect(crossesKuromojiBoundary(1, 5, [2, 4, 5])).toBe(true);
+  });
+
+  it("is false when the span is a single kuromoji token", () => {
+    expect(crossesKuromojiBoundary(0, 2, [2, 3])).toBe(false);
+  });
+
+  it("ignores boundaries that sit exactly on the span edges", () => {
+    expect(crossesKuromojiBoundary(2, 4, [2, 4])).toBe(false);
   });
 });
