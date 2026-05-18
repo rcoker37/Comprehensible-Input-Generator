@@ -11,6 +11,7 @@
     "generate-frequency-by-entry": "npx tsx scripts/generate-jpdb-frequency-by-entry.ts",
     "sync-prod": "bash scripts/sync-prod-to-local.sh",
     "record-test-dictionary": "node scripts/record-test-dictionary.mjs",
+    "import-story-local": "node scripts/import-story-local.mjs",
     "test": "npm run test --workspace=client",
     "test:index": "npm run test:index --workspace=client",
     "test:index:accept": "npm run test:index:accept --workspace=client"
