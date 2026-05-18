@@ -30,6 +30,7 @@ import {
   type BestFrequencyResult,
 } from "../lib/frequency";
 import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
+import { lookupWord } from "../lib/dictionary";
 import { posHintAtOffset } from "../lib/tokenizer";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import { supabase } from "../lib/supabase";
@@ -111,6 +112,14 @@ export type WordPopoverMode =
   | {
       kind: "headword";
       headword: string;
+      /**
+       * JMdict entry id for the headword. When supplied, the headword-mode
+       * lookup hoists this exact entry to position 0 so `headwordFromHit`
+       * names the word the browse card pointed at — without it, an exact
+       * kana headword can deinflect to an unrelated homophone (くれる → 刳る,
+       * できる → する).
+       */
+      entryId?: number | null;
     };
 
 interface WordPopoverProps {
@@ -269,6 +278,8 @@ export default function WordPopover({
   const lookupReading =
     mode.kind === "tap" ? mode.lookupReading ?? null : null;
   const headwordParam = mode.kind === "headword" ? mode.headword : null;
+  const headwordEntryId =
+    mode.kind === "headword" ? mode.entryId ?? null : null;
   const [hit, setHit] = useState<LookupHit | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [showAllSenses, setShowAllSenses] = useState(false);
@@ -476,15 +487,40 @@ export default function WordPopover({
 
   // Headword-mode lookup: the headword string is its own "text" and span, so
   // we hit the dictionary directly for senses without needing a story.
+  //
+  // The headword is already a canonical JMdict lemma, so we do an *exact*
+  // dictionary lookup rather than going through `lookupExactSpan` — its
+  // deinflection arbitration has no POS hint or annotations here and would
+  // wander a kana headword to an unrelated homophone (くれる → 刳る's
+  // potential form, できる → する's suppletive potential). When the browse
+  // entry carried an `entryId`, the matching JMdict result is hoisted to
+  // position 0 so `headwordFromHit` names the entry the card pointed at.
   useEffect(() => {
     if (!open || isTap || !headwordParam) return;
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    void lookupExactSpan(headwordParam, 0, headwordParam.length, [], undefined)
-      .then((result) => {
+    void lookupWord(headwordParam)
+      .then((results) => {
         if (cancelled) return;
-        setHit(result);
+        let ordered = results;
+        if (headwordEntryId !== null && results.length > 1) {
+          const idx = results.findIndex((r) => r.id === headwordEntryId);
+          if (idx > 0) {
+            const match = results[idx]!;
+            ordered = [
+              match,
+              ...results.slice(0, idx),
+              ...results.slice(idx + 1),
+            ];
+          }
+        }
+        setHit({
+          start: 0,
+          end: headwordParam.length,
+          surface: headwordParam,
+          results: ordered,
+        });
       })
       .finally(() => {
         if (!cancelled) setLookingUp(false);
@@ -492,7 +528,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, isTap, headwordParam, dictState]);
+  }, [open, isTap, headwordParam, headwordEntryId, dictState]);
 
   // Once the hit resolves, record the lookup (tap mode only — opening the
   // popover from Stats isn't a "tap" event we want to log) and fetch the

@@ -298,7 +298,13 @@ describe("getVocabBrowseEntriesSync", () => {
     );
     await loadFrequencyIndex();
     expect(getVocabBrowseEntriesSync()).toEqual([
-      { headword: "こと", reading: null, rank: 15, canonicals: ["事", "こと"] },
+      {
+        headword: "こと",
+        reading: null,
+        rank: 15,
+        canonicals: ["事", "こと"],
+        entryId: 1313580,
+      },
     ]);
   });
 
@@ -315,7 +321,13 @@ describe("getVocabBrowseEntriesSync", () => {
     );
     await loadFrequencyIndex();
     expect(getVocabBrowseEntriesSync()).toEqual([
-      { headword: "事", reading: "ごと", rank: 497, canonicals: ["事"] },
+      {
+        headword: "事",
+        reading: "ごと",
+        rank: 497,
+        canonicals: ["事"],
+        entryId: 1,
+      },
     ]);
   });
 
@@ -334,9 +346,27 @@ describe("getVocabBrowseEntriesSync", () => {
     );
     await loadFrequencyIndex();
     expect(getVocabBrowseEntriesSync()).toEqual([
-      { headword: "は", reading: null, rank: 2, canonicals: ["は", "はあ"] },
-      { headword: "もの", reading: null, rank: 43, canonicals: ["物"] },
-      { headword: "食べる", reading: "たべる", rank: 200, canonicals: ["食べる"] },
+      {
+        headword: "は",
+        reading: null,
+        rank: 2,
+        canonicals: ["は", "はあ"],
+        entryId: 3,
+      },
+      {
+        headword: "もの",
+        reading: null,
+        rank: 43,
+        canonicals: ["物"],
+        entryId: 1,
+      },
+      {
+        headword: "食べる",
+        reading: "たべる",
+        rank: 200,
+        canonicals: ["食べる"],
+        entryId: 2,
+      },
     ]);
   });
 });

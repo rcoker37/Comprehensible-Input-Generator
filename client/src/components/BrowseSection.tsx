@@ -89,6 +89,7 @@ export default function BrowseSection() {
   const [activeKanji, setActiveKanji] = useState<Kanji | null>(null);
   const [activeHeadword, setActiveHeadword] = useState<{
     headword: string;
+    entryId: number;
     el: HTMLElement;
   } | null>(null);
 
@@ -509,6 +510,7 @@ export default function BrowseSection() {
                   onClick={(e) =>
                     setActiveHeadword({
                       headword: v.headword,
+                      entryId: v.entryId,
                       el: e.currentTarget,
                     })
                   }
@@ -547,6 +549,7 @@ export default function BrowseSection() {
         mode={{
           kind: "headword",
           headword: activeHeadword?.headword ?? "",
+          entryId: activeHeadword?.entryId ?? null,
         }}
         open={activeHeadword !== null}
         onOpenChange={(open) => {
