@@ -17,13 +17,14 @@ import { headwordFromHit } from "./headword";
 
 const MAX_LOOKUP_LEN = 16;
 
-// When the exact-match path returns an entry whose only-matching headword is
-// kana but the entry is "kanji-canonical" (has k forms, no `uk` misc), and a
-// deinflection candidate explains at least this many surface characters as
-// inflection, prefer the deinflection. Catches いきたい (kanji-only entry
-// 生き体, r=いきたい) so it falls through to the -たい rule (consumed=3) and
-// resolves to いく. The threshold protects single-char continuative reductions
-// like いき→いきる (consumed=1) from outranking a real exact match like 息.
+// A deinflection competing with an existing exact match must clear one of two
+// bars to be considered (see `firstDeinflectionHit`): it explains at least this
+// many surface characters as inflection (いきたい → the -たい rule, consumed 3,
+// resolves to いく), OR — when shorter — it is a same-length suffix *swap*
+// rather than a lengthening *reduction*. やすく→やすい and により→による swap one
+// kana and stay the same length, so they can displace a weak exact match; but
+// いき→いきる adds る, and that reduction is too flimsy to outrank the real noun
+// 息 (most short kana nouns aren't secretly ichidan stems).
 const DEINFLECTION_OVERRIDE_MIN_CONSUMED = 2;
 
 export interface LookupHit {
@@ -152,9 +153,17 @@ export async function lookupAtCursor(
  * happens for continuative forms whose surface coincides with an unrelated
  * noun entry, e.g. 「赤くなり、」 → なり (particle) instead of なる, or
  * 「電車に乗り、」 → 乗り (n, "ride") instead of 乗る — we let a deinflection
- * candidate that produces a verb result override the exact match. Applies to
- * both pure-kana and mixed-script surfaces; the only gate is the POS hint
- * plus the absence of a modern verb POS in the exact match.
+ * candidate that produces a verb result override the exact match. The branch
+ * also runs when the exact match is *only* JMdict `exp` expression entries
+ * that JPDB never ranks (`exactIsUnrankedExpression`): 「見られる」 exact-matches
+ * the unranked honorific phrase entry, but resolving it to the verb it
+ * conjugates (見る) is the better tap target. Applies to both pure-kana and
+ * mixed-script surfaces.
+ *
+ * Among the verb candidates, the LLM furigana break homophone-stem ties when
+ * they cover the span (降《ふ》り → 降る, not 降りる); otherwise the candidates
+ * differ only by godan class and the most common lemma is picked by JPDB rank
+ * (なって → the everyday なる, not the rare 綯う) — see `pickVerbDeinflection`.
  */
 export async function lookupAtBoundary(
   text: string,
@@ -168,34 +177,40 @@ export async function lookupAtBoundary(
 
   const exact = await lookupWord(prefix);
 
-  if (posHint === "動詞" && !hasVerbPos(exact)) {
-    let fallback: LookupHit | null = null;
+  if (
+    posHint === "動詞" &&
+    (!hasVerbPos(exact) || (await exactIsUnrankedExpression(exact)))
+  ) {
+    const candidates: LookupHit[] = [];
     for (const c of deinflect(prefix)) {
       const hits = await lookupWord(c.base);
       const filtered = filterByPos(hits, c);
       if (filtered.length === 0 || !hasVerbPos(filtered)) continue;
-      const hit: LookupHit = {
+      candidates.push({
         start,
         end,
         surface: prefix,
         base: c.base,
         derivations: c.derivations,
         results: filtered,
-      };
-      // Among homophone stems (降り → 降る ふり / 降りる おり) prefer the
-      // candidate whose lemma reading the LLM furigana fit; fall back to
-      // deinflect()'s own priority order when none fit or there's no ruby.
-      if (
-        deinflectionFitsAnnotations(prefix, start, annotations, c.base, filtered)
-      ) {
-        return hit;
-      }
-      fallback ??= hit;
+      });
     }
-    if (fallback) return fallback;
+    const picked = await pickVerbDeinflection(
+      candidates,
+      prefix,
+      start,
+      annotations
+    );
+    if (picked) return picked;
   }
 
-  if (exact.length > 0 && !isKanjiCanonicalKanaMatch(exact, prefix)) {
+  // A non-kana exact match (kanji or mixed-script) is the word — return it.
+  // A pure-kana exact match falls through to be arbitrated against its
+  // deinflection by JPDB rank below, even when the entry is `uk` ("usually
+  // kana"): a rare uk entry like に因り (rank 22,986) should still yield to the
+  // far more common deinflection による (rank 200), while a common uk word
+  // out-ranks any deinflection and is kept.
+  if (exact.length > 0 && !isPureKana(prefix)) {
     return applyAnnotatedReading(
       { start, end, surface: prefix, results: exact },
       annotations
@@ -209,11 +224,10 @@ export async function lookupAtBoundary(
     start
   );
 
-  // Pure-kana exact match against a kanji-canonical entry: kept only when
-  // JPDB frequency rates it at least as common as the deinflection's lemma
-  // (「のせる」 → 乗せる, not the rare potential-form 伸す), otherwise the
-  // deinflection wins (「いきたい」 → 行く). No deinflection candidate ⇒ the
-  // exact match stands.
+  // Pure-kana exact match: kept only when JPDB frequency rates it at least as
+  // common as the deinflection's lemma (「のせる」 → 乗せる, not the rare
+  // potential-form 伸す), otherwise the deinflection wins (「いきたい」 → 行く,
+  // 「により」 → による). No deinflection candidate ⇒ the exact match stands.
   if (
     exact.length > 0 &&
     (!deinflected || (await exactOutranksDeinflection(exact, deinflected.results)))
@@ -624,8 +638,8 @@ interface DeinflectionHit {
  * Run the deinflection candidates for `surface` in priority order (consumed
  * descending, as `deinflect` sorts them) and return the first whose base
  * resolves to a POS-compatible JMdict entry. When `hasExact` is true an exact
- * match already exists, so only deinflections substantial enough to override
- * it (consumed ≥ DEINFLECTION_OVERRIDE_MIN_CONSUMED) are considered.
+ * match already exists, so a short lengthening reduction too weak to override
+ * it is skipped — see DEINFLECTION_OVERRIDE_MIN_CONSUMED.
  *
  * When the LLM furigana cover the span, a candidate whose lemma reading the
  * ruby fits is preferred over `deinflect`'s priority order — this disambiguates
@@ -640,7 +654,16 @@ async function firstDeinflectionHit(
 ): Promise<DeinflectionHit | null> {
   let fallback: DeinflectionHit | null = null;
   for (const c of deinflect(surface)) {
-    if (hasExact && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) continue;
+    // A short deinflection overrides an exact match only when it swaps a
+    // suffix without lengthening (やすく→やすい, により→による); a lengthening
+    // reduction (いき→いきる) is too weak — see DEINFLECTION_OVERRIDE_MIN_CONSUMED.
+    if (
+      hasExact &&
+      c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED &&
+      c.base.length > surface.length
+    ) {
+      continue;
+    }
     const hits = await lookupWord(c.base);
     const filtered = filterByPos(hits, c);
     if (filtered.length === 0) continue;
@@ -685,6 +708,77 @@ async function bestRank(results: WordResult[]): Promise<number | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * The hit whose results carry the best (lowest = most common) JPDB rank.
+ * Unranked hits lose to any ranked hit; returns null when *every* hit is
+ * unranked, so the caller can fall back to `deinflect`'s own priority order.
+ */
+async function mostCommonHit(hits: LookupHit[]): Promise<LookupHit | null> {
+  let best: LookupHit | null = null;
+  let bestSeen: number | null = null;
+  for (const h of hits) {
+    const r = await bestRank(h.results);
+    if (r === null) continue;
+    if (bestSeen === null || r < bestSeen) {
+      bestSeen = r;
+      best = h;
+    }
+  }
+  return best;
+}
+
+/**
+ * Choose among the verb deinflection candidates for a kuromoji-動詞 span.
+ *
+ * When the LLM furigana cover the span they positively disambiguate homophone
+ * stems (降《ふ》り → 降る, not 降りる). With no furigana evidence the candidates
+ * differ only by godan class — なって is the 〜て form of なう / なつ / なる — so
+ * the most common lemma is the right bet: なって resolves to the everyday なる
+ * (rank 16), not the rare 綯う (45,193). Falls back to `deinflect`'s priority
+ * order when no candidate is ranked. Returns null when there were none.
+ */
+async function pickVerbDeinflection(
+  candidates: LookupHit[],
+  surface: string,
+  surfaceStart: number,
+  annotations: FuriganaAnnotation[]
+): Promise<LookupHit | null> {
+  if (candidates.length === 0) return null;
+  if (surfaceReadingFromAnnotations(surface, surfaceStart, annotations)) {
+    const fit = candidates.find((h) =>
+      deinflectionFitsAnnotations(
+        surface,
+        surfaceStart,
+        annotations,
+        h.base!,
+        h.results
+      )
+    );
+    if (fit) return fit;
+  }
+  return (await mostCommonHit(candidates)) ?? candidates[0]!;
+}
+
+/**
+ * True when every exact-match `WordResult` is a JMdict `exp` expression (a
+ * multi-word phrase) and JPDB ranks none of them — e.g. 「見られる」 exact-matches
+ * only the unranked honorific phrase entry. Such a span conjugates a plain verb
+ * (見る) that makes a far better tap target than the phrase, so the POS-hinted
+ * verb branch is allowed to run even though the expression entry carries a
+ * `v1`/`v5` tag. The unranked gate keeps real, common expression-verbs (which
+ * JPDB does rank) returning their own entry untouched.
+ */
+async function exactIsUnrankedExpression(
+  results: WordResult[]
+): Promise<boolean> {
+  if (results.length === 0) return false;
+  const allExpression = results.every((wr) =>
+    (wr.s ?? []).some((sense) => sense.pos?.includes("exp"))
+  );
+  if (!allExpression) return false;
+  return (await bestRank(results)) === null;
 }
 
 /**

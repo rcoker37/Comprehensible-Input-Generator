@@ -19,11 +19,11 @@
 import { getDictionaryState } from "./dictionary";
 import { headwordFromHit } from "./headword";
 import { lookupAtBoundary } from "./lookupAtCursor";
-import { parseAnnotatedText } from "./furigana";
+import { parseAnnotatedText, type FuriganaAnnotation } from "./furigana";
 import { regroupWords } from "./regroupWords";
-import { buildDisplaySegments } from "./storySegments";
+import { buildDisplaySegments, type AnnotatedPart } from "./storySegments";
 import { stripBold } from "./text";
-import { posHintAtOffset } from "./tokenizer";
+import { posHintAtOffset, tokenizeText, type KuromojiTokenInfo } from "./tokenizer";
 import type { Story } from "../types";
 
 export interface WordOccurrence {
@@ -103,8 +103,25 @@ export interface WordOccurrence {
  *       never ranked is refused: 雨が降り stays 雨 / が / 降り and 家を出て
  *       stays 家 / を / 出て, while JPDB-ranked expressions (青くなる, 木の葉)
  *       still merge. This is the kanji-bearing case the kana-only veto skipped.
+ *  11 — two POS-hinted deinflection fixes in lookupAtCursor.ts. (a) When the
+ *       LLM furigana don't disambiguate a kuromoji-動詞 span, the verb branch
+ *       now picks the most common lemma by JPDB rank instead of `deinflect`'s
+ *       priority order (`pickVerbDeinflection`): なって resolves to the everyday
+ *       なる, not the rare 綯う. (b) The verb branch also runs when the exact
+ *       match is only unranked `exp` expression entries (`exactIsUnrankedExpression`),
+ *       so 見られる resolves to the verb 見る instead of the unranked honorific
+ *       phrase entry — which also lets the regroup pass merge the whole span.
+ *  12 — two more fixes. (a) lookupAtBoundary now arbitrates *every* pure-kana
+ *       exact match against its deinflection by JPDB rank — not just kanji-
+ *       canonical ones — and a short suffix-swap deinflection (consumed 1, no
+ *       lengthening) is no longer suppressed, so により resolves to the common
+ *       による (rank 200) instead of the rare uk entry に因り (rank 22,986).
+ *       (b) extractWordOccurrences sub-segments a multi-kanji annotated block
+ *       with no whole-span JMdict entry (普通選挙法) at kuromoji boundaries,
+ *       indexing 普通 / 選挙 / 法 — but only when the pieces' readings
+ *       reconstruct the LLM ruby, so 山手線 (やまのてせん) stays unindexed.
  */
-export const WORD_INDEX_VERSION = 10;
+export const WORD_INDEX_VERSION = 12;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -128,9 +145,16 @@ export async function extractWordOccurrences(
   const { cleanText, annotations } = parseAnnotatedText(raw);
   const base = buildDisplaySegments(cleanText, annotations);
   const regrouped = await regroupWords(base, cleanText, annotations);
+  const tokens = await tokenizeText(cleanText);
 
   const occurrences: WordOccurrence[] = [];
   const seen = new Set<string>();
+  const emit = (occ: WordOccurrence): void => {
+    const key = `${occ.start}-${occ.end}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    occurrences.push(occ);
+  };
 
   for (const para of regrouped) {
     for (const sent of para.sentences) {
@@ -145,36 +169,111 @@ export async function extractWordOccurrences(
           end = part.end;
         } else {
           // CharPart — look it up regardless of script. JMdict will return
-          // empty for punctuation / whitespace / non-Japanese, which the
-          // headwordFromHit guard turns into a skip below.
+          // empty for punctuation / whitespace / non-Japanese, which
+          // lookupSpanOccurrence turns into a skip.
           start = part.offset;
           end = part.offset + 1;
         }
-        const key = `${start}-${end}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+        if (seen.has(`${start}-${end}`)) continue;
 
-        const posHint = await posHintAtOffset(cleanText, start);
-        const hit = await lookupAtBoundary(
+        const occ = await lookupSpanOccurrence(
           cleanText,
           start,
           end,
-          annotations,
-          posHint
+          annotations
         );
-        if (!hit) continue;
-        const headword = headwordFromHit(hit);
-        if (!headword) continue;
-        occurrences.push({
-          start,
-          end,
-          surface: cleanText.slice(start, end),
-          headword: headword.headword,
-          reading: headword.reading ?? "",
-          entryId: hit.results[0]?.id ?? null,
-        });
+        if (occ) {
+          emit(occ);
+          continue;
+        }
+        // No whole-span entry. A multi-kanji annotated block the LLM wrote as
+        // one ruby unit (普通選挙法) can still be sub-segmented at kuromoji
+        // boundaries — index the pieces JMdict does know.
+        if (part.kind === "annotated") {
+          for (const sub of await subSegmentAnnotated(
+            part,
+            cleanText,
+            annotations,
+            tokens
+          )) {
+            emit(sub);
+          }
+        }
       }
     }
   }
   return occurrences;
+}
+
+/**
+ * Resolve one span to a `WordOccurrence`, or null when it has no usable JMdict
+ * headword (punctuation, whitespace, a no-match fallback). The per-part lookup
+ * shared by the main loop and `subSegmentAnnotated`.
+ */
+async function lookupSpanOccurrence(
+  cleanText: string,
+  start: number,
+  end: number,
+  annotations: FuriganaAnnotation[]
+): Promise<WordOccurrence | null> {
+  const posHint = await posHintAtOffset(cleanText, start);
+  const hit = await lookupAtBoundary(cleanText, start, end, annotations, posHint);
+  if (!hit) return null;
+  const headword = headwordFromHit(hit);
+  if (!headword) return null;
+  return {
+    start,
+    end,
+    surface: cleanText.slice(start, end),
+    headword: headword.headword,
+    reading: headword.reading ?? "",
+    entryId: hit.results[0]?.id ?? null,
+  };
+}
+
+/**
+ * Sub-segment a multi-kanji annotated block the LLM wrote as one ruby unit but
+ * JMdict has no whole-span entry for. kuromoji already splits 普通選挙法 into
+ * 普通 / 選挙 / 法 (all JMdict words); this tiles the block with those tokens
+ * and indexes each piece.
+ *
+ * The split is trusted only when the pieces' stamped readings concatenate back
+ * to the LLM's ruby for the whole block. That guards against proper nouns and
+ * 熟字訓 whose block reading isn't compositional: 山手線《やまのてせん》 tiles
+ * into 山手 (stamped やまて) + 線 (せん) → やまてせん ≠ やまのてせん, so it is
+ * left unindexed rather than mis-split. Returns [] (no sub-spans) on any miss.
+ */
+async function subSegmentAnnotated(
+  part: AnnotatedPart,
+  cleanText: string,
+  annotations: FuriganaAnnotation[],
+  tokens: KuromojiTokenInfo[]
+): Promise<WordOccurrence[]> {
+  // The kuromoji tokens must tile [part.start, part.end) exactly: ≥2 of them,
+  // contiguous, no overhang. Anything else and we don't trust the split.
+  const inside = tokens.filter(
+    (t) => t.start >= part.start && t.end <= part.end
+  );
+  if (inside.length < 2) return [];
+  let cursor = part.start;
+  for (const t of inside) {
+    if (t.start !== cursor) return [];
+    cursor = t.end;
+  }
+  if (cursor !== part.end) return [];
+
+  const pieces: WordOccurrence[] = [];
+  let reading = "";
+  for (const t of inside) {
+    const piece = await lookupSpanOccurrence(
+      cleanText,
+      t.start,
+      t.end,
+      annotations
+    );
+    if (!piece) return [];
+    pieces.push(piece);
+    reading += piece.reading;
+  }
+  return reading === part.reading ? pieces : [];
 }
