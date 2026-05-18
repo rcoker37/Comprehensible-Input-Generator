@@ -26,9 +26,11 @@
 export const FIXTURE_FORMAT_VERSION = 1;
 
 /**
- * One word span. The detection *decision* is `(headword, reading, entryId)`;
- * `start`/`end` locate it in the cleaned story text; `surface` is the literal
- * text and is informational (derivable from the content + offsets).
+ * One word span. The detection *decision* is `(headword, reading, entryId,
+ * isName)`; `start`/`end` locate it in the cleaned story text; `surface` is
+ * the literal text and is informational (derivable from the content + offsets).
+ * `isName` is optional for backward compatibility with baselines recorded
+ * before name detection existed — absent reads as `false`.
  */
 export interface IndexedSpan {
   start: number;
@@ -37,6 +39,7 @@ export interface IndexedSpan {
   headword: string;
   reading: string;
   entryId: number | null;
+  isName?: boolean;
 }
 
 /**
@@ -93,7 +96,8 @@ export function sameDecision(a: IndexedSpan, b: IndexedSpan): boolean {
   return (
     a.headword === b.headword &&
     norm(a.reading) === norm(b.reading) &&
-    (a.entryId ?? null) === (b.entryId ?? null)
+    (a.entryId ?? null) === (b.entryId ?? null) &&
+    (a.isName ?? false) === (b.isName ?? false)
   );
 }
 

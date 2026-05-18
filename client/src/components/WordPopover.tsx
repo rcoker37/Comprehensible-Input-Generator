@@ -175,67 +175,60 @@ function renderSnippet(
   surfaceEnd: number
 ): ReactNode {
   // Walk the text emitting either ruby (for annotation spans) or plain text,
-  // wrapping anything that overlaps the surface in a <mark>. Annotations and
-  // the surface are character-aligned (offsets come from the same source), so
-  // overlap is a simple range check. Annotations don't cross sentence
-  // boundaries; this snippet is a single sentence.
+  // wrapping the portion that falls inside the surface in a <mark>. Annotations
+  // and the surface are character-aligned (offsets come from the same source).
+  // Annotations don't cross sentence boundaries; this snippet is a single
+  // sentence.
   const out: ReactNode[] = [];
   let cursor = 0;
   let key = 0;
-  const emit = (chunkStart: number, chunkEnd: number, content: ReactNode) => {
-    const inSurface =
-      chunkStart >= surfaceStart && chunkEnd <= surfaceEnd;
-    if (inSurface) {
-      out.push(
-        <mark key={key++} className="word-popover__snippet-highlight">
-          {content}
-        </mark>
+
+  // Split [segStart, segEnd) at the surface bounds, returning one node per
+  // piece — the portion inside [surfaceStart, surfaceEnd) wrapped in <mark>,
+  // the rest in <span>. Used both for plain text and for a ruby's base text,
+  // so tapping a sub-span of a multi-kanji ruby block (山手 within
+  // 山手線《やまのてせん》) highlights just that portion rather than the whole
+  // block — or, as before the fix, nothing at all.
+  const splitBySurface = (segStart: number, segEnd: number): ReactNode[] => {
+    const pieces: ReactNode[] = [];
+    let s = segStart;
+    while (s < segEnd) {
+      const next =
+        s < surfaceStart && surfaceStart < segEnd
+          ? surfaceStart
+          : s < surfaceEnd && surfaceEnd < segEnd
+            ? surfaceEnd
+            : segEnd;
+      const content = text.slice(s, next);
+      const inSurface = s >= surfaceStart && next <= surfaceEnd;
+      pieces.push(
+        inSurface ? (
+          <mark key={key++} className="word-popover__snippet-highlight">
+            {content}
+          </mark>
+        ) : (
+          <span key={key++}>{content}</span>
+        )
       );
-    } else {
-      out.push(<span key={key++}>{content}</span>);
+      s = next;
     }
+    return pieces;
   };
 
   for (const a of annotations) {
     if (a.start > cursor) {
-      // Emit plain text before this annotation, splitting at surface bounds
-      // so the highlight wraps only the surface portion.
-      let segStart = cursor;
-      const segEnd = a.start;
-      while (segStart < segEnd) {
-        const nextBoundary =
-          segStart < surfaceStart && surfaceStart < segEnd
-            ? surfaceStart
-            : segStart < surfaceEnd && surfaceEnd < segEnd
-              ? surfaceEnd
-              : segEnd;
-        emit(segStart, nextBoundary, text.slice(segStart, nextBoundary));
-        segStart = nextBoundary;
-      }
+      out.push(...splitBySurface(cursor, a.start));
     }
-    emit(
-      a.start,
-      a.end,
-      <ruby>
-        {text.slice(a.start, a.end)}
+    out.push(
+      <ruby key={key++}>
+        {splitBySurface(a.start, a.end)}
         <rt>{a.reading}</rt>
       </ruby>
     );
     cursor = a.end;
   }
   if (cursor < text.length) {
-    let segStart = cursor;
-    const segEnd = text.length;
-    while (segStart < segEnd) {
-      const nextBoundary =
-        segStart < surfaceStart && surfaceStart < segEnd
-          ? surfaceStart
-          : segStart < surfaceEnd && surfaceEnd < segEnd
-            ? surfaceEnd
-            : segEnd;
-      emit(segStart, nextBoundary, text.slice(segStart, nextBoundary));
-      segStart = nextBoundary;
-    }
+    out.push(...splitBySurface(cursor, text.length));
   }
   return out;
 }

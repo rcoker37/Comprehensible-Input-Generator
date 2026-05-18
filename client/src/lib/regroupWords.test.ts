@@ -21,7 +21,7 @@ import type { KuromojiTokenInfo } from "./tokenizer";
 // regroup heuristics (e.g. 動詞|助動詞 split rejection).
 type TokenSpec =
   | string
-  | { surface: string; pos: string; basicForm?: string };
+  | { surface: string; pos: string; basicForm?: string; posDetail1?: string };
 function tokens(specs: TokenSpec[]): TokenizeFn {
   return async (text) => {
     const out: KuromojiTokenInfo[] = [];
@@ -31,11 +31,14 @@ function tokens(specs: TokenSpec[]): TokenizeFn {
       const pos = typeof spec === "string" ? "" : spec.pos;
       const basicForm =
         typeof spec === "string" ? surface : (spec.basicForm ?? spec.surface);
+      const posDetail1 =
+        typeof spec === "string" ? "*" : (spec.posDetail1 ?? "*");
       out.push({
         surface,
         start: cursor,
         end: cursor + surface.length,
         pos,
+        posDetail1,
         basicForm,
       });
       cursor += surface.length;
@@ -762,6 +765,7 @@ describe("spanIsInflectedSingleWord", () => {
       out.push({
         surface,
         pos,
+        posDetail1: "*",
         start: cursor,
         end: cursor + surface.length,
         basicForm: surface,
