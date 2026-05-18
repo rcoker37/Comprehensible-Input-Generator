@@ -4,34 +4,46 @@ import { rawScore } from "./rarity";
 // kanji in a typical reader's history, so the unscaled vocab total
 // drowns out the kanji total in the header score; dialing vocab back
 // keeps the two halves closer to parity.
-export const VOCAB_SCALE = 1 / 2.5;
+export const VOCAB_SCALE = 1 / 4;
 
 // Frequency weighting: a word's contribution to the vocab score is scaled
-// by a smooth sigmoid in rank, so the "core vocabulary" (top several
-// thousand JPDB ranks) all pay near-peak, then the weight drops off as
-// rank grows. Shape: `floor + (peak - floor) / (1 + (rank / MID_RANK)^K)`.
+// by a smooth sigmoid in *log* rank, so the weight declines roughly evenly
+// across each order of magnitude of rarity. Word frequency is Zipfian —
+// rank is a power-law quantity — so a sigmoid in raw rank falls off a
+// cliff in the tail (a quadratic-in-rank curve makes everything past
+// ~20k worth almost nothing). Working in ln(rank) instead spreads the
+// decline so each "10× rarer" band costs a similar amount of weight,
+// which matches how vocabulary acquisition actually scales: the long
+// tail still pays a meaningful, non-trivial amount.
 //
-//   rank 1        → 4.00  (の／は, the most common words)
-//   rank 2,000    → 3.85  (still in the plateau)
-//   rank 5,000    → 3.23
-//   rank 10,000   → 2.08  (the midpoint between peak and floor)
-//   rank 20,000   → 0.92
-//   rank 50,000   → 0.30
-//   rank null     → 0.15  (unranked / outside JPDB's 100k cap)
+// Shape: `floor + (peak - floor) / (1 + exp(K * (ln(rank) - ln(MID_RANK))))`
+// — a logistic centred on MID_RANK, with K the steepness in ln-space.
+//
+//   rank 1        → 3.99  (の／は, the most common words)
+//   rank 1,000    → 3.42
+//   rank 5,000    → 2.67
+//   rank 10,000   → 2.25  (the midpoint between peak and floor)
+//   rank 20,000   → 1.83
+//   rank 50,000   → 1.36
+//   rank 100,000  → 1.08
+//   rank null     → 0.50  (unranked / outside JPDB's 100k cap)
 //
 // `rank` is null when the headword falls outside the JPDB v2 cap (built
 // at rank ≤ 100,000) or isn't in the dict at all — both collapse to the
-// floor weight directly.
+// floor weight directly. The peak:floor ratio is ≈8× (was ≈27× under the
+// old raw-rank curve): common words still clearly outweigh rare ones, but
+// rare vocabulary is no longer scored as worthless.
 const PEAK_WEIGHT = 4.0;
-const FLOOR_WEIGHT = 0.15;
+const FLOOR_WEIGHT = 0.5;
 const MID_RANK = 10_000;
-const K = 2;
+const K = 0.7;
+const LN_MID_RANK = Math.log(MID_RANK);
 
 export function frequencyWeight(rank: number | null): number {
   if (rank === null) return FLOOR_WEIGHT;
   const r = rank < 1 ? 1 : rank;
-  const ratio = r / MID_RANK;
-  return FLOOR_WEIGHT + (PEAK_WEIGHT - FLOOR_WEIGHT) / (1 + Math.pow(ratio, K));
+  const t = K * (Math.log(r) - LN_MID_RANK);
+  return FLOOR_WEIGHT + (PEAK_WEIGHT - FLOOR_WEIGHT) / (1 + Math.exp(t));
 }
 
 // Per-word score: the saturating-and-capped exposure curve (see rarity.ts)
