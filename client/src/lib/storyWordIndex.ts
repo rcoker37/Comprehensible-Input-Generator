@@ -97,8 +97,14 @@ export interface WordOccurrence {
  *       tagged its leading token as a particle: は|もう no longer collapses
  *       into the volitional of the rare verb 食む (はむ, rank 25,527 — inside
  *       the `rare` tier, so the kana-rank veto couldn't catch it).
+ *  10 — the rare-merge veto now also covers JMdict `exp` *expression* entries
+ *       (`hitIsExpression` in regroupWords.ts), exact or deinflected. A
+ *       kuromoji-split merge into a noun + particle + verb phrase JPDB has
+ *       never ranked is refused: 雨が降り stays 雨 / が / 降り and 家を出て
+ *       stays 家 / を / 出て, while JPDB-ranked expressions (青くなる, 木の葉)
+ *       still merge. This is the kanji-bearing case the kana-only veto skipped.
  */
-export const WORD_INDEX_VERSION = 9;
+export const WORD_INDEX_VERSION = 10;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

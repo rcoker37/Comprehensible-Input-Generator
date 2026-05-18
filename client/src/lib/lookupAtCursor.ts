@@ -94,7 +94,12 @@ export async function lookupAtCursor(
       );
     }
 
-    const deinflected = await firstDeinflectionHit(prefix, exact.length > 0);
+    const deinflected = await firstDeinflectionHit(
+      prefix,
+      exact.length > 0,
+      annotations,
+      offset
+    );
 
     // The exact match here is pure-kana against a kanji-canonical entry (the
     // branch above didn't fire). Keep it only when JPDB frequency rates it at
@@ -164,20 +169,30 @@ export async function lookupAtBoundary(
   const exact = await lookupWord(prefix);
 
   if (posHint === "動詞" && !hasVerbPos(exact)) {
+    let fallback: LookupHit | null = null;
     for (const c of deinflect(prefix)) {
       const hits = await lookupWord(c.base);
       const filtered = filterByPos(hits, c);
-      if (filtered.length > 0 && hasVerbPos(filtered)) {
-        return {
-          start,
-          end,
-          surface: prefix,
-          base: c.base,
-          derivations: c.derivations,
-          results: filtered,
-        };
+      if (filtered.length === 0 || !hasVerbPos(filtered)) continue;
+      const hit: LookupHit = {
+        start,
+        end,
+        surface: prefix,
+        base: c.base,
+        derivations: c.derivations,
+        results: filtered,
+      };
+      // Among homophone stems (降り → 降る ふり / 降りる おり) prefer the
+      // candidate whose lemma reading the LLM furigana fit; fall back to
+      // deinflect()'s own priority order when none fit or there's no ruby.
+      if (
+        deinflectionFitsAnnotations(prefix, start, annotations, c.base, filtered)
+      ) {
+        return hit;
       }
+      fallback ??= hit;
     }
+    if (fallback) return fallback;
   }
 
   if (exact.length > 0 && !isKanjiCanonicalKanaMatch(exact, prefix)) {
@@ -187,7 +202,12 @@ export async function lookupAtBoundary(
     );
   }
 
-  const deinflected = await firstDeinflectionHit(prefix, exact.length > 0);
+  const deinflected = await firstDeinflectionHit(
+    prefix,
+    exact.length > 0,
+    annotations,
+    start
+  );
 
   // Pure-kana exact match against a kanji-canonical entry: kept only when
   // JPDB frequency rates it at least as common as the deinflection's lemma
@@ -432,6 +452,53 @@ export function annotationContradictsHit(
   return !readings.includes(composed);
 }
 
+/**
+ * True when a deinflection candidate is consistent with the LLM furigana
+ * covering `surface`. Disambiguates homophone stems: 降り deinflects to both
+ * 降る (ふる) and 降りる (おりる), and a 降《ふ》 ruby fits only 降る.
+ *
+ * Deinflection rewrites only trailing okurigana, so the surface and the
+ * candidate's lemma share their (invariant) kanji stem and differ in a kana
+ * suffix. Swapping the surface's suffix for the lemma's inside the
+ * annotation-composed surface reading predicts the lemma's reading; the
+ * candidate fits when that prediction is one of the lemma's JMdict readings.
+ *
+ * Abstains (returns true — the caller then keeps `deinflect`'s own priority
+ * order) when there is no furigana evidence: no annotation covers the span,
+ * the surface suffix isn't kana at the tail of the composed reading, or the
+ * lemma carries no readings. A verb whose kanji reading itself shifts under
+ * inflection (来 reads き in 来て but く in 来る) yields a false "doesn't fit",
+ * but that is harmless — the caller falls back to priority order, which still
+ * surfaces the lemma when it is the only / top candidate. The mistake to avoid
+ * is a false "fit", and that needs a reading collision with the wrong lemma.
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function deinflectionFitsAnnotations(
+  surface: string,
+  surfaceStart: number,
+  annotations: FuriganaAnnotation[],
+  base: string,
+  baseResults: WordResult[]
+): boolean {
+  const surfaceReading = surfaceReadingFromAnnotations(
+    surface,
+    surfaceStart,
+    annotations
+  );
+  if (!surfaceReading) return true;
+  // Common prefix = the kanji stem deinflection leaves untouched.
+  let p = 0;
+  while (p < surface.length && p < base.length && surface[p] === base[p]) p++;
+  const surfaceSuffix = surface.slice(p);
+  if (!surfaceReading.endsWith(surfaceSuffix)) return true;
+  const predicted =
+    surfaceReading.slice(0, surfaceReading.length - surfaceSuffix.length) +
+    base.slice(p);
+  const readings = baseResults.flatMap((wr) => wr.r?.map((r) => r.ent) ?? []);
+  if (readings.length === 0) return true;
+  return readings.includes(predicted);
+}
+
 type Script = "hira" | "kata" | "kanji" | "other";
 
 function getScript(ch: string): Script {
@@ -559,20 +626,43 @@ interface DeinflectionHit {
  * resolves to a POS-compatible JMdict entry. When `hasExact` is true an exact
  * match already exists, so only deinflections substantial enough to override
  * it (consumed ≥ DEINFLECTION_OVERRIDE_MIN_CONSUMED) are considered.
+ *
+ * When the LLM furigana cover the span, a candidate whose lemma reading the
+ * ruby fits is preferred over `deinflect`'s priority order — this disambiguates
+ * homophone stems like 降り (降る ふり vs 降りる おり). `surfaceStart` locates
+ * `surface` in the clean text so `annotations` can be resolved against it.
  */
 async function firstDeinflectionHit(
   surface: string,
-  hasExact: boolean
+  hasExact: boolean,
+  annotations: FuriganaAnnotation[],
+  surfaceStart: number
 ): Promise<DeinflectionHit | null> {
+  let fallback: DeinflectionHit | null = null;
   for (const c of deinflect(surface)) {
     if (hasExact && c.consumed < DEINFLECTION_OVERRIDE_MIN_CONSUMED) continue;
     const hits = await lookupWord(c.base);
     const filtered = filterByPos(hits, c);
-    if (filtered.length > 0) {
-      return { base: c.base, derivations: c.derivations, results: filtered };
+    if (filtered.length === 0) continue;
+    const result: DeinflectionHit = {
+      base: c.base,
+      derivations: c.derivations,
+      results: filtered,
+    };
+    if (
+      deinflectionFitsAnnotations(
+        surface,
+        surfaceStart,
+        annotations,
+        c.base,
+        filtered
+      )
+    ) {
+      return result;
     }
+    fallback ??= result;
   }
-  return null;
+  return fallback;
 }
 
 /**
