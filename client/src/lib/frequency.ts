@@ -267,6 +267,13 @@ export interface VocabBrowseEntry {
   reading: string | null;
   rank: number;
   canonicals: string[];
+  /**
+   * JMdict entry id of the rank-winning record for this display surface. The
+   * Stats Browse vocab popover passes it through so the headword-mode lookup
+   * can hoist this exact JMdict entry instead of letting a deinflection rule
+   * wander to an unrelated homophone (くれる → 刳る, できる → する).
+   */
+  entryId: number;
 }
 
 let vocabBrowseCache: VocabBrowseEntry[] | null = null;
@@ -288,21 +295,29 @@ export function getVocabBrowseEntriesSync(): VocabBrowseEntry[] {
   }
   const byHeadword = new Map<
     string,
-    { reading: string | null; rank: number; canonicals: Set<string> }
+    {
+      reading: string | null;
+      rank: number;
+      canonicals: Set<string>;
+      entryId: number;
+    }
   >();
-  for (const rec of Object.values(entryCached)) {
+  for (const [id, rec] of Object.entries(entryCached)) {
+    const entryId = Number(id);
     const existing = byHeadword.get(rec.headword);
     if (existing === undefined) {
       byHeadword.set(rec.headword, {
         reading: rec.reading,
         rank: rec.rank,
         canonicals: new Set([rec.canonical]),
+        entryId,
       });
     } else {
       existing.canonicals.add(rec.canonical);
       if (rec.rank < existing.rank) {
         existing.rank = rec.rank;
         existing.reading = rec.reading;
+        existing.entryId = entryId;
       }
     }
   }
@@ -313,6 +328,7 @@ export function getVocabBrowseEntriesSync(): VocabBrowseEntry[] {
       reading: v.reading,
       rank: v.rank,
       canonicals: [...v.canonicals],
+      entryId: v.entryId,
     });
   }
   out.sort((a, b) => a.rank - b.rank);
