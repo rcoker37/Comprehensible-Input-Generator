@@ -9,23 +9,26 @@ import {
 import { rawScore } from "./rarity";
 
 describe("frequencyWeight", () => {
-  it("sits at the peak for rank 1", () => {
-    expect(frequencyWeight(1)).toBeCloseTo(4.0, 6);
+  it("sits just under the peak for rank 1", () => {
+    // The logistic asymptotes at PEAK_WEIGHT — rank 1 is very close but
+    // not exactly equal to it.
+    expect(frequencyWeight(1)).toBeGreaterThan(3.98);
+    expect(frequencyWeight(1)).toBeLessThan(4.0);
   });
 
-  it("approaches the floor far past MID_RANK", () => {
-    // The sigmoid asymptotes at FLOOR_WEIGHT — at very high finite rank
-    // it's near but not exactly equal to the floor.
-    expect(frequencyWeight(1_000_000)).toBeGreaterThan(0.15);
-    expect(frequencyWeight(1_000_000)).toBeLessThan(0.16);
+  it("stays well above the floor far past MID_RANK", () => {
+    // The whole point of the log-rank curve: the tail no longer collapses.
+    // Even at rank 1,000,000 the weight is comfortably off the floor.
+    expect(frequencyWeight(1_000_000)).toBeGreaterThan(0.5);
+    expect(frequencyWeight(1_000_000)).toBeLessThan(0.7);
   });
 
   it("returns exactly the floor for null (unranked)", () => {
-    expect(frequencyWeight(null)).toBeCloseTo(0.15, 6);
+    expect(frequencyWeight(null)).toBeCloseTo(0.5, 6);
   });
 
-  it("clamps rank<1 to the peak", () => {
-    expect(frequencyWeight(0)).toBeCloseTo(4.0, 6);
+  it("clamps rank<1 to the same value as rank 1", () => {
+    expect(frequencyWeight(0)).toBeCloseTo(frequencyWeight(1), 6);
   });
 
   it("decreases monotonically across the ranked range", () => {
@@ -38,22 +41,21 @@ describe("frequencyWeight", () => {
   });
 
   it("hits the half-weight point at MID_RANK", () => {
-    // At rank = MID_RANK the sigmoid sits exactly at (peak + floor) / 2.
-    expect(frequencyWeight(10_000)).toBeCloseTo((4.0 + 0.15) / 2, 6);
+    // At rank = MID_RANK the logistic sits exactly at (peak + floor) / 2.
+    expect(frequencyWeight(10_000)).toBeCloseTo((4.0 + 0.5) / 2, 6);
   });
 
   it("matches the expected curve at sample ranks", () => {
-    expect(frequencyWeight(2_000)).toBeCloseTo(3.85, 1);
-    expect(frequencyWeight(5_000)).toBeCloseTo(3.23, 1);
-    expect(frequencyWeight(20_000)).toBeCloseTo(0.92, 1);
-    expect(frequencyWeight(50_000)).toBeCloseTo(0.30, 1);
+    expect(frequencyWeight(1_000)).toBeCloseTo(3.42, 1);
+    expect(frequencyWeight(5_000)).toBeCloseTo(2.67, 1);
+    expect(frequencyWeight(20_000)).toBeCloseTo(1.83, 1);
+    expect(frequencyWeight(50_000)).toBeCloseTo(1.36, 1);
   });
 
-  it("stays near the peak through the top 'core vocabulary' plateau", () => {
-    // The whole point of the sigmoid plateau: top-few-thousand ranks
-    // should be nearly indistinguishable from rank 1.
-    expect(frequencyWeight(500)).toBeGreaterThan(3.95);
-    expect(frequencyWeight(1_000)).toBeGreaterThan(3.9);
+  it("keeps the long tail meaningfully above the floor", () => {
+    // Rare vocabulary should still pay a non-trivial amount — the log-rank
+    // curve's reason for being. Rank 50k is worth far more than the floor.
+    expect(frequencyWeight(50_000)).toBeGreaterThan(2 * frequencyWeight(null));
   });
 });
 
@@ -75,8 +77,8 @@ describe("wordScore", () => {
     }
   });
 
-  it("VOCAB_SCALE is 1/2.5 (vocab dialed back to balance against kanji)", () => {
-    expect(VOCAB_SCALE).toBeCloseTo(1 / 2.5, 6);
+  it("VOCAB_SCALE is 1/4 (vocab dialed back to balance against kanji)", () => {
+    expect(VOCAB_SCALE).toBeCloseTo(1 / 4, 6);
   });
 
   it("weights common words more than rare ones at the same count", () => {
