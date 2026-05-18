@@ -1,11 +1,19 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Modal from "./Modal";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
+import { useAuth } from "../contexts/AuthContext";
 import {
   getStoryOccurrences,
   getStoryWordEncounters,
   setStoryWordOverrides,
+  updatePreferences,
   type StoryOccurrence,
   type WordOverride,
 } from "../api/client";
@@ -30,25 +38,28 @@ import {
 } from "../lib/frequency";
 import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
-import type { SentenceTranslation, Story, StoryTranslations } from "../types";
+import type {
+  DisplayMode,
+  SentenceTranslation,
+  Story,
+  StoryTranslations,
+} from "../types";
 import "./StoryDisplay.css";
 
-// Furigana display modes, in toggle-cycle order. Tapping the furigana
-// control advances to the next mode and wraps back to the start:
-//   unseen    — ruby only on words new to the reader (zero encounters)
-//   very-rare — ruby only on words in the JPDB "very rare" frequency tier
-//   all       — ruby on every word
-//   none      — no ruby
-type FuriganaMode = "unseen" | "very-rare" | "all" | "none";
+// Toggle-cycle order for the furigana and highlight controls. Tapping a
+// control advances to the next mode and wraps around. (The DisplayMode
+// type — "off"/"unseen"/"all" — lives in ../types so it can be persisted
+// in `profiles.preferences.reader`.)
+const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
 
-const FURIGANA_ORDER: FuriganaMode[] = ["unseen", "very-rare", "all", "none"];
-
-const FURIGANA_LABEL: Record<FuriganaMode, string> = {
+const DISPLAY_LABEL: Record<DisplayMode, string> = {
+  off: "off",
   unseen: "unseen",
-  "very-rare": "very rare",
   all: "all",
-  none: "off",
 };
+
+const nextMode = (m: DisplayMode): DisplayMode =>
+  DISPLAY_ORDER[(DISPLAY_ORDER.indexOf(m) + 1) % DISPLAY_ORDER.length]!;
 
 interface Props {
   story: Story;
@@ -72,6 +83,7 @@ export default function StoryDisplay({
   onRegenerationStart,
 }: Props) {
   const { state: dictState } = useDictionary();
+  const { profile } = useAuth();
   const {
     remaining: backfillRemaining,
     processing: backfillProcessing,
@@ -97,7 +109,48 @@ export default function StoryDisplay({
     start: number;
     end: number;
   } | null>(null);
-  const [furiganaState, setFuriganaState] = useState<FuriganaMode>("unseen");
+  const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
+  const [highlightMode, setHighlightMode] = useState<DisplayMode>("unseen");
+
+  // Hydrate the furigana / highlight controls from the persisted
+  // `reader` preferences section exactly once, the way GenerationModal
+  // hydrates the generator form from `preferences.generator`.
+  const readerSyncedRef = useRef(false);
+  useEffect(() => {
+    if (readerSyncedRef.current || !profile) return;
+    readerSyncedRef.current = true;
+    const reader = profile.preferences?.reader;
+    /* eslint-disable react-hooks/set-state-in-effect -- one-time sync from the
+       async-resolved profile; state initializers run before the fetch lands. */
+    if (reader?.furigana) setFuriganaMode(reader.furigana);
+    if (reader?.highlight) setHighlightMode(reader.highlight);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [profile]);
+
+  // Advance a control and persist both modes. `update_preferences` does a
+  // shallow merge, so the `reader` section must be sent in full.
+  const cycleFurigana = () => {
+    setFuriganaMode((prev) => {
+      const next = nextMode(prev);
+      updatePreferences({
+        reader: { furigana: next, highlight: highlightMode },
+      }).catch((err) =>
+        console.warn("Failed to save reader preferences:", err)
+      );
+      return next;
+    });
+  };
+  const cycleHighlight = () => {
+    setHighlightMode((prev) => {
+      const next = nextMode(prev);
+      updatePreferences({
+        reader: { furigana: furiganaMode, highlight: next },
+      }).catch((err) =>
+        console.warn("Failed to save reader preferences:", err)
+      );
+      return next;
+    });
+  };
 
   // The popover's carousel pulls from `story_word_occurrences`, which is only
   // populated for stories that have been indexed. If this story hasn't been
@@ -395,30 +448,31 @@ export default function StoryDisplay({
     setTranslations((prev) => ({ ...prev, [rangeKey]: translation }));
   };
 
-  // Ruby visibility, decided per-word (the tap-target span) not per
-  // character. The furigana toggle drives it:
-  //   all       — every word
-  //   none      — nothing
-  //   unseen    — words whose headword has zero encounters across the
-  //               user's read stories (new to the reader)
-  //   very-rare — words in the JPDB "very rare" frequency tier
-  // The "unseen"/"very-rare" lookups fall back to "no ruby" when the span
-  // isn't in the map (unindexed story, indexing pending, frequency index
-  // still loading, or the headword lookup missed).
-  const decideShowRuby = (start: number, end: number): boolean => {
-    switch (furiganaState) {
+  // Resolve a display mode to a per-word (tap-target span) decision:
+  //   all    — every word
+  //   off    — nothing
+  //   unseen — words whose headword has zero encounters across the user's
+  //            read stories (new to the reader)
+  // The "unseen" lookup falls back to false when the span isn't in the map
+  // (unindexed story, indexing pending, or the headword lookup missed).
+  const showForMode = (
+    mode: DisplayMode,
+    start: number,
+    end: number
+  ): boolean => {
+    switch (mode) {
       case "all":
         return true;
-      case "none":
-        return false;
       case "unseen":
         return encounters.get(`${start}-${end}`) === 0;
-      case "very-rare":
-        return tierBySpan.get(`${start}-${end}`) === "very-rare";
+      case "off":
       default:
         return false;
     }
   };
+
+  const decideShowRuby = (start: number, end: number): boolean =>
+    showForMode(furiganaMode, start, end);
 
   // Split a merged WordPart's surface around its sub-annotations and render
   // ruby on the annotated sub-spans only. Used when the regroup pass merged
@@ -456,12 +510,12 @@ export default function StoryDisplay({
     return out;
   };
 
-  // Whether a span gets the rarity underline. The furigana setting drives
-  // both ruby and underline visibility, so this matches `decideShowRuby`
-  // exactly: "none" underlines nothing, "all" underlines every word,
-  // "unseen" underlines only words new to the reader.
+  // Whether a span gets the rarity underline. Driven by the highlight
+  // control, independent of the furigana control: "off" underlines
+  // nothing, "all" underlines every word, "unseen" underlines only words
+  // new to the reader.
   const isNew = (start: number, end: number): boolean =>
-    decideShowRuby(start, end);
+    showForMode(highlightMode, start, end);
 
   const inOverrideRegion = (start: number, end: number): boolean =>
     overrideSpan !== null &&
@@ -641,22 +695,27 @@ export default function StoryDisplay({
         </h2>
       </div>
       <div className="story-meta">
-        <div className="furigana-control">
-          <span className="furigana-label">furigana: </span>
-          <button
-            type="button"
-            className="furigana-toggle"
-            onClick={() =>
-              setFuriganaState(
-                (s) =>
-                  FURIGANA_ORDER[
-                    (FURIGANA_ORDER.indexOf(s) + 1) % FURIGANA_ORDER.length
-                  ]!
-              )
-            }
-          >
-            {FURIGANA_LABEL[furiganaState]}
-          </button>
+        <div className="story-display-controls">
+          <div className="furigana-control">
+            <span className="furigana-label">furigana: </span>
+            <button
+              type="button"
+              className="furigana-toggle"
+              onClick={cycleFurigana}
+            >
+              {DISPLAY_LABEL[furiganaMode]}
+            </button>
+          </div>
+          <div className="furigana-control">
+            <span className="furigana-label">highlight: </span>
+            <button
+              type="button"
+              className="furigana-toggle"
+              onClick={cycleHighlight}
+            >
+              {DISPLAY_LABEL[highlightMode]}
+            </button>
+          </div>
         </div>
       </div>
       <div

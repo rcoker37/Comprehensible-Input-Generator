@@ -531,8 +531,8 @@ export async function getStoriesNeedingIndex(): Promise<
 // Profiles
 
 // Atomic shallow merge into `profiles.preferences`. Always send a section
-// (`generator` or `stories`) in full — the SQL `||` operator replaces the
-// entire sub-object, so a partial section would clobber unrelated keys.
+// (`generator`, `stories`, or `reader`) in full — the SQL `||` operator
+// replaces the entire sub-object, so a partial section clobbers its keys.
 export async function updatePreferences(patch: Preferences): Promise<void> {
   const { error } = await supabase.rpc("update_preferences", { p_patch: patch });
   if (error) throw new Error(error.message);
