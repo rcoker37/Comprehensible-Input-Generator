@@ -98,9 +98,20 @@ export interface StoriesPreferences {
   sortDir: SortDir;
 }
 
+// Per-word display modes for the StoryDisplay furigana / highlight
+// controls: "off" never shown, "unseen" only on words new to the reader,
+// "all" on every word.
+export type DisplayMode = "off" | "unseen" | "all";
+
+export interface ReaderPreferences {
+  furigana: DisplayMode;
+  highlight: DisplayMode;
+}
+
 export interface Preferences {
   generator?: Partial<GeneratorPreferences>;
   stories?: Partial<StoriesPreferences>;
+  reader?: Partial<ReaderPreferences>;
 }
 
 export interface Profile {

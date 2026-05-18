@@ -72,8 +72,16 @@
   letter-spacing: 0.03em;
 }
 
-.furigana-control {
+.story-display-controls {
   margin-left: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 1rem;
+}
+
+.furigana-control {
   display: flex;
   flex-direction: row;
   align-items: baseline;
