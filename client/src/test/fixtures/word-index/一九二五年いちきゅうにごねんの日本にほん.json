@@ -2,8 +2,8 @@
   "meta": {
     "title": "一九二五年《いちきゅうにごねん》の日本《にほん》",
     "sourceStoryId": 219,
-    "exportedAt": "2026-05-18T02:56:48.898Z",
-    "wordIndexVersion": 10,
+    "exportedAt": "2026-05-18T17:07:21.195Z",
+    "wordIndexVersion": 14,
     "jmdictVersion": null,
     "fixtureFormatVersion": 1
   },
@@ -470,6 +470,26 @@
       "isName": false
     },
     {
+      "start": 107,
+      "end": 109,
+      "surface": "山手",
+      "headword": "山手",
+      "reading": "やまのて",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 109,
+      "end": 110,
+      "surface": "線",
+      "headword": "線",
+      "reading": "せん",
+      "entryId": 1391780,
+      "manual": false,
+      "isName": false
+    },
+    {
       "start": 110,
       "end": 111,
       "surface": "が",
@@ -676,7 +696,7 @@
       "headword": "なる",
       "reading": "なる",
       "entryId": 1375610,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
@@ -736,7 +756,7 @@
       "headword": "普通",
       "reading": "ふつう",
       "entryId": 1497190,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
@@ -746,7 +766,7 @@
       "headword": "選挙",
       "reading": "せんきょ",
       "entryId": 1392190,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
@@ -756,7 +776,7 @@
       "headword": "法",
       "reading": "ほう",
       "entryId": 1517150,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
@@ -806,7 +826,7 @@
       "headword": "による",
       "reading": "による",
       "entryId": 1009660,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
@@ -2406,7 +2426,7 @@
       "headword": "見る",
       "reading": "みる",
       "entryId": 1259290,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {

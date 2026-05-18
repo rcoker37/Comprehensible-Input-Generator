@@ -24,7 +24,12 @@ import { parseAnnotatedText, type FuriganaAnnotation } from "./furigana";
 import { regroupWords } from "./regroupWords";
 import { buildDisplaySegments, type AnnotatedPart } from "./storySegments";
 import { stripBold } from "./text";
-import { posHintAtOffset, tokenizeText, type KuromojiTokenInfo } from "./tokenizer";
+import {
+  isProperNoun,
+  posHintAtOffset,
+  tokenizeText,
+  type KuromojiTokenInfo,
+} from "./tokenizer";
 import type { Story } from "../types";
 
 export interface WordOccurrence {
@@ -41,6 +46,13 @@ export interface WordOccurrence {
    * and `results[0]` can drift to the wrong entry.
    */
   entryId: number | null;
+  /**
+   * True when the span is a proper noun (place / person / organisation). The
+   * popover renders a "Name" header and skips the JMdict lookup. Set only by
+   * `subSegmentAnnotated` for a kuromoji-tagged 固有名詞 piece of a
+   * sub-segmented ruby block; every other emit path is a regular word.
+   */
+  isName: boolean;
 }
 
 /**
@@ -146,8 +158,22 @@ export interface WordOccurrence {
  *       verb deinflection over an exact match that is only unranked `exp`
  *       entries regardless of the kuromoji POS hint, so 心をこめて resolves to
  *       the JPDB-ranked 心を込める and merges the full span.
+ *  16 — `subSegmentAnnotated` now partitions the LLM ruby across the kuromoji
+ *       pieces using *every* reading JMdict lists for each piece's entry, not
+ *       just the piece's default reading. 山手線《やまのてせん》 splits into
+ *       山手 (やまのて) + 線 (せん) — the compositional reading exists, the old
+ *       default-reading check (山手 → やまて) missed it. A genuinely non-
+ *       compositional 熟字訓 (五月雨《さみだれ》, kept whole by kuromoji anyway)
+ *       still has no valid partition and stays unindexed.
+ *  17 — `subSegmentAnnotated` now flags a sub-segment piece kuromoji tags
+ *       固有名詞 (proper noun) as a name (`isName=true`, `entryId=null`,
+ *       surface as headword): 山手 inside 山手線《やまのてせん》 indexes as a
+ *       name, so the popover shows a "Name" header instead of the unrelated
+ *       common noun 山手「hilly uptown district」. Only pieces of a
+ *       sub-segmented block are affected — a standalone proper noun (東京) is
+ *       still indexed as its JMdict word.
  */
-export const WORD_INDEX_VERSION = 15;
+export const WORD_INDEX_VERSION = 17;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -237,6 +263,7 @@ export async function extractWordOccurrences(
               headword: cleanText.slice(start, end),
               reading: part.reading,
               entryId: null,
+              isName: false,
             });
             continue;
           }
@@ -281,7 +308,20 @@ async function lookupSpanOccurrence(
     headword: headword.headword,
     reading: headword.reading ?? "",
     entryId: hit.results[0]?.id ?? null,
+    isName: false,
   };
+}
+
+/** Fold a katakana run to hiragana so a kuromoji reading (ヤマテ) can serve as
+ *  a partition candidate alongside JMdict's hiragana readings. */
+function kataToHira(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const c = ch.codePointAt(0)!;
+    out +=
+      c >= 0x30a1 && c <= 0x30f6 ? String.fromCodePoint(c - 0x60) : ch;
+  }
+  return out;
 }
 
 /**
@@ -290,11 +330,21 @@ async function lookupSpanOccurrence(
  * 普通 / 選挙 / 法 (all JMdict words); this tiles the block with those tokens
  * and indexes each piece.
  *
- * The split is trusted only when the pieces' stamped readings concatenate back
- * to the LLM's ruby for the whole block. That guards against proper nouns and
- * 熟字訓 whose block reading isn't compositional: 山手線《やまのてせん》 tiles
- * into 山手 (stamped やまて) + 線 (せん) → やまてせん ≠ やまのてせん, so it is
- * left unindexed rather than mis-split. Returns [] (no sub-spans) on any miss.
+ * A piece kuromoji tags 固有名詞 (proper noun) is emitted as a *name* — surface
+ * as headword, `entryId=null`, `isName=true` — so the popover shows a "Name"
+ * header rather than the unrelated common-noun JMdict entry (山手 inside
+ * 山手線《やまのてせん》 is the railway-line name, not the noun「hilly uptown
+ * district」). A non-name piece must resolve to a JMdict headword or the whole
+ * split is rejected.
+ *
+ * The split is trusted only when some assignment of candidate readings to the
+ * pieces reconstructs the LLM's ruby for the whole block — every reading JMdict
+ * lists for a piece's entry plus the kuromoji reading is tried, not just the
+ * piece's default. That lets 山手線《やまのてせん》 split into 山手 (やまのて) +
+ * 線 (せん) even though 山手's default reading is the commoner やまて, while a
+ * non-compositional 熟字訓 like 五月雨《さみだれ》 has no valid partition and is
+ * left unindexed. Each piece is stamped with the reading the partition assigned
+ * it. Returns [] (no sub-spans) on any miss.
  */
 async function subSegmentAnnotated(
   part: AnnotatedPart,
@@ -315,20 +365,87 @@ async function subSegmentAnnotated(
   }
   if (cursor !== part.end) return [];
 
-  const pieces: WordOccurrence[] = [];
-  let reading = "";
+  // Resolve each kuromoji token, collecting every candidate reading so the
+  // block ruby can be partitioned compositionally even when a piece's reading
+  // isn't its commonest one. A 固有名詞 token becomes a name occurrence; any
+  // other token must resolve to a JMdict headword.
+  const pieces: { occ: WordOccurrence; readings: string[] }[] = [];
   for (const t of inside) {
-    const piece = await lookupSpanOccurrence(
+    const posHint = await posHintAtOffset(cleanText, t.start);
+    const hit = await lookupAtBoundary(
       cleanText,
       t.start,
       t.end,
-      annotations
+      annotations,
+      posHint
     );
-    if (!piece) return [];
-    pieces.push(piece);
-    reading += piece.reading;
+    const headword = hit ? headwordFromHit(hit) : null;
+    const readings = new Set<string>();
+    readings.add(kataToHira(t.surface));
+    if (headword?.reading) readings.add(headword.reading);
+    for (const wr of hit?.results ?? []) {
+      for (const r of wr.r ?? []) readings.add(r.ent);
+    }
+    const surface = cleanText.slice(t.start, t.end);
+    let occ: WordOccurrence;
+    if (isProperNoun(t)) {
+      occ = {
+        start: t.start,
+        end: t.end,
+        surface,
+        headword: surface,
+        reading: "",
+        entryId: null,
+        isName: true,
+      };
+    } else if (hit && headword) {
+      occ = {
+        start: t.start,
+        end: t.end,
+        surface,
+        headword: headword.headword,
+        reading: headword.reading ?? "",
+        entryId: hit.results[0]?.id ?? null,
+        isName: false,
+      };
+    } else {
+      // A non-name piece JMdict can't resolve — don't trust the split.
+      return [];
+    }
+    pieces.push({ occ, readings: [...readings] });
   }
-  return reading === part.reading ? pieces : [];
+
+  const assigned = partitionReading(
+    part.reading,
+    pieces.map((p) => p.readings)
+  );
+  if (!assigned) return [];
+  return pieces.map((p, i) => ({ ...p.occ, reading: assigned[i]! }));
+}
+
+/**
+ * Assign one candidate reading to each piece so the concatenation equals
+ * `target`, returning the chosen readings in piece order — or null when no
+ * assignment works. Backtracks, so a piece reading that prefixes the next
+ * piece's correct reading doesn't dead-end the search. Pure; exported for unit
+ * tests.
+ */
+export function partitionReading(
+  target: string,
+  candidates: string[][]
+): string[] | null {
+  const solve = (pos: number, idx: number): string[] | null => {
+    if (idx === candidates.length) {
+      return pos === target.length ? [] : null;
+    }
+    for (const c of candidates[idx]!) {
+      if (c.length === 0 || !target.startsWith(c, pos)) continue;
+      const rest = solve(pos + c.length, idx + 1);
+      if (rest) return [c, ...rest];
+    }
+    return null;
+  };
+  return solve(0, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +544,7 @@ async function splitNumberRun(
     headword: surface,
     reading,
     entryId: null,
+    isName: false,
   };
   // Leading maximal numeral run.
   let ns = runStart;
@@ -451,6 +569,7 @@ async function splitNumberRun(
       headword: hw.headword,
       reading: match,
       entryId: hit.results[0]?.id ?? null,
+      isName: false,
     });
   }
   // The numeral run must keep a non-empty reading of its own.
@@ -464,6 +583,7 @@ async function splitNumberRun(
       headword: numeralSurface,
       reading: rem,
       entryId: null,
+      isName: false,
     },
     ...tail,
   ];
@@ -524,6 +644,7 @@ async function regroupNumberSpans(
         headword: surface,
         reading,
         entryId: null,
+        isName: false,
       });
     } else {
       for (const occ of await splitNumberRun(

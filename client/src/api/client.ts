@@ -490,6 +490,7 @@ export async function indexStoryWords(
     headword: string;
     reading: string;
     entryId: number | null;
+    isName: boolean;
   }[]
 ): Promise<string> {
   const { data, error } = await supabase.rpc("index_story_words", {

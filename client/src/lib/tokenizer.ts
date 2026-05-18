@@ -56,6 +56,12 @@ export interface KuromojiTokenInfo {
    */
   pos: string;
   /**
+   * First POS sub-category (品詞細分類1) — e.g. '固有名詞' (proper noun) for a
+   * 名詞 token. Used by the word indexer to flag a proper-noun piece of a
+   * sub-segmented ruby block as a name; see `isProperNoun`.
+   */
+  posDetail1: string;
+  /**
    * Kuromoji's dictionary lemma (基本形) for the token — e.g. 'だ' for the
    * copula fragment 'だっ' in 'だった'. Used to tell a copula auxiliary apart
    * from a verb-conjugation auxiliary, both of which kuromoji tags 助動詞.
@@ -80,6 +86,7 @@ export async function tokenizeText(text: string): Promise<KuromojiTokenInfo[]> {
       start: cursor,
       end: cursor + surface.length,
       pos: tok.pos,
+      posDetail1: tok.pos_detail_1,
       basicForm: tok.basic_form,
     });
     cursor += surface.length;
@@ -137,6 +144,16 @@ export function verbHintAt(
   if (!token) return undefined;
   if (token.pos === "動詞" && isCopulaToken(tokens[i + 1])) return undefined;
   return token.pos;
+}
+
+/**
+ * True when `token` is a proper noun (固有名詞) — a person, place, or
+ * organisation name. The word indexer uses this to flag a name piece of a
+ * sub-segmented ruby block (山手 inside 山手線《やまのてせん》) so the popover
+ * renders a "Name" header instead of the common-noun JMdict entry.
+ */
+export function isProperNoun(token: KuromojiTokenInfo | undefined): boolean {
+  return token?.pos === "名詞" && token.posDetail1 === "固有名詞";
 }
 
 /** POS hint for the kuromoji token starting at `offset`, or undefined if none. */
