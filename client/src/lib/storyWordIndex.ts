@@ -139,8 +139,15 @@ export interface WordOccurrence {
  *       regroup pass also no longer treats a 動詞→copula boundary as an
  *       aux-orphaning boundary, so 終わり merges into one span instead of
  *       splitting into 終 / わ / り.
+ *  15 — two expression-merge fixes. (a) The kuromoji-split merge veto no longer
+ *       fires when the span is one content word + its auxiliary chain
+ *       (いらっしゃい+ませ), so a fixed `exp` greeting JMdict double-lists no
+ *       longer shatters into single kana. (b) `lookupAtBoundary` now prefers a
+ *       verb deinflection over an exact match that is only unranked `exp`
+ *       entries regardless of the kuromoji POS hint, so 心をこめて resolves to
+ *       the JPDB-ranked 心を込める and merges the full span.
  */
-export const WORD_INDEX_VERSION = 14;
+export const WORD_INDEX_VERSION = 15;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

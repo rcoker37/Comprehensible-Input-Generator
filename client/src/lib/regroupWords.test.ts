@@ -5,6 +5,7 @@ import {
   deinflectionMergeStartsOnParticle,
   hitIsExpression,
   kanaSpanTooRareToMerge,
+  spanIsInflectedSingleWord,
   RARE_MERGE_MAX_RANK,
   type LookupAtBoundaryFn,
   type RareMergeProbe,
@@ -749,6 +750,77 @@ describe("crossesKuromojiBoundary", () => {
 
   it("ignores boundaries that sit exactly on the span edges", () => {
     expect(crossesKuromojiBoundary(2, 4, [2, 4])).toBe(false);
+  });
+});
+
+describe("spanIsInflectedSingleWord", () => {
+  // Build kuromoji tokens by concatenating surfaces; only start/pos are read.
+  const toks = (specs: [string, string][]): KuromojiTokenInfo[] => {
+    const out: KuromojiTokenInfo[] = [];
+    let cursor = 0;
+    for (const [surface, pos] of specs) {
+      out.push({
+        surface,
+        pos,
+        start: cursor,
+        end: cursor + surface.length,
+        basicForm: surface,
+      });
+      cursor += surface.length;
+    }
+    return out;
+  };
+
+  it("is true when every internal token is an auxiliary (verb + 助動詞)", () => {
+    // いらっしゃい(動詞) + ませ(助動詞): a single inflected word.
+    const t = toks([
+      ["いらっしゃい", "動詞"],
+      ["ませ", "助動詞"],
+    ]);
+    expect(spanIsInflectedSingleWord(0, 8, t)).toBe(true);
+  });
+
+  it("is true for a multi-auxiliary conjugation chain (食べ|まし|た)", () => {
+    const t = toks([
+      ["食べ", "動詞"],
+      ["まし", "助動詞"],
+      ["た", "助動詞"],
+    ]);
+    expect(spanIsInflectedSingleWord(0, 5, t)).toBe(true);
+  });
+
+  it("is false when an internal token is a particle (心|を|こめ|て)", () => {
+    const t = toks([
+      ["心", "名詞"],
+      ["を", "助詞"],
+      ["こめ", "動詞"],
+      ["て", "助詞"],
+    ]);
+    expect(spanIsInflectedSingleWord(0, 5, t)).toBe(false);
+  });
+
+  it("is false when an internal token is an independent content word", () => {
+    // 赤く(形容詞) + なる(動詞): the trailing verb is its own word.
+    const t = toks([
+      ["赤く", "形容詞"],
+      ["なる", "動詞"],
+    ]);
+    expect(spanIsInflectedSingleWord(0, 4, t)).toBe(false);
+  });
+
+  it("is false when the span has no internal token (single kuromoji token)", () => {
+    const t = toks([["食べる", "動詞"]]);
+    expect(spanIsInflectedSingleWord(0, 3, t)).toBe(false);
+  });
+
+  it("ignores tokens whose start sits on the span edges", () => {
+    // ませ starts at 7 — exactly the span end — so it is not internal.
+    const t = toks([
+      ["お", "接頭辞"],
+      ["いらっしゃい", "動詞"],
+      ["ませ", "助動詞"],
+    ]);
+    expect(spanIsInflectedSingleWord(1, 7, t)).toBe(false);
   });
 });
 

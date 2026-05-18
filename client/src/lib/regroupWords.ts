@@ -38,7 +38,11 @@
 //
 // The expression veto covers deinflected merges (雨が降り → 雨が降る) as well
 // as exact ones; a plain verb conjugation (食べ|まし|た → 食べました) is not an
-// expression, so it still merges. One more deinflection guard: 「外はもう…」
+// expression, so it still merges. Neither veto applies when kuromoji split the
+// span into only a content word + its auxiliary chain (いらっしゃい|ませ): that
+// is a single inflected word, not a multi-word phrase, even when JMdict also
+// lists the surface as a fixed `exp` greeting — see `spanIsInflectedSingleWord`.
+// One more deinflection guard: 「外はもう…」
 // splits は|もう, but JMdict deinflects 「はもう」 to the volitional of the
 // rare verb 食む (はむ) — rank 25,527, inside the `rare` tier, so the rank veto
 // lets it through. A deinflection chain can only *start* on a content word,
@@ -140,6 +144,7 @@ export async function regroupWords(
         annotations,
         lookup,
         boundaries,
+        tokens,
         auxAfterVerbBoundaries,
         posByStart,
         rareMergeProbe
@@ -163,6 +168,7 @@ async function regroupParts(
   annotations: FuriganaAnnotation[],
   lookup: LookupAtBoundaryFn,
   boundaries: number[],
+  tokens: KuromojiTokenInfo[],
   auxAfterVerbBoundaries: Set<number>,
   posByStart: Map<number, string>,
   rareMergeProbe: RareMergeProbe
@@ -229,8 +235,16 @@ async function regroupParts(
       // 食べました) is neither, so it still merges. Kuromoji already draws the
       // right noun|particle|verb boundaries, so deferring to its split is safe;
       // `rareMergeProbe` makes the JPDB-rank call.
+      //
+      // The veto exists for *multi-word* spans — phrases with a particle in
+      // their middle and particle runs. A span kuromoji split into only a
+      // content word + its auxiliary chain (いらっしゃい+ませ) is a single
+      // inflected word, even when JMdict happens to double-list it as an `exp`
+      // entry; `spanIsInflectedSingleWord` exempts it so 「いらっしゃいませ」
+      // merges instead of shattering into single kana.
       if (
         crosses &&
+        !spanIsInflectedSingleWord(start, b, tokens) &&
         (!hit.base || hitIsExpression(hit)) &&
         (await rareMergeProbe(hit))
       ) {
@@ -329,6 +343,38 @@ export function crossesKuromojiBoundary(
 
 /** kuromoji's part-of-speech tag for particles (助詞). */
 const PARTICLE_POS = "助詞";
+
+/** kuromoji's part-of-speech tag for conjugation auxiliaries (助動詞). */
+const AUXILIARY_POS = "助動詞";
+
+/**
+ * True when every kuromoji token that begins strictly inside [start, end) is a
+ * conjugation auxiliary (助動詞) — i.e. kuromoji split this span into a single
+ * content word followed only by its inflection chain (いらっしゃい+ます,
+ * 食べ+まし+た), not into independent words. Such a span is one morphological
+ * word, so the kuromoji-split merge veto — which exists to keep
+ * noun+particle+verb phrases and particle runs split — must not apply to it,
+ * even when JMdict also lists the surface as an `exp` expression (the fixed
+ * greeting いらっしゃいませ).
+ *
+ * Requires at least one internal token: with none the span doesn't cross a
+ * kuromoji boundary at all and the veto already wouldn't run.
+ *
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function spanIsInflectedSingleWord(
+  start: number,
+  end: number,
+  tokens: KuromojiTokenInfo[]
+): boolean {
+  let internal = 0;
+  for (const t of tokens) {
+    if (t.start <= start || t.start >= end) continue;
+    internal++;
+    if (t.pos !== AUXILIARY_POS) return false;
+  }
+  return internal > 0;
+}
 
 /**
  * Veto decision for the leading-particle counterpart of the JPDB-rank merge

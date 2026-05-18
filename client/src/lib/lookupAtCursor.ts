@@ -153,12 +153,19 @@ export async function lookupAtCursor(
  * happens for continuative forms whose surface coincides with an unrelated
  * noun entry, e.g. 「赤くなり、」 → なり (particle) instead of なる, or
  * 「電車に乗り、」 → 乗り (n, "ride") instead of 乗る — we let a deinflection
- * candidate that produces a verb result override the exact match. The branch
- * also runs when the exact match is *only* JMdict `exp` expression entries
- * that JPDB never ranks (`exactIsUnrankedExpression`): 「見られる」 exact-matches
- * the unranked honorific phrase entry, but resolving it to the verb it
- * conjugates (見る) is the better tap target. Applies to both pure-kana and
- * mixed-script surfaces.
+ * candidate that produces a verb result override the exact match.
+ *
+ * A second, POS-hint-independent trigger: when the exact match is *only*
+ * JMdict `exp` expression entries that JPDB never ranks
+ * (`exactIsUnrankedExpression`), a verb deinflection preempts it regardless of
+ * what kuromoji tagged the span's leading token. 「見られる」 exact-matches the
+ * unranked honorific phrase entry, and resolving it to the verb it conjugates
+ * (見る) is the better tap target — but so does 「心をこめて」, which exact-matches
+ * the unranked expression 心を込めて while deinflecting to the JPDB-ranked
+ * 心を込める; here kuromoji tags the leading token (心) a noun, so gating this
+ * on a 動詞 hint would miss it. The unranked-exp gate keeps real, common
+ * expression-verbs (which JPDB ranks) returning their own entry untouched.
+ * Applies to both pure-kana and mixed-script surfaces.
  *
  * Among the verb candidates, the LLM furigana break homophone-stem ties when
  * they cover the span (降《ふ》り → 降る, not 降りる); otherwise the candidates
@@ -178,8 +185,8 @@ export async function lookupAtBoundary(
   const exact = await lookupWord(prefix);
 
   if (
-    posHint === "動詞" &&
-    (!hasVerbPos(exact) || (await exactIsUnrankedExpression(exact)))
+    (posHint === "動詞" && !hasVerbPos(exact)) ||
+    (await exactIsUnrankedExpression(exact))
   ) {
     const candidates: LookupHit[] = [];
     for (const c of deinflect(prefix)) {
