@@ -17,6 +17,7 @@
 // hundred lookups — fast enough to run in the background after the user
 // clicks Read.
 import { getDictionaryState } from "./dictionary";
+import { loadFrequencyIndex, lookupFrequencySync } from "./frequency";
 import { headwordFromHit } from "./headword";
 import { lookupAtBoundary } from "./lookupAtCursor";
 import { parseAnnotatedText, type FuriganaAnnotation } from "./furigana";
@@ -120,8 +121,20 @@ export interface WordOccurrence {
  *       with no whole-span JMdict entry (普通選挙法) at kuromoji boundaries,
  *       indexing 普通 / 選挙 / 法 — but only when the pieces' readings
  *       reconstruct the LLM ruby, so 山手線 (やまのてせん) stays unindexed.
+ *  13 — numbered words are handled by `regroupNumberSpans`. JMdict has whole-
+ *       span entries for a few common number+counter combos (五月, 二十二日)
+ *       but not the long tail (一九二五年, 十四年, 二年前). A numeral-led run is
+ *       found whether the LLM wrote it as one annotated block or as per-
+ *       character rubies (一/九/二/五/年). A run JPDB ranks as a word stays a
+ *       single merged span keyed on its surface (so vocab scoring captures
+ *       the rank); an unranked run is split — the numeral run becomes one
+ *       span and each trailing counter/suffix character is peeled off as its
+ *       own span, its reading recovered from the LLM ruby right-to-left so
+ *       the counter (年, 前, …) is indexed and scored on its own. A multi-
+ *       char occurrence that already carries an entry id (二十五 → ２５) is
+ *       left intact rather than absorbed.
  */
-export const WORD_INDEX_VERSION = 12;
+export const WORD_INDEX_VERSION = 13;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -139,6 +152,16 @@ export async function extractWordOccurrences(
   // mark-as-read try again.
   if (getDictionaryState() !== "ready") {
     throw new DictionaryNotReadyError();
+  }
+
+  // Numbered-word handling consults JPDB ranks; load the index up front so
+  // the post-pass can decide merge-vs-split synchronously. A load failure is
+  // non-fatal — `regroupNumberSpans` then treats every run as unranked.
+  let freqReady = true;
+  try {
+    await loadFrequencyIndex();
+  } catch {
+    freqReady = false;
   }
 
   const raw = stripBold(story.content);
@@ -186,10 +209,27 @@ export async function extractWordOccurrences(
           emit(occ);
           continue;
         }
-        // No whole-span entry. A multi-kanji annotated block the LLM wrote as
-        // one ruby unit (普通選挙法) can still be sub-segmented at kuromoji
-        // boundaries — index the pieces JMdict does know.
+        // No whole-span entry.
         if (part.kind === "annotated") {
+          // A multi-character annotated block the LLM wrote starting with a
+          // numeral is a "numbered word" (一九二五年, 十四年, 二年前). JMdict
+          // rarely has a whole-span entry for these — emit it whole here and
+          // let `regroupNumberSpans` decide whether to keep it merged (JPDB
+          // ranks it) or split the numeral run from its counter.
+          if (end - start >= 2 && isNumeralChar(cleanText[start] ?? "")) {
+            emit({
+              start,
+              end,
+              surface: cleanText.slice(start, end),
+              headword: cleanText.slice(start, end),
+              reading: part.reading,
+              entryId: null,
+            });
+            continue;
+          }
+          // A multi-kanji annotated block the LLM wrote as one ruby unit
+          // (普通選挙法) can still be sub-segmented at kuromoji boundaries —
+          // index the pieces JMdict does know.
           for (const sub of await subSegmentAnnotated(
             part,
             cleanText,
@@ -202,7 +242,7 @@ export async function extractWordOccurrences(
       }
     }
   }
-  return occurrences;
+  return regroupNumberSpans(occurrences, cleanText, annotations, freqReady);
 }
 
 /**
@@ -276,4 +316,214 @@ async function subSegmentAnnotated(
     reading += piece.reading;
   }
   return reading === part.reading ? pieces : [];
+}
+
+// ---------------------------------------------------------------------------
+// Numbered-word handling
+//
+// JMdict carries whole-span entries for a handful of common number+counter
+// combos (五月 → ５月, 二十二日 → ２２日) but not the long tail (一九二五年,
+// 十四年, 二年前). Left to the per-character pipeline those become a dead tap
+// target or a string of meaningless per-digit spans. `regroupNumberSpans`
+// instead collects each numeral-led run — whether the LLM wrote it as one
+// annotated block or as per-character rubies — and either keeps it merged
+// (JPDB ranks the combo as a word) or splits the numeral run from its
+// trailing counter (it does not).
+// ---------------------------------------------------------------------------
+
+const NUMERAL_CHARS = new Set(
+  "〇一二三四五六七八九十百千万億兆0123456789０１２３４５６７８９"
+);
+
+// Common counter kanji. Used to recognise an all-numeral/counter occurrence
+// as a number fragment; a numeral-led occurrence with no JMdict entry is also
+// treated as a fragment, so this set need not be exhaustive.
+const COUNTER_CHARS = new Set(
+  "年月日時分秒円才歳人名回度個本冊枚台匹頭羽階番号周件票杯軒着足歩点語字句行巻通発丁"
+);
+
+function isNumeralChar(ch: string): boolean {
+  return NUMERAL_CHARS.has(ch);
+}
+
+/**
+ * True when every character is a numeral or a counter. Exported for unit
+ * testing alongside {@link longestReadingSuffix}.
+ */
+export function isNumberFragment(surface: string): boolean {
+  if (surface.length === 0) return false;
+  for (const ch of surface) {
+    if (!NUMERAL_CHARS.has(ch) && !COUNTER_CHARS.has(ch)) return false;
+  }
+  return true;
+}
+
+/**
+ * The longest candidate reading that `reading` ends with — used to peel a
+ * trailing counter's reading off a fused number+counter ruby (にねん → 年's
+ * ねん). Pure; exported for unit tests.
+ */
+export function longestReadingSuffix(
+  reading: string,
+  candidates: string[]
+): string | null {
+  let best: string | null = null;
+  for (const c of candidates) {
+    if (c.length === 0 || !reading.endsWith(c)) continue;
+    if (!best || c.length > best.length) best = c;
+  }
+  return best;
+}
+
+/** A numeral-led / all-numeral-counter occurrence — a candidate run member. */
+function isNumberAtom(o: WordOccurrence): boolean {
+  if (o.surface.length === 0) return false;
+  if (isNumberFragment(o.surface)) return true;
+  // A numeral-led occurrence with no JMdict entry — e.g. a merged block like
+  // 二年前 whose remainder (年前) isn't purely counters.
+  return NUMERAL_CHARS.has(o.surface[0]!) && o.entryId === null;
+}
+
+/**
+ * Absorbable into a number run. A multi-character occurrence that already
+ * carries a JMdict entry id (二十五 → ２５) is excluded — it is a recognised,
+ * JPDB-rankable word on its own and must not be swallowed into a longer run.
+ */
+function isNumberRunMember(o: WordOccurrence): boolean {
+  return isNumberAtom(o) && (o.end - o.start === 1 || o.entryId === null);
+}
+
+/**
+ * Split an unranked numeral run into its numeral span plus one span per
+ * trailing counter / suffix character. Each trailing character's reading is
+ * peeled off the run's ruby right-to-left (にねんまえ → 前 まえ → 年 ねん),
+ * leaving the prefix as the numeral run's reading. Falls back to a single
+ * merged span if the peel can't be reconciled with the ruby.
+ */
+async function splitNumberRun(
+  runStart: number,
+  runEnd: number,
+  surface: string,
+  reading: string,
+  cleanText: string
+): Promise<WordOccurrence[]> {
+  const merged: WordOccurrence = {
+    start: runStart,
+    end: runEnd,
+    surface,
+    headword: surface,
+    reading,
+    entryId: null,
+  };
+  // Leading maximal numeral run.
+  let ns = runStart;
+  while (ns < runEnd && NUMERAL_CHARS.has(cleanText[ns]!)) ns++;
+  // A pure number (no counter) — nothing to peel.
+  if (ns >= runEnd) return [merged];
+
+  const tail: WordOccurrence[] = [];
+  let rem = reading;
+  for (let pos = runEnd - 1; pos >= ns; pos--) {
+    const hit = await lookupAtBoundary(cleanText, pos, pos + 1, []);
+    const hw = hit ? headwordFromHit(hit) : null;
+    if (!hit || !hw) return [merged];
+    const readings = hit.results.flatMap((wr) => wr.r?.map((r) => r.ent) ?? []);
+    const match = longestReadingSuffix(rem, readings);
+    if (!match) return [merged];
+    rem = rem.slice(0, rem.length - match.length);
+    tail.unshift({
+      start: pos,
+      end: pos + 1,
+      surface: cleanText[pos]!,
+      headword: hw.headword,
+      reading: match,
+      entryId: hit.results[0]?.id ?? null,
+    });
+  }
+  // The numeral run must keep a non-empty reading of its own.
+  if (rem.length === 0) return [merged];
+  const numeralSurface = cleanText.slice(runStart, ns);
+  return [
+    {
+      start: runStart,
+      end: ns,
+      surface: numeralSurface,
+      headword: numeralSurface,
+      reading: rem,
+      entryId: null,
+    },
+    ...tail,
+  ];
+}
+
+/**
+ * Collect every numeral-led run in `occurrences` and re-emit it: a run JPDB
+ * ranks as a word stays one merged span (so vocab scoring weights it); an
+ * unranked run is split via {@link splitNumberRun}. Non-number occurrences
+ * pass through untouched.
+ */
+async function regroupNumberSpans(
+  occurrences: WordOccurrence[],
+  cleanText: string,
+  annotations: FuriganaAnnotation[],
+  freqReady: boolean
+): Promise<WordOccurrence[]> {
+  const sorted = [...occurrences].sort((a, b) => a.start - b.start);
+  const out: WordOccurrence[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    if (!isNumberRunMember(sorted[i]!)) {
+      out.push(sorted[i]!);
+      i++;
+      continue;
+    }
+    let j = i;
+    while (
+      j + 1 < sorted.length &&
+      sorted[j + 1]!.start === sorted[j]!.end &&
+      isNumberRunMember(sorted[j + 1]!)
+    ) {
+      j++;
+    }
+    const runStart = sorted[i]!.start;
+    const runEnd = sorted[j]!.end;
+    const surface = cleanText.slice(runStart, runEnd);
+    if (![...surface].some((ch) => NUMERAL_CHARS.has(ch))) {
+      // A lone counter (the 年 of 同じ年) — leave the members untouched.
+      for (let k = i; k <= j; k++) out.push(sorted[k]!);
+      i = j + 1;
+      continue;
+    }
+    // Reading from the LLM ruby spanning the run — a counter looked up alone
+    // stamps JMdict's default reading (年 → とし), not the run's (… → ねん).
+    const reading = annotations
+      .filter((a) => a.start >= runStart && a.end <= runEnd)
+      .sort((a, b) => a.start - b.start)
+      .map((a) => a.reading)
+      .join("");
+    const ranked =
+      freqReady && lookupFrequencySync(surface, null).rank !== null;
+    if (ranked) {
+      out.push({
+        start: runStart,
+        end: runEnd,
+        surface,
+        headword: surface,
+        reading,
+        entryId: null,
+      });
+    } else {
+      for (const occ of await splitNumberRun(
+        runStart,
+        runEnd,
+        surface,
+        reading,
+        cleanText
+      )) {
+        out.push(occ);
+      }
+    }
+    i = j + 1;
+  }
+  return out;
 }

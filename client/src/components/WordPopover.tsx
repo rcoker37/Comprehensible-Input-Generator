@@ -325,7 +325,23 @@ export default function WordPopover({
     if (lookupIsName && lookupHeadword) {
       return { headword: lookupHeadword, reading: lookupReading };
     }
-    return hit ? headwordFromHit(hit) : null;
+    const fromHit = hit ? headwordFromHit(hit) : null;
+    if (fromHit) {
+      // The indexer stamped the contextual reading on the occurrence (年 → ねん
+      // inside 一九二五年, not the entry's default とし). The popover's redo-
+      // lookup has no annotations to disambiguate homophone readings, so
+      // prefer the stored reading over the JMdict primary one.
+      return lookupReading
+        ? { headword: fromHit.headword, reading: lookupReading }
+        : fromHit;
+    }
+    // No JMdict entry resolved. A merged number span (一九二五年) has no
+    // whole-span entry, so fall back to the headword + ruby reading the
+    // indexer stamped on the occurrence — the popover still names the word.
+    if (lookupHeadword) {
+      return { headword: lookupHeadword, reading: lookupReading };
+    }
+    return null;
   }, [lookupIsName, lookupHeadword, lookupReading, hit]);
 
   // Reset transient UI state when we open against a different tap point or
@@ -417,7 +433,15 @@ export default function WordPopover({
         [],
         undefined
       )
-        .then(finishWithReanchor)
+        .then((result) => {
+          if (cancelled) return;
+          // A merged number span's headword (一九二五年) has no JMdict entry.
+          // Synthesise an empty-results hit anchored at the tap span so the
+          // carousel + `contentReady` gate still resolve — the sticky header
+          // falls back to the stamped headword/reading.
+          if (result) finishWithReanchor(result);
+          else setHit({ start: tapStart, end: tapEnd, surface, results: [] });
+        })
         .finally(() => {
           if (!cancelled) setLookingUp(false);
         });
