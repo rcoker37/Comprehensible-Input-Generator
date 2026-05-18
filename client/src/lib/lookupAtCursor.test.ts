@@ -3,6 +3,7 @@ import type { WordResult } from "@birchill/jpdict-idb";
 import {
   annotationContradictsHit,
   applyAnnotatedReading,
+  deinflectionFitsAnnotations,
   exactRankWins,
   hasVerbPos,
   isKanjiCanonicalKanaMatch,
@@ -331,6 +332,65 @@ describe("annotationContradictsHit", () => {
     const h = hit({ start: 10, end: 13, surface: "今日は", results: [wr("こんにちは")] });
     expect(
       annotationContradictsHit(h, [{ start: 0, end: 2, reading: "きょう" }])
+    ).toBe(false);
+  });
+});
+
+describe("deinflectionFitsAnnotations", () => {
+  // 降り is the continuative of both 降る (ふる) and 降りる (おりる); a 降《ふ》
+  // ruby fits 降る only.
+  const furi: FuriganaAnnotation[] = [{ start: 0, end: 1, reading: "ふ" }];
+
+  it("fits the candidate whose lemma reading the furigana support", () => {
+    expect(
+      deinflectionFitsAnnotations("降り", 0, furi, "降る", [wr("ふる")])
+    ).toBe(true);
+  });
+
+  it("rejects the homophone stem the furigana rule out", () => {
+    expect(
+      deinflectionFitsAnnotations("降り", 0, furi, "降りる", [wr("おりる")])
+    ).toBe(false);
+  });
+
+  it("handles a multi-character okurigana swap (食べた → 食べる)", () => {
+    expect(
+      deinflectionFitsAnnotations(
+        "食べた",
+        0,
+        [{ start: 0, end: 1, reading: "た" }],
+        "食べる",
+        [wr("たべる")]
+      )
+    ).toBe(true);
+  });
+
+  it("abstains when no annotation covers the span", () => {
+    // The annotation belongs to a kanji elsewhere — nothing to judge against,
+    // so the caller keeps deinflect()'s priority order.
+    expect(
+      deinflectionFitsAnnotations("降り", 10, furi, "降りる", [wr("おりる")])
+    ).toBe(true);
+  });
+
+  it("abstains when the lemma carries no readings", () => {
+    expect(deinflectionFitsAnnotations("降り", 0, furi, "降る", [wr()])).toBe(
+      true
+    );
+  });
+
+  it("returns false for an irregular kanji-reading shift (harmless)", () => {
+    // 来 reads き in 来て but く in 来る, so the okurigana-swap model mispredicts
+    // きる ≠ くる. The caller's fallback still surfaces 来る as the only
+    // candidate; this just forgoes the (here unneeded) furigana preference.
+    expect(
+      deinflectionFitsAnnotations(
+        "来て",
+        0,
+        [{ start: 0, end: 1, reading: "き" }],
+        "来る",
+        [wr("くる")]
+      )
     ).toBe(false);
   });
 });

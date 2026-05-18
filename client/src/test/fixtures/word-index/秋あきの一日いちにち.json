@@ -1,0 +1,653 @@
+{
+  "meta": {
+    "title": "秋《あき》の一日《いちにち》",
+    "sourceStoryId": 9,
+    "exportedAt": "2026-05-17T23:58:31.975Z",
+    "wordIndexVersion": 9,
+    "jmdictVersion": null,
+    "fixtureFormatVersion": 1
+  },
+  "content": "ある朝《あさ》、雨《あめ》が降《ふ》り、風《かぜ》が吹《ふ》き、空《そら》は灰色《はいいろ》になりました。木《き》の葉《は》は赤《あか》くなり、黄色《きいろ》くなり、下《した》に落《お》ちました。\n\n私《わたし》は家《いえ》を出《で》て、駅《えき》に向《む》かい、電車《でんしゃ》に乗《の》り、町《まち》に行《い》きました。\n\n午後《ごご》、雨《あめ》が止《や》み、雲《くも》が消《き》え、空《そら》は青《あお》くなり、心《こころ》も明《あか》るくなりました。\n\n家《いえ》に帰《かえ》り、お茶《ちゃ》を飲《の》み、本《ほん》を読《よ》み、静《しず》かな夜《よる》を過《す》ごしました。",
+  "expected": [
+    {
+      "start": 0,
+      "end": 2,
+      "surface": "ある",
+      "headword": "有る",
+      "reading": "ある",
+      "entryId": 1296400,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 2,
+      "end": 3,
+      "surface": "朝",
+      "headword": "朝",
+      "reading": "あさ",
+      "entryId": 1428280,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 4,
+      "end": 5,
+      "surface": "雨",
+      "headword": "雨",
+      "reading": "あめ",
+      "entryId": 1171900,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 5,
+      "end": 6,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 6,
+      "end": 8,
+      "surface": "降り",
+      "headword": "降る",
+      "reading": "ふる",
+      "entryId": 1282790,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 9,
+      "end": 10,
+      "surface": "風",
+      "headword": "風",
+      "reading": "かぜ",
+      "entryId": 1499720,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 10,
+      "end": 11,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 11,
+      "end": 13,
+      "surface": "吹き",
+      "headword": "吹く",
+      "reading": "ふく",
+      "entryId": 1370760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 14,
+      "end": 15,
+      "surface": "空",
+      "headword": "空",
+      "reading": "そら",
+      "entryId": 1245290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 15,
+      "end": 16,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 16,
+      "end": 18,
+      "surface": "灰色",
+      "headword": "灰色",
+      "reading": "はいいろ",
+      "entryId": 1201970,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 18,
+      "end": 19,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 19,
+      "end": 24,
+      "surface": "なりました",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 25,
+      "end": 28,
+      "surface": "木の葉",
+      "headword": "木の葉",
+      "reading": "きのは",
+      "entryId": 1534560,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 28,
+      "end": 29,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 29,
+      "end": 31,
+      "surface": "赤く",
+      "headword": "赤い",
+      "reading": "あかい",
+      "entryId": 1383240,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 31,
+      "end": 33,
+      "surface": "なり",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 34,
+      "end": 37,
+      "surface": "黄色く",
+      "headword": "黄色い",
+      "reading": "きいろい",
+      "entryId": 1182030,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 37,
+      "end": 39,
+      "surface": "なり",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 40,
+      "end": 41,
+      "surface": "下",
+      "headword": "下",
+      "reading": "した",
+      "entryId": 1184140,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 41,
+      "end": 42,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 42,
+      "end": 47,
+      "surface": "落ちました",
+      "headword": "落ちる",
+      "reading": "おちる",
+      "entryId": 1548550,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 50,
+      "end": 51,
+      "surface": "私",
+      "headword": "私",
+      "reading": "わたし",
+      "entryId": 1311110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 51,
+      "end": 52,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 52,
+      "end": 53,
+      "surface": "家",
+      "headword": "家",
+      "reading": "いえ",
+      "entryId": 1191730,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 53,
+      "end": 54,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 54,
+      "end": 56,
+      "surface": "出て",
+      "headword": "出る",
+      "reading": "でる",
+      "entryId": 1338240,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 57,
+      "end": 58,
+      "surface": "駅",
+      "headword": "駅",
+      "reading": "えき",
+      "entryId": 1175140,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 58,
+      "end": 59,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 59,
+      "end": 62,
+      "surface": "向かい",
+      "headword": "向かう",
+      "reading": "むかう",
+      "entryId": 1604800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 63,
+      "end": 65,
+      "surface": "電車",
+      "headword": "電車",
+      "reading": "でんしゃ",
+      "entryId": 1443530,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 65,
+      "end": 66,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 66,
+      "end": 68,
+      "surface": "乗り",
+      "headword": "乗る",
+      "reading": "のる",
+      "entryId": 1355120,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 69,
+      "end": 70,
+      "surface": "町",
+      "headword": "町",
+      "reading": "まち",
+      "entryId": 1603990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 70,
+      "end": 71,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 71,
+      "end": 76,
+      "surface": "行きました",
+      "headword": "行く",
+      "reading": "いく",
+      "entryId": 1578850,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 79,
+      "end": 81,
+      "surface": "午後",
+      "headword": "午後",
+      "reading": "ごご",
+      "entryId": 1268990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 82,
+      "end": 83,
+      "surface": "雨",
+      "headword": "雨",
+      "reading": "あめ",
+      "entryId": 1171900,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 83,
+      "end": 84,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 84,
+      "end": 86,
+      "surface": "止み",
+      "headword": "止む",
+      "reading": "やむ",
+      "entryId": 1310640,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 87,
+      "end": 88,
+      "surface": "雲",
+      "headword": "雲",
+      "reading": "くも",
+      "entryId": 1173100,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 88,
+      "end": 89,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 89,
+      "end": 91,
+      "surface": "消え",
+      "headword": "消える",
+      "reading": "きえる",
+      "entryId": 1350040,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 92,
+      "end": 93,
+      "surface": "空",
+      "headword": "空",
+      "reading": "そら",
+      "entryId": 1245290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 93,
+      "end": 94,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 94,
+      "end": 98,
+      "surface": "青くなり",
+      "headword": "青くなる",
+      "reading": "あおくなる",
+      "entryId": 2119570,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 99,
+      "end": 100,
+      "surface": "心",
+      "headword": "心",
+      "reading": "こころ",
+      "entryId": 1360480,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 100,
+      "end": 101,
+      "surface": "も",
+      "headword": "も",
+      "reading": "も",
+      "entryId": 2028940,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 101,
+      "end": 104,
+      "surface": "明るく",
+      "headword": "明るい",
+      "reading": "あかるい",
+      "entryId": 1532350,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 104,
+      "end": 109,
+      "surface": "なりました",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 112,
+      "end": 113,
+      "surface": "家",
+      "headword": "家",
+      "reading": "いえ",
+      "entryId": 1191730,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 113,
+      "end": 114,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 114,
+      "end": 116,
+      "surface": "帰り",
+      "headword": "帰る",
+      "reading": "かえる",
+      "entryId": 1221270,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 117,
+      "end": 119,
+      "surface": "お茶",
+      "headword": "お茶",
+      "reading": "おちゃ",
+      "entryId": 1002430,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 119,
+      "end": 120,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 120,
+      "end": 122,
+      "surface": "飲み",
+      "headword": "飲む",
+      "reading": "のむ",
+      "entryId": 1169870,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 123,
+      "end": 124,
+      "surface": "本",
+      "headword": "本",
+      "reading": "ほん",
+      "entryId": 1522150,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 124,
+      "end": 125,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 125,
+      "end": 127,
+      "surface": "読み",
+      "headword": "読む",
+      "reading": "よむ",
+      "entryId": 1456360,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 128,
+      "end": 130,
+      "surface": "静か",
+      "headword": "静か",
+      "reading": "しずか",
+      "entryId": 1381820,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 130,
+      "end": 131,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 131,
+      "end": 132,
+      "surface": "夜",
+      "headword": "夜",
+      "reading": "よる",
+      "entryId": 1536350,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 132,
+      "end": 133,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 133,
+      "end": 139,
+      "surface": "過ごしました",
+      "headword": "過ごす",
+      "reading": "すごす",
+      "entryId": 1196000,
+      "manual": false,
+      "isName": false
+    }
+  ]
+}

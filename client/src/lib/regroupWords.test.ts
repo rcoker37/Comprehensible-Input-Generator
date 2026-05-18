@@ -3,8 +3,9 @@ import {
   regroupWords,
   crossesKuromojiBoundary,
   deinflectionMergeStartsOnParticle,
+  hitIsExpression,
   kanaSpanTooRareToMerge,
-  RARE_KANA_MERGE_MAX_RANK,
+  RARE_MERGE_MAX_RANK,
   type LookupAtBoundaryFn,
   type RareMergeProbe,
   type TokenizeFn,
@@ -530,10 +531,100 @@ describe("regroupWords", () => {
     ]);
   });
 
-  it("never vetoes a deinflected merge even when the probe flags it", async () => {
-    // The veto is scoped to exact matches. 食べ|まし|た → 食べました is a
-    // deinflection chain (hit.base set), so it merges regardless of what the
-    // probe says.
+  it("splits a JPDB-unranked expression merged via deinflection (雨が降り)", async () => {
+    // 雨が降り — kuromoji splits 雨|が|降り. JMdict deinflects the whole span
+    // to the expression entry 雨が降る ("to rain", exp,v5r), which JPDB has
+    // never ranked. A merge into an `exp` entry is vetoed even though it came
+    // via deinflection, so kuromoji's noun|particle|verb split stands and only
+    // 降り (→ 降る) regroups into its own tap target.
+    const text = "雨が降り";
+    const base = buildDisplaySegments(text, []);
+    const lookup: LookupAtBoundaryFn = async (t, start, end) => {
+      const sub = t.slice(start, end);
+      if (sub === "雨が降り") {
+        return {
+          start,
+          end,
+          surface: sub,
+          base: "雨が降る",
+          derivations: ["masu stem"],
+          results: [{ s: [{ pos: ["exp", "v5r"] }] } as never],
+        };
+      }
+      if (sub === "降り") {
+        return {
+          start,
+          end,
+          surface: sub,
+          base: "降る",
+          derivations: ["masu stem"],
+          results: [{ s: [{ pos: ["v5r"] }] } as never],
+        };
+      }
+      return null;
+    };
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      lookup,
+      tokens([
+        { surface: "雨", pos: "名詞" },
+        { surface: "が", pos: "助詞" },
+        { surface: "降り", pos: "動詞" },
+      ]),
+      (hit) => hit.base === "雨が降る"
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "char", offset: 0, char: "雨" },
+      { kind: "char", offset: 1, char: "が" },
+      { kind: "word", start: 2, end: 4, surface: "降り" },
+    ]);
+  });
+
+  it("keeps an expression merged when JPDB ranks it (青くなり → 青くなる)", async () => {
+    // 青くなる ("to turn blue", exp,v5r) is an expression too, but JPDB ranks
+    // it — common enough to be a word in its own right — so the probe doesn't
+    // flag it and the deinflection merge across 青く|なり stands.
+    const text = "青くなり";
+    const base = buildDisplaySegments(text, []);
+    const lookup: LookupAtBoundaryFn = async (t, start, end) => {
+      const sub = t.slice(start, end);
+      if (sub === "青くなり") {
+        return {
+          start,
+          end,
+          surface: sub,
+          base: "青くなる",
+          derivations: ["masu stem"],
+          results: [{ s: [{ pos: ["exp", "v5r"] }] } as never],
+        };
+      }
+      return null;
+    };
+    const out = await regroupWords(
+      base,
+      text,
+      [],
+      lookup,
+      tokens([
+        { surface: "青く", pos: "形容詞" },
+        { surface: "なり", pos: "動詞" },
+      ]),
+      (hit) => hit.base === "雨が降る"
+    );
+    const parts = out[0]!.sentences[0]!.parts;
+    expect(parts).toEqual([
+      { kind: "word", start: 0, end: 4, surface: "青くなり" },
+    ]);
+  });
+
+  it("never vetoes a plain verb conjugation even when the probe flags it", async () => {
+    // The rank veto reaches a deinflection merge only when the matched entry
+    // is an `exp` expression. 食べ|まし|た → 食べました is a plain verb
+    // conjugation (hit.base set, no `exp` POS on the result), so it merges
+    // regardless of what the probe says.
     const text = "食べました";
     const base = buildDisplaySegments(text, []);
     const lookup: LookupAtBoundaryFn = async (t, start, end) => {
@@ -675,7 +766,36 @@ describe("kanaSpanTooRareToMerge", () => {
   });
 
   it("treats the very-rare tier boundary as the inclusive keep ceiling", () => {
-    expect(kanaSpanTooRareToMerge("では", RARE_KANA_MERGE_MAX_RANK)).toBe(false);
-    expect(kanaSpanTooRareToMerge("では", RARE_KANA_MERGE_MAX_RANK + 1)).toBe(true);
+    expect(kanaSpanTooRareToMerge("では", RARE_MERGE_MAX_RANK)).toBe(false);
+    expect(kanaSpanTooRareToMerge("では", RARE_MERGE_MAX_RANK + 1)).toBe(true);
+  });
+});
+
+describe("hitIsExpression", () => {
+  // Minimal LookupHit carrying just the senses hitIsExpression reads.
+  const hit = (senses: string[][]) => ({
+    start: 0,
+    end: 2,
+    surface: "x",
+    results: [{ s: senses.map((pos) => ({ pos })) } as never],
+  });
+
+  it("is true when the chosen entry has an `exp` POS sense", () => {
+    // 雨が降る is exp,v5r; an exp tag on any sense marks the entry a phrase.
+    expect(hitIsExpression(hit([["exp", "v5r"]]))).toBe(true);
+    expect(hitIsExpression(hit([["n"], ["exp"]]))).toBe(true);
+  });
+
+  it("is false for a single-word entry", () => {
+    // 高さ (n) and a plain verb (v1) are lexical words, not phrases.
+    expect(hitIsExpression(hit([["n"]]))).toBe(false);
+    expect(hitIsExpression(hit([["v1"], ["v1", "vt"]]))).toBe(false);
+  });
+
+  it("is false when there are no results or no senses", () => {
+    expect(
+      hitIsExpression({ start: 0, end: 1, surface: "x", results: [] })
+    ).toBe(false);
+    expect(hitIsExpression(hit([]))).toBe(false);
   });
 });
