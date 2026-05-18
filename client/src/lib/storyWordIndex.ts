@@ -19,7 +19,7 @@
 import { getDictionaryState } from "./dictionary";
 import { loadFrequencyIndex, lookupFrequencySync } from "./frequency";
 import { headwordFromHit } from "./headword";
-import { lookupAtBoundary } from "./lookupAtCursor";
+import { lookupAtBoundary, type LookupHit } from "./lookupAtCursor";
 import { parseAnnotatedText, type FuriganaAnnotation } from "./furigana";
 import { regroupWords } from "./regroupWords";
 import { buildDisplaySegments, type AnnotatedPart } from "./storySegments";
@@ -172,8 +172,18 @@ export interface WordOccurrence {
  *       common noun 山手「hilly uptown district」. Only pieces of a
  *       sub-segmented block are affected — a standalone proper noun (東京) is
  *       still indexed as its JMdict word.
+ *  18 — two fixes. (a) `subSegmentAnnotated` falls back to a per-character
+ *       split when kuromoji collapses an annotated block into a single token:
+ *       森中《もりじゅう》 (one 固有名詞 token) now indexes as 森 (もり) + 中
+ *       (じゅう). It also re-picks each piece's JMdict entry to the one whose
+ *       readings include the partition-assigned reading, so 中 resolves to the
+ *       suffix entry (じゅう), not 中「なか」. (b) `lookupAtBoundary` deinflects an
+ *       exact match that is a JPDB-unranked verb entry of an inflected form
+ *       (`exactIsUnrankedInflectedVerb`): the causative 楽しませる resolves to
+ *       its conjugated-from lemma 楽しむ instead of the standalone unranked
+ *       楽しませる entry.
  */
-export const WORD_INDEX_VERSION = 17;
+export const WORD_INDEX_VERSION = 18;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -324,27 +334,73 @@ function kataToHira(s: string): string {
   return out;
 }
 
+/** One piece of a sub-segmented annotated block, before reading partition. */
+interface SubSegmentSpan {
+  start: number;
+  end: number;
+  /** The kuromoji token covering the piece, when the split is kuromoji-tiled.
+   *  Absent for the per-character fallback. */
+  token?: KuromojiTokenInfo;
+}
+
+/**
+ * The kuromoji tokens tiling [part.start, part.end) exactly — ≥2 of them,
+ * contiguous, no overhang. Returns null when they don't tile (kuromoji
+ * collapsed the block into one token, or its tokens overhang the block).
+ */
+function kuromojiTiling(
+  part: AnnotatedPart,
+  tokens: KuromojiTokenInfo[]
+): SubSegmentSpan[] | null {
+  const inside = tokens.filter(
+    (t) => t.start >= part.start && t.end <= part.end
+  );
+  if (inside.length < 2) return null;
+  let cursor = part.start;
+  for (const t of inside) {
+    if (t.start !== cursor) return null;
+    cursor = t.end;
+  }
+  if (cursor !== part.end) return null;
+  return inside.map((t) => ({ start: t.start, end: t.end, token: t }));
+}
+
+/** One span per character of the block — the fallback when kuromoji won't
+ *  tile the block (森中《もりじゅう》 is a single 固有名詞 token). */
+function perCharSpans(part: AnnotatedPart): SubSegmentSpan[] {
+  const spans: SubSegmentSpan[] = [];
+  for (let i = part.start; i < part.end; i++) {
+    spans.push({ start: i, end: i + 1 });
+  }
+  return spans;
+}
+
 /**
  * Sub-segment a multi-kanji annotated block the LLM wrote as one ruby unit but
- * JMdict has no whole-span entry for. kuromoji already splits 普通選挙法 into
- * 普通 / 選挙 / 法 (all JMdict words); this tiles the block with those tokens
- * and indexes each piece.
+ * JMdict has no whole-span entry for. Prefers the kuromoji tokenisation —
+ * 普通選挙法 splits into 普通 / 選挙 / 法 (all JMdict words) — but when kuromoji
+ * collapses the block into a single token (森中《もりじゅう》 is one 固有名詞
+ * token) it falls back to a per-character split so a compound JMdict lacks a
+ * whole-span entry for is still indexed piece-by-piece.
  *
  * A piece kuromoji tags 固有名詞 (proper noun) is emitted as a *name* — surface
  * as headword, `entryId=null`, `isName=true` — so the popover shows a "Name"
  * header rather than the unrelated common-noun JMdict entry (山手 inside
  * 山手線《やまのてせん》 is the railway-line name, not the noun「hilly uptown
- * district」). A non-name piece must resolve to a JMdict headword or the whole
- * split is rejected.
+ * district」). The per-character fallback has no kuromoji token per piece, so
+ * those pieces are never names. A non-name piece must resolve to a JMdict
+ * headword or the whole split is rejected.
  *
  * The split is trusted only when some assignment of candidate readings to the
  * pieces reconstructs the LLM's ruby for the whole block — every reading JMdict
  * lists for a piece's entry plus the kuromoji reading is tried, not just the
  * piece's default. That lets 山手線《やまのてせん》 split into 山手 (やまのて) +
- * 線 (せん) even though 山手's default reading is the commoner やまて, while a
- * non-compositional 熟字訓 like 五月雨《さみだれ》 has no valid partition and is
- * left unindexed. Each piece is stamped with the reading the partition assigned
- * it. Returns [] (no sub-spans) on any miss.
+ * 線 (せん) even though 山手's default reading is the commoner やまて, and 森中
+ * 《もりじゅう》 into 森 (もり) + 中 (じゅう), while a non-compositional 熟字訓
+ * like 五月雨《さみだれ》 has no valid partition and is left unindexed. Each
+ * piece is stamped with the reading the partition assigned it, and its JMdict
+ * entry is the one whose readings include that reading (中 → the suffix entry
+ * じゅう, not 中「なか」). Returns [] (no sub-spans) on any miss.
  */
 async function subSegmentAnnotated(
   part: AnnotatedPart,
@@ -352,67 +408,51 @@ async function subSegmentAnnotated(
   annotations: FuriganaAnnotation[],
   tokens: KuromojiTokenInfo[]
 ): Promise<WordOccurrence[]> {
-  // The kuromoji tokens must tile [part.start, part.end) exactly: ≥2 of them,
-  // contiguous, no overhang. Anything else and we don't trust the split.
-  const inside = tokens.filter(
-    (t) => t.start >= part.start && t.end <= part.end
-  );
-  if (inside.length < 2) return [];
-  let cursor = part.start;
-  for (const t of inside) {
-    if (t.start !== cursor) return [];
-    cursor = t.end;
-  }
-  if (cursor !== part.end) return [];
+  const spans = kuromojiTiling(part, tokens) ?? perCharSpans(part);
+  if (spans.length < 2) return [];
 
-  // Resolve each kuromoji token, collecting every candidate reading so the
-  // block ruby can be partitioned compositionally even when a piece's reading
-  // isn't its commonest one. A 固有名詞 token becomes a name occurrence; any
-  // other token must resolve to a JMdict headword.
-  const pieces: { occ: WordOccurrence; readings: string[] }[] = [];
-  for (const t of inside) {
-    const posHint = await posHintAtOffset(cleanText, t.start);
+  // Resolve each piece, collecting every candidate reading so the block ruby
+  // can be partitioned compositionally even when a piece's reading isn't its
+  // commonest one. A 固有名詞 token becomes a name; any other piece must
+  // resolve to a JMdict headword.
+  const pieces: {
+    start: number;
+    end: number;
+    surface: string;
+    isName: boolean;
+    hit: LookupHit | null;
+    readings: string[];
+  }[] = [];
+  for (const span of spans) {
+    const surface = cleanText.slice(span.start, span.end);
+    const posHint = await posHintAtOffset(cleanText, span.start);
     const hit = await lookupAtBoundary(
       cleanText,
-      t.start,
-      t.end,
+      span.start,
+      span.end,
       annotations,
       posHint
     );
     const headword = hit ? headwordFromHit(hit) : null;
     const readings = new Set<string>();
-    readings.add(kataToHira(t.surface));
+    readings.add(kataToHira(surface));
     if (headword?.reading) readings.add(headword.reading);
     for (const wr of hit?.results ?? []) {
       for (const r of wr.r ?? []) readings.add(r.ent);
     }
-    const surface = cleanText.slice(t.start, t.end);
-    let occ: WordOccurrence;
-    if (isProperNoun(t)) {
-      occ = {
-        start: t.start,
-        end: t.end,
-        surface,
-        headword: surface,
-        reading: "",
-        entryId: null,
-        isName: true,
-      };
-    } else if (hit && headword) {
-      occ = {
-        start: t.start,
-        end: t.end,
-        surface,
-        headword: headword.headword,
-        reading: headword.reading ?? "",
-        entryId: hit.results[0]?.id ?? null,
-        isName: false,
-      };
-    } else {
+    const isName = span.token ? isProperNoun(span.token) : false;
+    if (!isName && (!hit || !headword)) {
       // A non-name piece JMdict can't resolve — don't trust the split.
       return [];
     }
-    pieces.push({ occ, readings: [...readings] });
+    pieces.push({
+      start: span.start,
+      end: span.end,
+      surface,
+      isName,
+      hit,
+      readings: [...readings],
+    });
   }
 
   const assigned = partitionReading(
@@ -420,7 +460,43 @@ async function subSegmentAnnotated(
     pieces.map((p) => p.readings)
   );
   if (!assigned) return [];
-  return pieces.map((p, i) => ({ ...p.occ, reading: assigned[i]! }));
+
+  return pieces.map((p, i) => {
+    const reading = assigned[i]!;
+    if (p.isName || !p.hit) {
+      return {
+        start: p.start,
+        end: p.end,
+        surface: p.surface,
+        headword: p.surface,
+        reading,
+        entryId: null,
+        isName: p.isName,
+      };
+    }
+    // Hoist the JMdict result whose readings include the partition's assigned
+    // reading, so the stamped entry/headword agree with the LLM ruby: 中 in
+    // 森中《もりじゅう》 resolves to the suffix entry (じゅう), not 中「なか」.
+    const ordered = [...p.hit.results].sort(
+      (a, b) =>
+        Number((b.r ?? []).some((r) => r.ent === reading)) -
+        Number((a.r ?? []).some((r) => r.ent === reading))
+    );
+    const resolved = headwordFromHit({
+      ...p.hit,
+      results: ordered,
+      preferredReading: reading,
+    });
+    return {
+      start: p.start,
+      end: p.end,
+      surface: p.surface,
+      headword: resolved?.headword ?? p.surface,
+      reading: resolved?.reading ?? reading,
+      entryId: ordered[0]?.id ?? null,
+      isName: false,
+    };
+  });
 }
 
 /**

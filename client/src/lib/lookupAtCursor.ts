@@ -186,7 +186,8 @@ export async function lookupAtBoundary(
 
   if (
     (posHint === "動詞" && !hasVerbPos(exact)) ||
-    (await exactIsUnrankedExpression(exact))
+    (await exactIsUnrankedExpression(exact)) ||
+    (posHint === "動詞" && (await exactIsUnrankedInflectedVerb(exact, prefix)))
   ) {
     const candidates: LookupHit[] = [];
     for (const c of deinflect(prefix)) {
@@ -786,6 +787,36 @@ async function exactIsUnrankedExpression(
   );
   if (!allExpression) return false;
   return (await bestRank(results)) === null;
+}
+
+/**
+ * True when an exact JMdict match is a JPDB-unranked verb entry that JMdict
+ * happens to list an *inflected* form of — i.e. the surface deinflects to a
+ * base verb JPDB *does* rank. JMdict carries standalone entries for some
+ * productive conjugations (the causative 楽しませる, entry 2743060, unranked)
+ * whose conjugated-from lemma (楽しむ, rank 770) is the real tap target and
+ * the headword every other occurrence groups under. When this fires the
+ * POS-hinted verb branch runs and the deinflection preempts the exact match.
+ *
+ * Gated three ways so a genuine rare base verb is never deinflected away:
+ * every exact result must be a verb, JPDB must rank none of them, and some
+ * deinflection must resolve to a *ranked* verb. A plain rare verb (綯う) clears
+ * the first two but not the third — it has no ranked lemma underneath it.
+ */
+async function exactIsUnrankedInflectedVerb(
+  results: WordResult[],
+  surface: string
+): Promise<boolean> {
+  if (results.length === 0) return false;
+  if (!results.every((wr) => hasVerbPos([wr]))) return false;
+  if ((await bestRank(results)) !== null) return false;
+  for (const c of deinflect(surface)) {
+    if (c.base === surface) continue;
+    const hits = filterByPos(await lookupWord(c.base), c);
+    if (hits.length === 0 || !hasVerbPos(hits)) continue;
+    if ((await bestRank(hits)) !== null) return true;
+  }
+  return false;
 }
 
 /**
