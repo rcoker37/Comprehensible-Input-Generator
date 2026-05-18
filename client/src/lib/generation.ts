@@ -81,7 +81,8 @@ export function buildPrompt(
       .map((g, i) => `(${i + 1}) ${g}`)
       .join("; ")}. Outside these groups, prefer simpler wording over reaching for another kanji.`,
     "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
-    "- Write each word with its ordinary modern spelling: do not spell a word in hiragana or katakana just to avoid a kanji when that word is normally written with kanji, and when a word has more than one kanji form, use the common form rather than a rare or archaic one."
+    "- Write every word in its standard modern spelling, with every kanji that spelling uses. Do not substitute kana for a word's kanji — not the whole word when it is normally written with kanji (法律《ほうりつ》, never ほうりつ), and not part of it (法律《ほうりつ》, never 法《ほう》りつ; 医療《いりょう》, never 医《い》りょう). Ordinary okurigana — the べる of 食べる, the しい of 新しい — is part of the standard spelling, not a substitution, so keep it. When a word has more than one kanji form, use the common form rather than a rare or archaic one.",
+    "- Once you choose to use a word, all of its kanji are allowed: the kanji groups above limit which words you reach for, not how you spell a word you have already chosen."
   );
 
   if (wordRange && unseenWords.length > 0) {
@@ -117,7 +118,7 @@ export function buildPrompt(
     "",
     CONTENT_TYPE_LENGTH[contentType](paragraphs),
     "",
-    "Output ONLY the final content in Japanese. Start with a short title on the first line — plain text, no leading # or other markdown headings. Do not use markdown formatting of any kind (no #, **, _, -, >, backticks). Absolutely no English in the output: no explanations, no translations, no self-corrections, no meta-commentary. If you realize a kanji is not in the allowed list, silently rewrite with simpler vocabulary — do NOT narrate the correction. Any English sentence in the output is a failure."
+    "Output ONLY the final content in Japanese. Start with a short title on the first line — plain text, no leading # or other markdown headings. Do not use markdown formatting of any kind (no #, **, _, -, >, backticks). Absolutely no English in the output: no explanations, no translations, no self-corrections, no meta-commentary. If you realize a kanji is not in the allowed list, silently rewrite with simpler vocabulary or keep the word and write it fully in kanji — do NOT narrate the correction. Any English sentence in the output is a failure."
   );
 
   return parts.join("\n");

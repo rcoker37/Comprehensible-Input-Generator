@@ -64,10 +64,22 @@ describe("buildPrompt", () => {
     expect(withWords).toContain("kanji that appear in the unseen common words listed below");
   });
 
-  it("tells the model to write words with their ordinary spelling", () => {
+  it("tells the model to write words in their standard spelling without substituting kana for kanji", () => {
     const result = buildPrompt("fiction", 3, "日", "polite");
-    expect(result).toContain("ordinary modern spelling");
+    expect(result).toContain("standard modern spelling");
+    expect(result).toContain("never 法《ほう》りつ");
     expect(result).toContain("rare or archaic");
+  });
+
+  it("clarifies that ordinary okurigana is not a kana substitution", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite");
+    expect(result).toContain("Ordinary okurigana");
+    expect(result).toContain("食べる");
+  });
+
+  it("tells the model a chosen word's kanji are all allowed", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite");
+    expect(result).toContain("all of its kanji are allowed");
   });
 
   it("omits the unseen-words rule when unseenWordTarget is 'none'", () => {
