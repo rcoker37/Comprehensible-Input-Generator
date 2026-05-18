@@ -1,6 +1,22 @@
 {
-  "generatedAt": "2026-05-18T04:17:41.709Z",
+  "generatedAt": "2026-05-18T05:33:34.961Z",
   "occurrences": [
+    {
+      "start": 0,
+      "end": 4,
+      "surface": "一九二五",
+      "headword": "一九二五",
+      "reading": "いちきゅうにご",
+      "entryId": null
+    },
+    {
+      "start": 4,
+      "end": 5,
+      "surface": "年",
+      "headword": "年",
+      "reading": "ねん",
+      "entryId": 1468060
+    },
     {
       "start": 5,
       "end": 6,
@@ -16,6 +32,22 @@
       "headword": "大正",
       "reading": "たいしょう",
       "entryId": 1414250
+    },
+    {
+      "start": 8,
+      "end": 10,
+      "surface": "十四",
+      "headword": "十四",
+      "reading": "じゅうよ",
+      "entryId": null
+    },
+    {
+      "start": 10,
+      "end": 11,
+      "surface": "年",
+      "headword": "年",
+      "reading": "ねん",
+      "entryId": 1468060
     },
     {
       "start": 11,
@@ -88,6 +120,30 @@
       "headword": "です",
       "reading": "です",
       "entryId": 1628500
+    },
+    {
+      "start": 35,
+      "end": 36,
+      "surface": "二",
+      "headword": "二",
+      "reading": "に",
+      "entryId": null
+    },
+    {
+      "start": 36,
+      "end": 37,
+      "surface": "年",
+      "headword": "年",
+      "reading": "ねん",
+      "entryId": 1468060
+    },
+    {
+      "start": 37,
+      "end": 38,
+      "surface": "前",
+      "headword": "前",
+      "reading": "まえ",
+      "entryId": 1392570
     },
     {
       "start": 38,

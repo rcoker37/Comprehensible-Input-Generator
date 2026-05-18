@@ -1,0 +1,103 @@
+{
+  "meta": {
+    "title": "per-char-numbers",
+    "sourceStoryId": null,
+    "exportedAt": "2026-05-18T00:00:00.000Z",
+    "wordIndexVersion": 13,
+    "jmdictVersion": null,
+    "fixtureFormatVersion": 1
+  },
+  "content": "一《いち》九《きゅう》四《よん》五《ご》年《ねん》、町《まち》に店《みせ》が十《じゅう》三《さん》軒《けん》ありました。",
+  "expected": [
+    {
+      "start": 0,
+      "end": 4,
+      "surface": "一九四五",
+      "headword": "一九四五",
+      "reading": "いちきゅうよんご",
+      "entryId": null,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 4,
+      "end": 5,
+      "surface": "年",
+      "headword": "年",
+      "reading": "ねん",
+      "entryId": 1468060,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 6,
+      "end": 7,
+      "surface": "町",
+      "headword": "町",
+      "reading": "まち",
+      "entryId": 1603990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 7,
+      "end": 8,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 8,
+      "end": 9,
+      "surface": "店",
+      "headword": "店",
+      "reading": "みせ",
+      "entryId": 1582120,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 9,
+      "end": 10,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 10,
+      "end": 12,
+      "surface": "十三",
+      "headword": "十三",
+      "reading": "じゅうさん",
+      "entryId": 1334610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 12,
+      "end": 13,
+      "surface": "軒",
+      "headword": "軒",
+      "reading": "けん",
+      "entryId": 2078590,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 13,
+      "end": 18,
+      "surface": "ありました",
+      "headword": "ある",
+      "reading": "ある",
+      "entryId": 1296400,
+      "manual": false,
+      "isName": false
+    }
+  ]
+}
