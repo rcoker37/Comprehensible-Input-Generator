@@ -60,7 +60,12 @@ import {
   lookupFrequencyByEntrySync,
   lookupFrequencySync,
 } from "./frequency";
-import { tokenizeText, type KuromojiTokenInfo } from "./tokenizer";
+import {
+  isCopulaToken,
+  tokenizeText,
+  verbHintAt,
+  type KuromojiTokenInfo,
+} from "./tokenizer";
 import { KANJI_REGEX } from "./constants";
 import type {
   DisplayParagraph,
@@ -93,27 +98,37 @@ export async function regroupWords(
   const boundaries = tokens.map((t) => t.end); // sorted ascending by construction
 
   // Boundaries that land between a content verb (動詞) and a trailing
-  // auxiliary (助動詞). A merge ending exactly here would orphan the
-  // aux from its stem — e.g. 「に|し|ます」 has end=2 (after し), which
+  // conjugation auxiliary (助動詞). A merge ending exactly here would orphan
+  // the aux from its stem — e.g. 「に|し|ます」 has end=2 (after し), which
   // matches JMdict's 「にし」 (西=west) by surface alone but is wrong in
   // context. Pass 1 still tries the longer span (which deinflects via the
   // polite ます rule), so 「あります」「食べました」 keep working; only the
   // orphan-the-aux case is rejected.
+  //
+  // The copula (だ / です) is excluded: it attaches to a *noun*, never
+  // continues a verb conjugation, so a 動詞-tagged token before it is a
+  // complete word (the 連用形 noun 終わり in 終わり + だった) and merging up to
+  // that boundary is correct.
   const auxAfterVerbBoundaries = new Set<number>();
   for (let i = 0; i < tokens.length - 1; i++) {
     const cur = tokens[i]!;
     const next = tokens[i + 1]!;
-    if (cur.pos === "動詞" && next.pos === "助動詞") {
+    if (cur.pos === "動詞" && next.pos === "助動詞" && !isCopulaToken(next)) {
       auxAfterVerbBoundaries.add(cur.end);
     }
   }
 
-  // Per-token POS keyed by token start offset. Passed to lookupAtBoundary so
-  // it can disambiguate cases like 「赤くなり、」 where kuromoji says なり is
-  // 動詞 (continuative of なる) but JMdict has an unrelated noun entry that
-  // would otherwise short-circuit deinflection.
+  // Per-token POS hint keyed by token start offset. Passed to
+  // lookupAtBoundary so it can disambiguate cases like 「赤くなり、」 where
+  // kuromoji says なり is 動詞 (continuative of なる) but JMdict has an
+  // unrelated noun entry that would otherwise short-circuit deinflection.
+  // `verbHintAt` drops the 動詞 hint when the token is a 連用形 noun followed
+  // by the copula (終わり + だった), so the noun exact-match wins.
   const posByStart = new Map<number, string>();
-  for (const tok of tokens) posByStart.set(tok.start, tok.pos);
+  for (let i = 0; i < tokens.length; i++) {
+    const hint = verbHintAt(tokens, i);
+    if (hint !== undefined) posByStart.set(tokens[i]!.start, hint);
+  }
 
   const result: DisplayParagraph[] = [];
   for (const para of paragraphs) {

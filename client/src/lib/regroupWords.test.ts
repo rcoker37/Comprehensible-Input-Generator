@@ -18,7 +18,9 @@ import type { KuromojiTokenInfo } from "./tokenizer";
 // test fixtures readable: `tokens(["日本", "に", "は"])`. Pass
 // `{surface, pos}` objects when a test needs to exercise the POS-aware
 // regroup heuristics (e.g. 動詞|助動詞 split rejection).
-type TokenSpec = string | { surface: string; pos: string };
+type TokenSpec =
+  | string
+  | { surface: string; pos: string; basicForm?: string };
 function tokens(specs: TokenSpec[]): TokenizeFn {
   return async (text) => {
     const out: KuromojiTokenInfo[] = [];
@@ -26,7 +28,15 @@ function tokens(specs: TokenSpec[]): TokenizeFn {
     for (const spec of specs) {
       const surface = typeof spec === "string" ? spec : spec.surface;
       const pos = typeof spec === "string" ? "" : spec.pos;
-      out.push({ surface, start: cursor, end: cursor + surface.length, pos });
+      const basicForm =
+        typeof spec === "string" ? surface : (spec.basicForm ?? spec.surface);
+      out.push({
+        surface,
+        start: cursor,
+        end: cursor + surface.length,
+        pos,
+        basicForm,
+      });
       cursor += surface.length;
     }
     if (cursor !== text.length) {

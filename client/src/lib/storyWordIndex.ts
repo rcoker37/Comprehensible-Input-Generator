@@ -45,19 +45,18 @@ export interface WordOccurrence {
 
 /**
  * The algorithm version stamped onto `stories.word_index_version` every time
- * the indexer runs. It is a provenance record — *which* generation of the
- * regroup / deinflection / lookup pipeline produced a story's index — not a
- * re-index trigger.
+ * the indexer runs — *which* generation of the regroup / deinflection /
+ * lookup pipeline produced a story's index.
  *
- * Bumping this constant does NOT auto-re-index existing stories. The backfill
- * only picks up stories whose `word_index_at` is null (never indexed, or
- * explicitly cleared by a content edit / override save / override reset). To
- * re-index already-stamped stories after a pipeline change, ship a one-off
- * migration that nulls `word_index_at` for the rows you want rebuilt — e.g.
- * `UPDATE stories SET word_index_at = NULL WHERE word_index_version < 6`.
+ * Bumping this constant DOES re-index every already-stamped story: the
+ * backfill query (`getStoriesNeedingIndex`) picks up any complete story whose
+ * `word_index_version` is null or below this constant, alongside the ones
+ * whose `word_index_at` is null (never indexed, or cleared by a content edit /
+ * override save / override reset). A re-index re-stamps the version, so each
+ * story drops out of the query once it catches up — no migration needed.
  *
- * Still worth bumping on every materially-different pipeline change so the
- * stamp stays accurate and such a migration has a clean predicate to target.
+ * So bump this on every materially-different pipeline change; the whole
+ * library re-indexes itself on the next backfill pass.
  *
  * History:
  *   1 — initial. POS-hinted continuative deinflection (なり → なる, etc.).
@@ -133,8 +132,15 @@ export interface WordOccurrence {
  *       the counter (年, 前, …) is indexed and scored on its own. A multi-
  *       char occurrence that already carries an entry id (二十五 → ２５) is
  *       left intact rather than absorbed.
+ *  14 — the kuromoji POS hint now routes through `verbHintAt` (tokenizer.ts):
+ *       a 連用形 noun (終わり, 始め, 動き) immediately followed by the copula
+ *       (だ / です) keeps its noun reading instead of being deinflected to the
+ *       verb, so 物語の終わりだった indexes 終わり as the noun, not 終わる. The
+ *       regroup pass also no longer treats a 動詞→copula boundary as an
+ *       aux-orphaning boundary, so 終わり merges into one span instead of
+ *       splitting into 終 / わ / り.
  */
-export const WORD_INDEX_VERSION = 13;
+export const WORD_INDEX_VERSION = 14;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

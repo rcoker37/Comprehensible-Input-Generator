@@ -55,6 +55,12 @@ export interface KuromojiTokenInfo {
    * auxiliaries; see `regroupWords.ts`.
    */
   pos: string;
+  /**
+   * Kuromoji's dictionary lemma (基本形) for the token — e.g. 'だ' for the
+   * copula fragment 'だっ' in 'だった'. Used to tell a copula auxiliary apart
+   * from a verb-conjugation auxiliary, both of which kuromoji tags 助動詞.
+   */
+  basicForm: string;
 }
 
 /**
@@ -74,6 +80,7 @@ export async function tokenizeText(text: string): Promise<KuromojiTokenInfo[]> {
       start: cursor,
       end: cursor + surface.length,
       pos: tok.pos,
+      basicForm: tok.basic_form,
     });
     cursor += surface.length;
   }
@@ -100,11 +107,45 @@ export function tokenizeTextCached(text: string): Promise<KuromojiTokenInfo[]> {
   return p;
 }
 
-/** POS of the kuromoji token starting at `offset`, or undefined if none. */
+/**
+ * True when `token` is a copula auxiliary (だ / です / である) rather than a
+ * verb-conjugation auxiliary (た / ます / ない …) — kuromoji tags both 助動詞,
+ * so the lemma is what separates them.
+ */
+export function isCopulaToken(token: KuromojiTokenInfo | undefined): boolean {
+  if (!token || token.pos !== "助動詞") return false;
+  return token.basicForm === "だ" || token.basicForm === "です";
+}
+
+/**
+ * The POS hint `lookupAtBoundary` should see for the token at index `i`.
+ *
+ * Almost always just the token's own POS, but it corrects one kuromoji
+ * ambiguity: a 連用形 noun (終わり, 始め, 動き) is surface-identical to the
+ * continuative of its verb (終わる, 始める, 動く), and kuromoji tags it 動詞.
+ * That 動詞 hint makes `lookupAtBoundary` deinflect to the verb. When the very
+ * next token is the copula (終わり + だった / です), the token is functioning
+ * as a noun — a verb 連用形 is never directly followed by the copula — so the
+ * hint is dropped (undefined) and the noun exact-match stands. Continuative
+ * verbs before a comma or another verb keep their 動詞 hint untouched.
+ */
+export function verbHintAt(
+  tokens: KuromojiTokenInfo[],
+  i: number
+): string | undefined {
+  const token = tokens[i];
+  if (!token) return undefined;
+  if (token.pos === "動詞" && isCopulaToken(tokens[i + 1])) return undefined;
+  return token.pos;
+}
+
+/** POS hint for the kuromoji token starting at `offset`, or undefined if none. */
 export async function posHintAtOffset(
   text: string,
   offset: number
 ): Promise<string | undefined> {
   const tokens = await tokenizeTextCached(text);
-  return tokens.find((t) => t.start === offset)?.pos;
+  const i = tokens.findIndex((t) => t.start === offset);
+  if (i === -1) return undefined;
+  return verbHintAt(tokens, i);
 }

@@ -475,12 +475,11 @@ export async function getPerStoryWordOccurrences(): Promise<
 /**
  * Bulk-replace the calling user's word-occurrence index for a story. Server
  * deletes the story's existing non-manual rows, inserts the new set, and
- * stamps `stories.word_index_at` + `word_index_version`. Once `word_index_at`
- * is set the backfill won't touch the story again unless something nulls it
- * (content edit, override save / reset) — a `WORD_INDEX_VERSION` bump no
- * longer forces a re-index; the version is recorded as provenance only.
- * Returns the timestamp the row was stamped with so the client can update
- * its local Story state without a refetch.
+ * stamps `stories.word_index_at` + `word_index_version`. The backfill won't
+ * touch the story again unless something nulls `word_index_at` (content edit,
+ * override save / reset) or `WORD_INDEX_VERSION` is bumped above the stamped
+ * version. Returns the timestamp the row was stamped with so the client can
+ * update its local Story state without a refetch.
  */
 export async function indexStoryWords(
   storyId: number,
@@ -503,12 +502,17 @@ export async function indexStoryWords(
 }
 
 /**
- * Returns every complete story whose word index is missing — `word_index_at`
- * is null — oldest first so the backfill processes least-recent stories
- * first. A null stamp means the story was never indexed, or its index was
- * explicitly cleared (content edit, override save / reset, which all null
- * `word_index_at` server-side). An algorithm change alone does NOT re-index
- * already-stamped stories; see `WORD_INDEX_VERSION` in `lib/storyWordIndex.ts`.
+ * Returns every complete story whose word index is missing or stale, oldest
+ * first so the backfill processes least-recent stories first. A story needs
+ * (re)indexing when:
+ *   - `word_index_at` is null — never indexed, or explicitly cleared by a
+ *     content edit / override save / override reset; or
+ *   - `word_index_version` is null or below the current `WORD_INDEX_VERSION`
+ *     — indexed by an older generation of the pipeline.
+ * So bumping `WORD_INDEX_VERSION` re-indexes the whole library on the next
+ * backfill pass; the re-index re-stamps the version so each story drops out
+ * of this query once it catches up. See `WORD_INDEX_VERSION` in
+ * `lib/storyWordIndex.ts`.
  *
  * Read state is intentionally not a gate here — the popover's "other usages"
  * carousel filters to read stories at the SQL layer (`get_word_usages`), but
@@ -522,7 +526,9 @@ export async function getStoriesNeedingIndex(): Promise<
     .from("stories")
     .select("id, content")
     .eq("status", "complete")
-    .is("word_index_at", null)
+    .or(
+      `word_index_at.is.null,word_index_version.is.null,word_index_version.lt.${WORD_INDEX_VERSION}`
+    )
     .order("created_at", { ascending: true });
   if (error) throw new Error(error.message);
   return (data as { id: number; content: string }[]) || [];
