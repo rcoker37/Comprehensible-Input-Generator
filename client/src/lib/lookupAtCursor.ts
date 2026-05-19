@@ -167,10 +167,20 @@ export async function lookupAtCursor(
  * expression-verbs (which JPDB ranks) returning their own entry untouched.
  * Applies to both pure-kana and mixed-script surfaces.
  *
- * Among the verb candidates, the LLM furigana break homophone-stem ties when
- * they cover the span (降《ふ》り → 降る, not 降りる); otherwise the candidates
- * differ only by godan class and the most common lemma is picked by JPDB rank
- * (なって → the everyday なる, not the rare 綯う) — see `pickVerbDeinflection`.
+ * A parallel trigger covers い-adjectives: when kuromoji tags the span 形容詞
+ * or 副詞 but the exact JMdict match carries no い-adjective POS, a deinflection
+ * that resolves to an `adj-i` base preempts it. 「古くなった」's 古く is the 連用形
+ * of 古い, but JMdict also lists a standalone adverb 古く that would otherwise
+ * win the exact match — the adjective is the headword every other 古い
+ * occurrence groups under. Both POS hints are accepted because kuromoji's
+ * IPADIC is inconsistent about adjective 連用形 — 多く tags 形容詞, 古く tags
+ * 副詞. The 名詞 hint is excluded, so the noun 多く of 「多くの人」 is left alone.
+ *
+ * Among the deinflection candidates, the LLM furigana break homophone-stem
+ * ties when they cover the span (降《ふ》り → 降る, not 降りる); otherwise the
+ * candidates differ only by godan class and the most common lemma is picked by
+ * JPDB rank (なって → the everyday なる, not the rare 綯う) — see
+ * `pickDeinflection`.
  */
 export async function lookupAtBoundary(
   text: string,
@@ -203,12 +213,39 @@ export async function lookupAtBoundary(
         results: filtered,
       });
     }
-    const picked = await pickVerbDeinflection(
+    const picked = await pickDeinflection(
       candidates,
       prefix,
       start,
       annotations
     );
+    if (picked) return picked;
+  }
+
+  // い-adjective continuative (連用形): 「古くなった」's 古く is the 連用形 of 古い,
+  // but JMdict also lists a standalone adverb 古く that exact-matches and would
+  // otherwise win. When the exact match has no い-adjective POS and a
+  // deinflection resolves to an `adj-i` base, that base preempts it. The gate
+  // accepts both kuromoji POS hints an adjective 連用形 surfaces under: 形容詞
+  // (多く in 多くなる) and 副詞 — kuromoji's IPADIC lexicalises some 連用形 as
+  // standalone adverbs (古く tags 副詞). Excluding the 名詞 hint is what keeps
+  // the noun 多く of 多くの人 from being deinflected to 多い.
+  if ((posHint === "形容詞" || posHint === "副詞") && !hasAdjPos(exact)) {
+    const candidates: LookupHit[] = [];
+    for (const c of deinflect(prefix)) {
+      const hits = await lookupWord(c.base);
+      const filtered = filterByPos(hits, c);
+      if (filtered.length === 0 || !hasAdjPos(filtered)) continue;
+      candidates.push({
+        start,
+        end,
+        surface: prefix,
+        base: c.base,
+        derivations: c.derivations,
+        results: filtered,
+      });
+    }
+    const picked = await pickDeinflection(candidates, prefix, start, annotations);
     if (picked) return picked;
   }
 
@@ -607,6 +644,25 @@ export function hasVerbPos(results: WordResult[]): boolean {
   return false;
 }
 
+/**
+ * True iff any sense's POS tags include an い-adjective class (`adj-i` or the
+ * いい/よい special class `adj-ix`). Like {@link hasVerbPos} it skips `arch`/
+ * `obs` senses. Used by the kuromoji-形容詞-hinted deinflection path: if an
+ * exact match already carries an い-adjective sense, kuromoji's hint is
+ * satisfied and no override is needed.
+ */
+export function hasAdjPos(results: WordResult[]): boolean {
+  for (const wr of results) {
+    for (const sense of wr.s ?? []) {
+      if (sense.misc?.some((m) => m === "arch" || m === "obs")) continue;
+      for (const tag of sense.pos ?? []) {
+        if (tag === "adj-i" || tag === "adj-ix") return true;
+      }
+    }
+  }
+  return false;
+}
+
 export function isPureKana(s: string): boolean {
   for (const ch of s) {
     const c = ch.codePointAt(0) ?? 0;
@@ -738,7 +794,7 @@ async function mostCommonHit(hits: LookupHit[]): Promise<LookupHit | null> {
 }
 
 /**
- * Choose among the verb deinflection candidates for a kuromoji-動詞 span.
+ * Choose among the deinflection candidates for a kuromoji-動詞 / 形容詞 span.
  *
  * When the LLM furigana cover the span they positively disambiguate homophone
  * stems (降《ふ》り → 降る, not 降りる). With no furigana evidence the candidates
@@ -747,7 +803,7 @@ async function mostCommonHit(hits: LookupHit[]): Promise<LookupHit | null> {
  * (rank 16), not the rare 綯う (45,193). Falls back to `deinflect`'s priority
  * order when no candidate is ranked. Returns null when there were none.
  */
-async function pickVerbDeinflection(
+async function pickDeinflection(
   candidates: LookupHit[],
   surface: string,
   surfaceStart: number,

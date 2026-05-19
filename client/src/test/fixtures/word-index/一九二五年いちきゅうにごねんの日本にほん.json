@@ -25,7 +25,7 @@
       "surface": "年",
       "headword": "年",
       "reading": "ねん",
-      "entryId": 1468060,
+      "entryId": 2084840,
       "manual": false,
       "isName": false
     },
@@ -65,7 +65,7 @@
       "surface": "年",
       "headword": "年",
       "reading": "ねん",
-      "entryId": 1468060,
+      "entryId": 2084840,
       "manual": false,
       "isName": false
     },
@@ -175,7 +175,7 @@
       "surface": "年",
       "headword": "年",
       "reading": "ねん",
-      "entryId": 1468060,
+      "entryId": 2084840,
       "manual": false,
       "isName": false
     },
@@ -185,7 +185,7 @@
       "surface": "前",
       "headword": "前",
       "reading": "まえ",
-      "entryId": 1392570,
+      "entryId": 1392580,
       "manual": false,
       "isName": false
     },
@@ -2413,9 +2413,9 @@
       "start": 550,
       "end": 552,
       "surface": "多く",
-      "headword": "多く",
-      "reading": "おおく",
-      "entryId": 1861770,
+      "headword": "多い",
+      "reading": "おおい",
+      "entryId": 1407460,
       "manual": false,
       "isName": false
     },

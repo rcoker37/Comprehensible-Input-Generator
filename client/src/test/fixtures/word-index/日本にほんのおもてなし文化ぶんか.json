@@ -536,7 +536,7 @@
       "headword": "いらっしゃいませ",
       "reading": "いらっしゃいませ",
       "entryId": 1000930,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
@@ -1656,7 +1656,7 @@
       "headword": "心をこめる",
       "reading": "こころをこめる",
       "entryId": 2027890,
-      "manual": true,
+      "manual": false,
       "isName": false
     },
     {
