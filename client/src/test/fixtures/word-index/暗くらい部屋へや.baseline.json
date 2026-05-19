@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-17T23:47:39.675Z",
+  "generatedAt": "2026-05-19T17:24:28.553Z",
   "occurrences": [
     {
       "start": 0,
@@ -7,7 +7,8 @@
       "surface": "夕方",
       "headword": "夕方",
       "reading": "ゆうがた",
-      "entryId": 1542790
+      "entryId": 1542790,
+      "isName": false
     },
     {
       "start": 3,
@@ -15,7 +16,8 @@
       "surface": "部屋",
       "headword": "部屋",
       "reading": "へや",
-      "entryId": 1499320
+      "entryId": 1499320,
+      "isName": false
     },
     {
       "start": 5,
@@ -23,7 +25,8 @@
       "surface": "の",
       "headword": "の",
       "reading": "の",
-      "entryId": 1469800
+      "entryId": 1469800,
+      "isName": false
     },
     {
       "start": 6,
@@ -31,7 +34,8 @@
       "surface": "中",
       "headword": "中",
       "reading": "なか",
-      "entryId": 1423310
+      "entryId": 1423310,
+      "isName": false
     },
     {
       "start": 7,
@@ -39,7 +43,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 8,
@@ -47,15 +52,17 @@
       "surface": "暗く",
       "headword": "暗い",
       "reading": "くらい",
-      "entryId": 1154330
+      "entryId": 1154330,
+      "isName": false
     },
     {
       "start": 10,
       "end": 15,
       "surface": "なりました",
-      "headword": "なる",
+      "headword": "成る",
       "reading": "なる",
-      "entryId": 1375610
+      "entryId": 1375610,
+      "isName": false
     },
     {
       "start": 16,
@@ -63,7 +70,8 @@
       "surface": "私",
       "headword": "私",
       "reading": "わたし",
-      "entryId": 1311110
+      "entryId": 1311110,
+      "isName": false
     },
     {
       "start": 17,
@@ -71,7 +79,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 18,
@@ -79,7 +88,8 @@
       "surface": "窓",
       "headword": "窓",
       "reading": "まど",
-      "entryId": 1401400
+      "entryId": 1401400,
+      "isName": false
     },
     {
       "start": 19,
@@ -87,7 +97,8 @@
       "surface": "から",
       "headword": "から",
       "reading": "から",
-      "entryId": 1002980
+      "entryId": 1002980,
+      "isName": false
     },
     {
       "start": 21,
@@ -95,7 +106,8 @@
       "surface": "空",
       "headword": "空",
       "reading": "そら",
-      "entryId": 1245290
+      "entryId": 1245290,
+      "isName": false
     },
     {
       "start": 22,
@@ -103,7 +115,8 @@
       "surface": "を",
       "headword": "を",
       "reading": "を",
-      "entryId": 2029010
+      "entryId": 2029010,
+      "isName": false
     },
     {
       "start": 23,
@@ -111,7 +124,8 @@
       "surface": "見て",
       "headword": "見る",
       "reading": "みる",
-      "entryId": 1259290
+      "entryId": 1259290,
+      "isName": false
     },
     {
       "start": 26,
@@ -119,7 +133,8 @@
       "surface": "星",
       "headword": "星",
       "reading": "ほし",
-      "entryId": 1376310
+      "entryId": 1376310,
+      "isName": false
     },
     {
       "start": 27,
@@ -127,7 +142,8 @@
       "surface": "が",
       "headword": "が",
       "reading": "が",
-      "entryId": 2028930
+      "entryId": 2028930,
+      "isName": false
     },
     {
       "start": 28,
@@ -135,7 +151,8 @@
       "surface": "三つ",
       "headword": "三つ",
       "reading": "みっつ",
-      "entryId": 1299740
+      "entryId": 1299740,
+      "isName": false
     },
     {
       "start": 30,
@@ -143,7 +160,8 @@
       "surface": "くらい",
       "headword": "くらい",
       "reading": "くらい",
-      "entryId": 1154340
+      "entryId": 1154340,
+      "isName": false
     },
     {
       "start": 33,
@@ -151,7 +169,8 @@
       "surface": "数えました",
       "headword": "数える",
       "reading": "かぞえる",
-      "entryId": 1372900
+      "entryId": 1372900,
+      "isName": false
     },
     {
       "start": 42,
@@ -159,7 +178,8 @@
       "surface": "貴方",
       "headword": "貴方",
       "reading": "あなた",
-      "entryId": 1223615
+      "entryId": 1223615,
+      "isName": false
     },
     {
       "start": 45,
@@ -167,7 +187,8 @@
       "surface": "ご飯",
       "headword": "ご飯",
       "reading": "ごはん",
-      "entryId": 1270590
+      "entryId": 1270590,
+      "isName": false
     },
     {
       "start": 47,
@@ -175,7 +196,8 @@
       "surface": "です",
       "headword": "です",
       "reading": "です",
-      "entryId": 1628500
+      "entryId": 1628500,
+      "isName": false
     },
     {
       "start": 49,
@@ -183,7 +205,8 @@
       "surface": "よ",
       "headword": "よ",
       "reading": "よ",
-      "entryId": 2029090
+      "entryId": 2029090,
+      "isName": false
     },
     {
       "start": 51,
@@ -191,7 +214,8 @@
       "surface": "と",
       "headword": "と",
       "reading": "と",
-      "entryId": 1008490
+      "entryId": 1008490,
+      "isName": false
     },
     {
       "start": 52,
@@ -199,7 +223,8 @@
       "surface": "母",
       "headword": "母",
       "reading": "はは",
-      "entryId": 1514990
+      "entryId": 1514990,
+      "isName": false
     },
     {
       "start": 53,
@@ -207,7 +232,8 @@
       "surface": "の",
       "headword": "の",
       "reading": "の",
-      "entryId": 1469800
+      "entryId": 1469800,
+      "isName": false
     },
     {
       "start": 54,
@@ -215,7 +241,8 @@
       "surface": "声",
       "headword": "声",
       "reading": "こえ",
-      "entryId": 1380440
+      "entryId": 1380440,
+      "isName": false
     },
     {
       "start": 55,
@@ -223,7 +250,8 @@
       "surface": "が",
       "headword": "が",
       "reading": "が",
-      "entryId": 2028930
+      "entryId": 2028930,
+      "isName": false
     },
     {
       "start": 56,
@@ -231,7 +259,8 @@
       "surface": "聞こえました",
       "headword": "聞こえる",
       "reading": "きこえる",
-      "entryId": 1591150
+      "entryId": 1591150,
+      "isName": false
     },
     {
       "start": 63,
@@ -239,7 +268,8 @@
       "surface": "私",
       "headword": "私",
       "reading": "わたし",
-      "entryId": 1311110
+      "entryId": 1311110,
+      "isName": false
     },
     {
       "start": 64,
@@ -247,7 +277,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 66,
@@ -255,7 +286,8 @@
       "surface": "今",
       "headword": "今",
       "reading": "いま",
-      "entryId": 1288850
+      "entryId": 1288850,
+      "isName": false
     },
     {
       "start": 67,
@@ -263,7 +295,8 @@
       "surface": "行きます",
       "headword": "行く",
       "reading": "いく",
-      "entryId": 1578850
+      "entryId": 1578850,
+      "isName": false
     },
     {
       "start": 72,
@@ -271,7 +304,8 @@
       "surface": "と",
       "headword": "と",
       "reading": "と",
-      "entryId": 1008490
+      "entryId": 1008490,
+      "isName": false
     },
     {
       "start": 73,
@@ -279,7 +313,8 @@
       "surface": "答えました",
       "headword": "答える",
       "reading": "こたえる",
-      "entryId": 1449540
+      "entryId": 1449540,
+      "isName": false
     },
     {
       "start": 81,
@@ -287,7 +322,8 @@
       "surface": "台所",
       "headword": "台所",
       "reading": "だいどころ",
-      "entryId": 1412640
+      "entryId": 1412640,
+      "isName": false
     },
     {
       "start": 83,
@@ -295,7 +331,8 @@
       "surface": "で",
       "headword": "で",
       "reading": "で",
-      "entryId": 2028980
+      "entryId": 2028980,
+      "isName": false
     },
     {
       "start": 84,
@@ -303,7 +340,8 @@
       "surface": "母",
       "headword": "母",
       "reading": "はは",
-      "entryId": 1514990
+      "entryId": 1514990,
+      "isName": false
     },
     {
       "start": 85,
@@ -311,7 +349,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 87,
@@ -319,7 +358,8 @@
       "surface": "今日",
       "headword": "今日",
       "reading": "きょう",
-      "entryId": 1579110
+      "entryId": 1579110,
+      "isName": false
     },
     {
       "start": 89,
@@ -327,7 +367,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 90,
@@ -335,7 +376,8 @@
       "surface": "何時",
       "headword": "何時",
       "reading": "なんじ",
-      "entryId": 1188770
+      "entryId": 1188770,
+      "isName": false
     },
     {
       "start": 92,
@@ -343,7 +385,8 @@
       "surface": "くらい",
       "headword": "くらい",
       "reading": "くらい",
-      "entryId": 1154340
+      "entryId": 1154340,
+      "isName": false
     },
     {
       "start": 95,
@@ -351,7 +394,8 @@
       "surface": "に",
       "headword": "に",
       "reading": "に",
-      "entryId": 2028990
+      "entryId": 2028990,
+      "isName": false
     },
     {
       "start": 96,
@@ -359,7 +403,8 @@
       "surface": "帰りました",
       "headword": "帰る",
       "reading": "かえる",
-      "entryId": 1221270
+      "entryId": 1221270,
+      "isName": false
     },
     {
       "start": 101,
@@ -367,7 +412,8 @@
       "surface": "か",
       "headword": "か",
       "reading": "か",
-      "entryId": 2028970
+      "entryId": 2028970,
+      "isName": false
     },
     {
       "start": 103,
@@ -375,7 +421,8 @@
       "surface": "と",
       "headword": "と",
       "reading": "と",
-      "entryId": 1008490
+      "entryId": 1008490,
+      "isName": false
     },
     {
       "start": 104,
@@ -383,7 +430,8 @@
       "surface": "聞きました",
       "headword": "聞く",
       "reading": "きく",
-      "entryId": 1591110
+      "entryId": 1591110,
+      "isName": false
     },
     {
       "start": 110,
@@ -391,7 +439,8 @@
       "surface": "私",
       "headword": "私",
       "reading": "わたし",
-      "entryId": 1311110
+      "entryId": 1311110,
+      "isName": false
     },
     {
       "start": 111,
@@ -399,7 +448,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 113,
@@ -407,7 +457,8 @@
       "surface": "六時",
       "headword": "六時",
       "reading": "ろくじ",
-      "entryId": 2583620
+      "entryId": 2583620,
+      "isName": false
     },
     {
       "start": 115,
@@ -415,7 +466,8 @@
       "surface": "くらい",
       "headword": "くらい",
       "reading": "くらい",
-      "entryId": 1154340
+      "entryId": 1154340,
+      "isName": false
     },
     {
       "start": 118,
@@ -423,7 +475,8 @@
       "surface": "です",
       "headword": "です",
       "reading": "です",
-      "entryId": 1628500
+      "entryId": 1628500,
+      "isName": false
     },
     {
       "start": 121,
@@ -431,7 +484,8 @@
       "surface": "と",
       "headword": "と",
       "reading": "と",
-      "entryId": 1008490
+      "entryId": 1008490,
+      "isName": false
     },
     {
       "start": 122,
@@ -439,7 +493,8 @@
       "surface": "答えました",
       "headword": "答える",
       "reading": "こたえる",
-      "entryId": 1449540
+      "entryId": 1449540,
+      "isName": false
     },
     {
       "start": 128,
@@ -447,7 +502,8 @@
       "surface": "外",
       "headword": "外",
       "reading": "そと",
-      "entryId": 1203250
+      "entryId": 1203250,
+      "isName": false
     },
     {
       "start": 129,
@@ -455,7 +511,8 @@
       "surface": "は",
       "headword": "は",
       "reading": "は",
-      "entryId": 2028920
+      "entryId": 2028920,
+      "isName": false
     },
     {
       "start": 130,
@@ -463,7 +520,8 @@
       "surface": "もう",
       "headword": "もう",
       "reading": "もう",
-      "entryId": 1012480
+      "entryId": 1012480,
+      "isName": false
     },
     {
       "start": 132,
@@ -471,7 +529,8 @@
       "surface": "暗かった",
       "headword": "暗い",
       "reading": "くらい",
-      "entryId": 1154330
+      "entryId": 1154330,
+      "isName": false
     },
     {
       "start": 136,
@@ -479,7 +538,8 @@
       "surface": "です",
       "headword": "です",
       "reading": "です",
-      "entryId": 1628500
+      "entryId": 1628500,
+      "isName": false
     }
   ]
 }

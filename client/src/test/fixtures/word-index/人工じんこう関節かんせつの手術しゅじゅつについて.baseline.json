@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-18T23:58:23.505Z",
+  "generatedAt": "2026-05-19T17:24:05.541Z",
   "occurrences": [
     {
       "start": 0,
@@ -266,7 +266,7 @@
       "start": 59,
       "end": 67,
       "surface": "なくなってしまう",
-      "headword": "なくなる",
+      "headword": "無くなる",
       "reading": "なくなる",
       "entryId": 1529550,
       "isName": false
@@ -275,7 +275,7 @@
       "start": 67,
       "end": 74,
       "surface": "ことがあります",
-      "headword": "ことがある",
+      "headword": "事がある",
       "reading": "ことがある",
       "entryId": 1004540,
       "isName": false
@@ -320,7 +320,7 @@
       "start": 86,
       "end": 88,
       "surface": "なり",
-      "headword": "なる",
+      "headword": "成る",
       "reading": "なる",
       "entryId": 1375610,
       "isName": false
@@ -365,7 +365,7 @@
       "start": 96,
       "end": 100,
       "surface": "なります",
-      "headword": "なる",
+      "headword": "成る",
       "reading": "なる",
       "entryId": 1375610,
       "isName": false
@@ -482,7 +482,7 @@
       "start": 127,
       "end": 134,
       "surface": "ことがあります",
-      "headword": "ことがある",
+      "headword": "事がある",
       "reading": "ことがある",
       "entryId": 1004540,
       "isName": false
@@ -518,7 +518,7 @@
       "start": 140,
       "end": 143,
       "surface": "なった",
-      "headword": "なる",
+      "headword": "成る",
       "reading": "なる",
       "entryId": 1375610,
       "isName": false
@@ -842,7 +842,7 @@
       "start": 226,
       "end": 230,
       "surface": "つけます",
-      "headword": "つける",
+      "headword": "付ける",
       "reading": "つける",
       "entryId": 1495770,
       "isName": false
@@ -923,7 +923,7 @@
       "start": 248,
       "end": 253,
       "surface": "かかります",
-      "headword": "かかる",
+      "headword": "掛かる",
       "reading": "かかる",
       "entryId": 1207590,
       "isName": false
@@ -1004,7 +1004,7 @@
       "start": 270,
       "end": 277,
       "surface": "ことになります",
-      "headword": "ことになる",
+      "headword": "事になる",
       "reading": "ことになる",
       "entryId": 1004590,
       "isName": false
@@ -1067,7 +1067,7 @@
       "start": 289,
       "end": 291,
       "surface": "きて",
-      "headword": "くる",
+      "headword": "来る",
       "reading": "くる",
       "entryId": 1547720,
       "isName": false
@@ -1139,7 +1139,7 @@
       "start": 305,
       "end": 316,
       "surface": "できるようになりました",
-      "headword": "できるようになる",
+      "headword": "出来るようになる",
       "reading": "できるようになる",
       "entryId": 1008400,
       "isName": false
@@ -1346,7 +1346,7 @@
       "start": 365,
       "end": 369,
       "surface": "なります",
-      "headword": "なる",
+      "headword": "成る",
       "reading": "なる",
       "entryId": 1375610,
       "isName": false
@@ -1589,7 +1589,7 @@
       "start": 420,
       "end": 427,
       "surface": "ことができます",
-      "headword": "ことができる",
+      "headword": "ことが出来る",
       "reading": "ことができる",
       "entryId": 1004550,
       "isName": false
@@ -1724,7 +1724,7 @@
       "start": 460,
       "end": 468,
       "surface": "ようになっている",
-      "headword": "ようになる",
+      "headword": "様になる",
       "reading": "ようになる",
       "entryId": 1013130,
       "isName": false

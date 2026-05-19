@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-18T20:24:07.148Z",
+  "generatedAt": "2026-05-19T17:24:42.463Z",
   "occurrences": [
     {
       "start": 0,
@@ -122,7 +122,7 @@
       "start": 21,
       "end": 26,
       "surface": "ことにした",
-      "headword": "ことにする",
+      "headword": "事にする",
       "reading": "ことにする",
       "entryId": 2215340,
       "isName": false
@@ -203,7 +203,7 @@
       "start": 38,
       "end": 41,
       "surface": "なって",
-      "headword": "なる",
+      "headword": "成る",
       "reading": "なる",
       "entryId": 1375610,
       "isName": false
@@ -212,7 +212,7 @@
       "start": 42,
       "end": 45,
       "surface": "みんな",
-      "headword": "みる",
+      "headword": "見る",
       "reading": "みる",
       "entryId": 1259290,
       "isName": false
@@ -365,7 +365,7 @@
       "start": 69,
       "end": 71,
       "surface": "した",
-      "headword": "する",
+      "headword": "為る",
       "reading": "する",
       "entryId": 1157170,
       "isName": false
@@ -482,7 +482,7 @@
       "start": 106,
       "end": 112,
       "surface": "やめなかった",
-      "headword": "やめる",
+      "headword": "止める",
       "reading": "やめる",
       "entryId": 1310680,
       "isName": false
@@ -563,7 +563,7 @@
       "start": 129,
       "end": 136,
       "surface": "気持ちよかった",
-      "headword": "気持ちよい",
+      "headword": "気持ちいい",
       "reading": "きもちいい",
       "entryId": 1222230,
       "isName": false
@@ -770,7 +770,7 @@
       "start": 173,
       "end": 176,
       "surface": "くれた",
-      "headword": "くる",
+      "headword": "抉る",
       "reading": "えぐる",
       "entryId": 1585570,
       "isName": false
@@ -923,7 +923,7 @@
       "start": 205,
       "end": 208,
       "surface": "みんな",
-      "headword": "みる",
+      "headword": "見る",
       "reading": "みる",
       "entryId": 1259290,
       "isName": false
@@ -1184,7 +1184,7 @@
       "start": 273,
       "end": 275,
       "surface": "した",
-      "headword": "する",
+      "headword": "為る",
       "reading": "する",
       "entryId": 1157170,
       "isName": false
@@ -1256,7 +1256,7 @@
       "start": 296,
       "end": 301,
       "surface": "年を取った",
-      "headword": "年を取る",
+      "headword": "年をとる",
       "reading": "としをとる",
       "entryId": 1468190,
       "isName": false
@@ -1328,7 +1328,7 @@
       "start": 317,
       "end": 320,
       "surface": "みんな",
-      "headword": "みる",
+      "headword": "見る",
       "reading": "みる",
       "entryId": 1259290,
       "isName": false

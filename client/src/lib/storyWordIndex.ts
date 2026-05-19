@@ -182,8 +182,16 @@ export interface WordOccurrence {
  *       (`exactIsUnrankedInflectedVerb`): the causative 楽しませる resolves to
  *       its conjugated-from lemma 楽しむ instead of the standalone unranked
  *       楽しませる entry.
+ *  19 — `lookupAtBoundary` auto-detects い-adjective 連用形 (古く → 古い) and
+ *       何/数-led numbered words (何百万人).
+ *  20 — `headwordFromHit` now derives the canonical headword from the resolved
+ *       JMdict entry's first non-`sK` kanji form for *deinflected* hits too,
+ *       instead of returning the (possibly kana) deinflection base. A `uk`
+ *       verb like 居る now stamps 居る for every form — an exact いる tap and a
+ *       conjugated います both — so the Stats Browse encounter count (keyed on
+ *       the entry's `canonical`) no longer splits between 居る and いる.
  */
-export const WORD_INDEX_VERSION = 19;
+export const WORD_INDEX_VERSION = 20;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
