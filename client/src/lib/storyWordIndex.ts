@@ -25,6 +25,7 @@ import { regroupWords } from "./regroupWords";
 import { buildDisplaySegments, type AnnotatedPart } from "./storySegments";
 import { stripBold } from "./text";
 import {
+  baseHintAtOffset,
   isProperNoun,
   posHintAtOffset,
   tokenizeText,
@@ -195,8 +196,13 @@ export interface WordOccurrence {
  *       to 居る, so 要る now ranks 3,812 (not 18) and 癒る 23,034. This corrects
  *       the deinflection arbitration (`bestRank`), which had been picking the
  *       falsely-rank-18 要る for ambiguous kana spans.
+ *  22 — `lookupAtBoundary` now takes a `baseHint` (kuromoji's in-context 基本形
+ *       for the span's leading token); `pickDeinflection` prefers the candidate
+ *       matching it before the JPDB-rank tiebreaker. 「〜ていった」 resolves to
+ *       行く (kuromoji's lemma), not the merely-commoner 言う; できなかった to
+ *       出来る, not the suppletive-potential する.
  */
-export const WORD_INDEX_VERSION = 21;
+export const WORD_INDEX_VERSION = 22;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -328,7 +334,15 @@ async function lookupSpanOccurrence(
   annotations: FuriganaAnnotation[]
 ): Promise<WordOccurrence | null> {
   const posHint = await posHintAtOffset(cleanText, start);
-  const hit = await lookupAtBoundary(cleanText, start, end, annotations, posHint);
+  const baseHint = await baseHintAtOffset(cleanText, start);
+  const hit = await lookupAtBoundary(
+    cleanText,
+    start,
+    end,
+    annotations,
+    posHint,
+    baseHint
+  );
   if (!hit) return null;
   const headword = headwordFromHit(hit);
   if (!headword) return null;

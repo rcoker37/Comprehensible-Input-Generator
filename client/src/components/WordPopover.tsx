@@ -31,7 +31,7 @@ import {
 } from "../lib/frequency";
 import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
 import { lookupWord } from "../lib/dictionary";
-import { posHintAtOffset } from "../lib/tokenizer";
+import { baseHintAtOffset, posHintAtOffset } from "../lib/tokenizer";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
@@ -450,15 +450,18 @@ export default function WordPopover({
           if (!cancelled) setLookingUp(false);
         });
     } else {
-      posHintAtOffset(tapCleanText, tapStart)
-        .catch(() => undefined)
-        .then((posHint) =>
+      Promise.all([
+        posHintAtOffset(tapCleanText, tapStart).catch(() => undefined),
+        baseHintAtOffset(tapCleanText, tapStart).catch(() => undefined),
+      ])
+        .then(([posHint, baseHint]) =>
           lookupExactSpan(
             tapCleanText,
             tapStart,
             tapEnd,
             tapAnnotations,
-            posHint
+            posHint,
+            baseHint
           )
         )
         .then((result) => {

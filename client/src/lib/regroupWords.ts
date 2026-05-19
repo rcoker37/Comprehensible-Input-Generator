@@ -129,9 +129,15 @@ export async function regroupWords(
   // `verbHintAt` drops the 動詞 hint when the token is a 連用形 noun followed
   // by the copula (終わり + だった), so the noun exact-match wins.
   const posByStart = new Map<number, string>();
+  // Parallel map of kuromoji's in-context lemma (基本形) per token start —
+  // passed alongside the POS hint so lookupAtBoundary can disambiguate
+  // homophone deinflections (「〜ていった」 → 行く, not 言う).
+  const baseByStart = new Map<number, string>();
   for (let i = 0; i < tokens.length; i++) {
     const hint = verbHintAt(tokens, i);
     if (hint !== undefined) posByStart.set(tokens[i]!.start, hint);
+    const base = tokens[i]!.basicForm;
+    if (base && base !== "*") baseByStart.set(tokens[i]!.start, base);
   }
 
   const result: DisplayParagraph[] = [];
@@ -147,6 +153,7 @@ export async function regroupWords(
         tokens,
         auxAfterVerbBoundaries,
         posByStart,
+        baseByStart,
         rareMergeProbe
       );
       newSentences.push({ ...sent, parts: newParts });
@@ -171,6 +178,7 @@ async function regroupParts(
   tokens: KuromojiTokenInfo[],
   auxAfterVerbBoundaries: Set<number>,
   posByStart: Map<number, string>,
+  baseByStart: Map<number, string>,
   rareMergeProbe: RareMergeProbe
 ): Promise<SegmentPart[]> {
   if (parts.length === 0) return [];
@@ -222,7 +230,14 @@ async function regroupParts(
       if (len < 2) continue;
       if (!isAligned(b)) continue;
       if (auxAfterVerbBoundaries.has(b)) continue;
-      const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
+      const hit = await lookup(
+        cleanText,
+        start,
+        b,
+        annotations,
+        posByStart.get(start),
+        baseByStart.get(start)
+      );
       // Reject a hit whose entry reading the LLM furigana contradict — e.g.
       // 今日《きょう》は must not merge into the greeting こんにちは.
       if (!hit || annotationContradictsHit(hit, annotations)) continue;
@@ -271,7 +286,14 @@ async function regroupParts(
         if (len < 2) continue;
         if (isAligned(b)) continue;
         if (!hasKanji(cleanText, start, b)) continue;
-        const hit = await lookup(cleanText, start, b, annotations, posByStart.get(start));
+        const hit = await lookup(
+        cleanText,
+        start,
+        b,
+        annotations,
+        posByStart.get(start),
+        baseByStart.get(start)
+      );
         if (hit && !annotationContradictsHit(hit, annotations)) {
           mergedTo = pi;
           break;

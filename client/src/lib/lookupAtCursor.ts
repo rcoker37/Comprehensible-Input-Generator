@@ -177,8 +177,10 @@ export async function lookupAtCursor(
  * 副詞. The 名詞 hint is excluded, so the noun 多く of 「多くの人」 is left alone.
  *
  * Among the deinflection candidates, the LLM furigana break homophone-stem
- * ties when they cover the span (降《ふ》り → 降る, not 降りる); otherwise the
- * candidates differ only by godan class and the most common lemma is picked by
+ * ties when they cover the span (降《ふ》り → 降る, not 降りる); failing that,
+ * `baseHint` — kuromoji's in-context lemma for the span's leading token — picks
+ * the candidate kuromoji already resolved to (「〜ていった」 → 行く, not the
+ * commoner 言う); only when neither decides is the most common lemma picked by
  * JPDB rank (なって → the everyday なる, not the rare 綯う) — see
  * `pickDeinflection`.
  */
@@ -187,7 +189,8 @@ export async function lookupAtBoundary(
   start: number,
   end: number,
   annotations: FuriganaAnnotation[] = [],
-  posHint?: string
+  posHint?: string,
+  baseHint?: string
 ): Promise<LookupHit | null> {
   if (start < 0 || end <= start || end > text.length) return null;
   const prefix = text.slice(start, end);
@@ -217,7 +220,8 @@ export async function lookupAtBoundary(
       candidates,
       prefix,
       start,
-      annotations
+      annotations,
+      baseHint
     );
     if (picked) return picked;
   }
@@ -245,7 +249,13 @@ export async function lookupAtBoundary(
         results: filtered,
       });
     }
-    const picked = await pickDeinflection(candidates, prefix, start, annotations);
+    const picked = await pickDeinflection(
+      candidates,
+      prefix,
+      start,
+      annotations,
+      baseHint
+    );
     if (picked) return picked;
   }
 
@@ -310,7 +320,8 @@ export async function lookupExactSpan(
   start: number,
   end: number,
   annotations: FuriganaAnnotation[] = [],
-  posHint?: string
+  posHint?: string,
+  baseHint?: string
 ): Promise<LookupHit | null> {
   if (start < 0 || end <= start || end > text.length) return null;
   const fromBoundary = await lookupAtBoundary(
@@ -318,7 +329,8 @@ export async function lookupExactSpan(
     start,
     end,
     annotations,
-    posHint
+    posHint,
+    baseHint
   );
   if (fromBoundary) return fromBoundary;
   return {
@@ -794,20 +806,40 @@ async function mostCommonHit(hits: LookupHit[]): Promise<LookupHit | null> {
 }
 
 /**
+ * True when `lemma` (kuromoji's 基本形 for the span's leading token) names the
+ * dictionary form this deinflection candidate resolved to — matching either the
+ * deinflection base directly or any kanji / reading form of its JMdict results,
+ * so a kana lemma (いく) still matches a kanji-headword entry (行く / いく).
+ */
+function candidateMatchesLemma(hit: LookupHit, lemma: string): boolean {
+  if (hit.base === lemma) return true;
+  for (const wr of hit.results) {
+    if ((wr.k ?? []).some((k) => k.ent === lemma)) return true;
+    if ((wr.r ?? []).some((r) => r.ent === lemma)) return true;
+  }
+  return false;
+}
+
+/**
  * Choose among the deinflection candidates for a kuromoji-動詞 / 形容詞 span.
  *
  * When the LLM furigana cover the span they positively disambiguate homophone
- * stems (降《ふ》り → 降る, not 降りる). With no furigana evidence the candidates
- * differ only by godan class — なって is the 〜て form of なう / なつ / なる — so
- * the most common lemma is the right bet: なって resolves to the everyday なる
- * (rank 16), not the rare 綯う (45,193). Falls back to `deinflect`'s priority
- * order when no candidate is ranked. Returns null when there were none.
+ * stems (降《ふ》り → 降る, not 降りる). Failing that, `baseHint` — kuromoji's
+ * in-context lemma for the span — picks the candidate kuromoji already resolved
+ * to: 「〜ていった」's いった is the past of 行く / 言う / 要る alike, but kuromoji
+ * tags it 行く, so the frequency tiebreaker (which would take the commoner 言う)
+ * is overruled. Only with no furigana and no usable lemma do the candidates
+ * differ solely by godan class — なって is the 〜て form of なう / なつ / なる — and
+ * the most common lemma is the right bet: なって → the everyday なる (rank 16),
+ * not the rare 綯う (45,193). Falls back to `deinflect`'s priority order when no
+ * candidate is ranked. Returns null when there were none.
  */
 async function pickDeinflection(
   candidates: LookupHit[],
   surface: string,
   surfaceStart: number,
-  annotations: FuriganaAnnotation[]
+  annotations: FuriganaAnnotation[],
+  baseHint?: string
 ): Promise<LookupHit | null> {
   if (candidates.length === 0) return null;
   if (surfaceReadingFromAnnotations(surface, surfaceStart, annotations)) {
@@ -820,6 +852,10 @@ async function pickDeinflection(
         h.results
       )
     );
+    if (fit) return fit;
+  }
+  if (baseHint) {
+    const fit = candidates.find((h) => candidateMatchesLemma(h, baseHint));
     if (fit) return fit;
   }
   return (await mostCommonHit(candidates)) ?? candidates[0]!;

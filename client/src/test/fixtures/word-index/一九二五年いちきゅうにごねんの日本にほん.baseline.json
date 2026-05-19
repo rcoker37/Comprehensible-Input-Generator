@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-19T17:23:57.952Z",
+  "generatedAt": "2026-05-19T19:01:55.440Z",
   "occurrences": [
     {
       "start": 0,
@@ -1778,9 +1778,9 @@
       "start": 454,
       "end": 460,
       "surface": "できなかった",
-      "headword": "為る",
-      "reading": "する",
-      "entryId": 1157170,
+      "headword": "出来る",
+      "reading": "できる",
+      "entryId": 1340450,
       "isName": false
     },
     {
