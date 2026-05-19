@@ -166,3 +166,24 @@ export async function posHintAtOffset(
   if (i === -1) return undefined;
   return verbHintAt(tokens, i);
 }
+
+/**
+ * Kuromoji's dictionary lemma (基本形) for the token starting at `offset`, or
+ * undefined when there is no token there or kuromoji has no lemma for it.
+ *
+ * Used to disambiguate homophone deinflections the JPDB frequency tiebreaker
+ * gets wrong: 「〜なっていった」's いった is the past of three different godan
+ * verbs (行く / 言う / 要る), but kuromoji's in-context analysis already knows
+ * it is the auxiliary 行く — `lookupAtBoundary` prefers the deinflection
+ * candidate whose base matches this lemma over the merely most-frequent one.
+ */
+export async function baseHintAtOffset(
+  text: string,
+  offset: number
+): Promise<string | undefined> {
+  const tokens = await tokenizeTextCached(text);
+  const token = tokens.find((t) => t.start === offset);
+  if (!token) return undefined;
+  const base = token.basicForm;
+  return base && base !== "*" ? base : undefined;
+}

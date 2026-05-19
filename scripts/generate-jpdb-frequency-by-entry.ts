@@ -116,15 +116,31 @@ interface OutEntry {
   canonical: string;
 }
 
-const out: Record<string, OutEntry> = {};
-let resolved = 0;
+type Variant = { rank: number; headword: string; reading: string | null };
+
+// Phase 1, per entry: the best rank over its *unambiguous* forms (kanji forms
+// joined by (surface, reading), or — for a kana-only entry — its kana surface),
+// plus the bare-kana ranks it *would* claim if it owns them.
+interface Pending {
+  id: string;
+  canonical: string;
+  // Best variant from forms whose JPDB rank is unambiguous: a (kanji, reading)
+  // join, or a kana-only entry's own kana surface. Null when none are ranked.
+  unambiguousBest: Variant | null;
+  // Bare-kana surface → its JPDB rank, for each `uk` kana reading of an entry
+  // that *also* has kanji. Contended: a kana surface like いる is one JPDB
+  // vocab item (居る) yet several `uk` homophones (要る, 癒る) read it. Resolved
+  // in phase 2 — only the dominant homophone keeps it.
+  kanaClaims: Map<string, number>;
+}
+
+const pendings: Pending[] = [];
 
 for (const entry of jmdict.words) {
   // Whether this entry's senses tolerate kana-only spelling — when true, the
-  // bare kana surface in JPDB is more likely to refer to *this* entry rather
-  // than a homophone. The reverse case (entry has kanji but no `uk`) is the
-  // exact 暗い vs 位/くらい collision: 暗い is not `uk`, so JPDB's (くらい, null)
-  // rank belongs to 位 — we exclude it from 暗い's variant list.
+  // bare kana surface in JPDB *may* refer to this entry. The reverse case
+  // (entry has kanji but no `uk`) is the 暗い vs 位/くらい collision: 暗い is not
+  // `uk`, so JPDB's (くらい, null) rank belongs to 位.
   const isUk = entry.sense.some((s) => s.misc?.includes("uk"));
   // Drop search-only kanji forms (`sK`). JMdict says these never display; if
   // JPDB has a rank for the surface it almost certainly belongs to a different
@@ -134,7 +150,6 @@ for (const entry of jmdict.words) {
   const displayableKanji = (entry.kanji ?? []).filter(
     (k) => !k.tags.includes("sK")
   );
-  const variants: Array<{ headword: string; reading: string | null }> = [];
   // The canonical surface is the stamp the indexer writes on every occurrence
   // of this entry — it must agree with `headwordFromHit` so VocabContext can
   // round-trip a stamp back to its entry. Use the first *displayable* kanji,
@@ -146,6 +161,12 @@ for (const entry of jmdict.words) {
       : entry.kana[0]?.text;
   if (!canonical) continue;
 
+  let unambiguousBest: Variant | null = null;
+  const consider = (v: Variant): void => {
+    if (!unambiguousBest || v.rank < unambiguousBest.rank) unambiguousBest = v;
+  };
+  const kanaClaims = new Map<string, number>();
+
   if (displayableKanji.length > 0) {
     for (const kana of entry.kana) {
       const allowedKanji =
@@ -154,34 +175,73 @@ for (const entry of jmdict.words) {
           : kana.appliesToKanji.filter((t) =>
               displayableKanji.some((k) => k.text === t)
             );
+      // (kanji, reading) joins are unambiguous — JPDB keys them by the kanji
+      // surface, so the rank can't be stolen by a homophone.
       for (const k of allowedKanji) {
-        variants.push({ headword: k, reading: kana.text });
+        const rank = rankFor(k, kana.text);
+        if (rank !== null) consider({ rank, headword: k, reading: kana.text });
       }
+      // The bare-kana rank is contended — only record the claim. Phase 2 hands
+      // each kana surface to exactly one entry so 要る / 癒る don't all inherit
+      // 居る's rank-18 just for sharing the reading いる.
       if (isUk) {
-        // Only when JMdict has explicitly marked this entry as "usually kana"
-        // should we attribute JPDB's kana-only rank to it.
-        variants.push({ headword: kana.text, reading: null });
+        const rank = rankFor(kana.text, null);
+        if (rank !== null) {
+          const prev = kanaClaims.get(kana.text);
+          if (prev === undefined || rank < prev) kanaClaims.set(kana.text, rank);
+        }
       }
     }
   } else {
     // No displayable kanji (kana-only entry, or every kanji form is `sK`).
-    // The kana surface is the entry's display form.
+    // The kana surface is the entry's only display form — treat it as
+    // unambiguous (a kana-only entry genuinely *is* the word at that surface).
     for (const kana of entry.kana) {
-      variants.push({ headword: kana.text, reading: null });
+      const rank = rankFor(kana.text, null);
+      if (rank !== null) consider({ rank, headword: kana.text, reading: null });
     }
   }
 
-  let best: { rank: number; headword: string; reading: string | null } | null = null;
-  for (const v of variants) {
-    const rank = rankFor(v.headword, v.reading);
-    if (rank === null) continue;
+  pendings.push({ id: entry.id, canonical, unambiguousBest, kanaClaims });
+}
+
+// Phase 2: hand each contended bare-kana surface to a single owner — the
+// homophone JPDB actually means by it. JPDB writes its *most common* homophone
+// in kana, so the owner is the claimant with the best unambiguous (kanji-form)
+// rank; entries with no ranked kanji form sort last, ties broken by entry id.
+const claimsByKana = new Map<string, Pending[]>();
+for (const p of pendings) {
+  for (const kanaText of p.kanaClaims.keys()) {
+    let list = claimsByKana.get(kanaText);
+    if (!list) claimsByKana.set(kanaText, (list = []));
+    list.push(p);
+  }
+}
+const kanaOwner = new Map<string, string>();
+for (const [kanaText, claimants] of claimsByKana) {
+  claimants.sort((a, b) => {
+    const ra = a.unambiguousBest?.rank ?? Infinity;
+    const rb = b.unambiguousBest?.rank ?? Infinity;
+    if (ra !== rb) return ra - rb;
+    return Number(a.id) - Number(b.id);
+  });
+  kanaOwner.set(kanaText, claimants[0]!.id);
+}
+
+// Phase 3: each entry's final rank is its unambiguous best, improved by a
+// bare-kana claim only when it owns that surface.
+const out: Record<string, OutEntry> = {};
+let resolved = 0;
+for (const p of pendings) {
+  let best: Variant | null = p.unambiguousBest;
+  for (const [kanaText, rank] of p.kanaClaims) {
+    if (kanaOwner.get(kanaText) !== p.id) continue;
     if (!best || rank < best.rank) {
-      best = { rank, headword: v.headword, reading: v.reading };
+      best = { rank, headword: kanaText, reading: null };
     }
   }
-
   if (best) {
-    out[entry.id] = { ...best, canonical };
+    out[p.id] = { ...best, canonical: p.canonical };
     resolved++;
   }
 }

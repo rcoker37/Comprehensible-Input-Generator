@@ -25,6 +25,7 @@ import { regroupWords } from "./regroupWords";
 import { buildDisplaySegments, type AnnotatedPart } from "./storySegments";
 import { stripBold } from "./text";
 import {
+  baseHintAtOffset,
   isProperNoun,
   posHintAtOffset,
   tokenizeText,
@@ -182,8 +183,26 @@ export interface WordOccurrence {
  *       (`exactIsUnrankedInflectedVerb`): the causative 楽しませる resolves to
  *       its conjugated-from lemma 楽しむ instead of the standalone unranked
  *       楽しませる entry.
+ *  19 — `lookupAtBoundary` auto-detects い-adjective 連用形 (古く → 古い) and
+ *       何/数-led numbered words (何百万人).
+ *  20 — `headwordFromHit` now derives the canonical headword from the resolved
+ *       JMdict entry's first non-`sK` kanji form for *deinflected* hits too,
+ *       instead of returning the (possibly kana) deinflection base. A `uk`
+ *       verb like 居る now stamps 居る for every form — an exact いる tap and a
+ *       conjugated います both — so the Stats Browse encounter count (keyed on
+ *       the entry's `canonical`) no longer splits between 居る and いる.
+ *  21 — the jpdb-by-entry index no longer attributes a bare-kana JPDB rank to
+ *       every `uk` homophone reading it: the rank-18 kana surface いる belongs
+ *       to 居る, so 要る now ranks 3,812 (not 18) and 癒る 23,034. This corrects
+ *       the deinflection arbitration (`bestRank`), which had been picking the
+ *       falsely-rank-18 要る for ambiguous kana spans.
+ *  22 — `lookupAtBoundary` now takes a `baseHint` (kuromoji's in-context 基本形
+ *       for the span's leading token); `pickDeinflection` prefers the candidate
+ *       matching it before the JPDB-rank tiebreaker. 「〜ていった」 resolves to
+ *       行く (kuromoji's lemma), not the merely-commoner 言う; できなかった to
+ *       出来る, not the suppletive-potential する.
  */
-export const WORD_INDEX_VERSION = 19;
+export const WORD_INDEX_VERSION = 22;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -315,7 +334,15 @@ async function lookupSpanOccurrence(
   annotations: FuriganaAnnotation[]
 ): Promise<WordOccurrence | null> {
   const posHint = await posHintAtOffset(cleanText, start);
-  const hit = await lookupAtBoundary(cleanText, start, end, annotations, posHint);
+  const baseHint = await baseHintAtOffset(cleanText, start);
+  const hit = await lookupAtBoundary(
+    cleanText,
+    start,
+    end,
+    annotations,
+    posHint,
+    baseHint
+  );
   if (!hit) return null;
   const headword = headwordFromHit(hit);
   if (!headword) return null;

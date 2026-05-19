@@ -23,7 +23,7 @@ function wr(
 }
 
 describe("headwordFromHit", () => {
-  it("uses hit.base for deinflected hits", () => {
+  it("derives the canonical kanji form for deinflected hits", () => {
     const hit: LookupHit = {
       start: 0,
       end: 7,
@@ -35,6 +35,40 @@ describe("headwordFromHit", () => {
     expect(headwordFromHit(hit)).toEqual({
       headword: "食べる",
       reading: "たべる",
+    });
+  });
+
+  it("uses the entry's kanji form, not the kana deinflection base", () => {
+    // います deinflects to the kana base いる, but JMdict entry 1577980 has
+    // the kanji form 居る. Stamping the kana base would split encounter
+    // counts from exact 居る/いる taps (which stamp 居る). The headword must
+    // agree with the entry's canonical form regardless of the base's script.
+    const hit: LookupHit = {
+      start: 0,
+      end: 4,
+      surface: "いました",
+      base: "いる",
+      derivations: ["polite", "past"],
+      results: [wr(["居る"], ["いる"])],
+    };
+    expect(headwordFromHit(hit)).toEqual({
+      headword: "居る",
+      reading: "いる",
+    });
+  });
+
+  it("falls back to hit.base when a deinflected hit has no results", () => {
+    const hit: LookupHit = {
+      start: 0,
+      end: 4,
+      surface: "いました",
+      base: "いる",
+      derivations: ["polite", "past"],
+      results: [],
+    };
+    expect(headwordFromHit(hit)).toEqual({
+      headword: "いる",
+      reading: null,
     });
   });
 

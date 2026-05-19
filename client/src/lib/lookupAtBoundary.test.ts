@@ -284,3 +284,56 @@ describe("lookupAtBoundary frequency-gated kana-canonical match", () => {
     expect(hit!.base).toBe("のす");
   });
 });
+
+describe("lookupAtBoundary baseHint deinflection disambiguation", () => {
+  beforeEach(() => {
+    mockLookup.mockReset();
+    mockRank.mockReset();
+  });
+
+  // 「いった」 is the plain past of three godan verbs at once — 行く / 言う / 要る.
+  // The mock makes 言う the most frequent, so the rank tiebreaker alone would
+  // pick it; kuromoji's in-context lemma is what must override that.
+  const mockItta = (): void => {
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "いく") {
+        return [wr({ k: ["行く"], r: ["いく"], pos: ["v5k-s", "vi"], id: 1 })];
+      }
+      if (search === "いう") {
+        return [wr({ k: ["言う"], r: ["いう"], pos: ["v5u", "vt"], id: 2 })];
+      }
+      if (search === "いる") {
+        return [wr({ k: ["要る"], r: ["いる"], pos: ["v5r", "vi"], id: 3 })];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 1) return { rank: 44, tier: "very-common", headword: "行く", reading: "いく" };
+      if (id === 2) return { rank: 27, tier: "very-common", headword: "言う", reading: "いう" };
+      if (id === 3) return { rank: 3812, tier: "uncommon", headword: "要る", reading: "いる" };
+      return null;
+    });
+  };
+
+  it("picks the candidate matching kuromoji's lemma over the most frequent one", async () => {
+    mockItta();
+    const hit = await lookupAtBoundary("いった", 0, 3, [], "動詞", "いく");
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("いく");
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("行く");
+  });
+
+  it("falls back to JPDB rank when no baseHint is given", async () => {
+    mockItta();
+    const hit = await lookupAtBoundary("いった", 0, 3, [], "動詞");
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("いう");
+  });
+
+  it("ignores a baseHint that matches no candidate", async () => {
+    mockItta();
+    const hit = await lookupAtBoundary("いった", 0, 3, [], "動詞", "およぐ");
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("いう");
+  });
+});
