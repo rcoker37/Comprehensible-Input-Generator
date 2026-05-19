@@ -1,0 +1,1742 @@
+{
+  "generatedAt": "2026-05-18T23:58:23.505Z",
+  "occurrences": [
+    {
+      "start": 0,
+      "end": 1,
+      "surface": "膝",
+      "headword": "膝",
+      "reading": "ひざ",
+      "entryId": 1487320,
+      "isName": false
+    },
+    {
+      "start": 1,
+      "end": 2,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 2,
+      "end": 4,
+      "surface": "関節",
+      "headword": "関節",
+      "reading": "かんせつ",
+      "entryId": 1215960,
+      "isName": false
+    },
+    {
+      "start": 4,
+      "end": 5,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 6,
+      "end": 7,
+      "surface": "人",
+      "headword": "人",
+      "reading": "ひと",
+      "entryId": 1580640,
+      "isName": false
+    },
+    {
+      "start": 7,
+      "end": 8,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 8,
+      "end": 12,
+      "surface": "歩いたり",
+      "headword": "歩く",
+      "reading": "あるく",
+      "entryId": 1514320,
+      "isName": false
+    },
+    {
+      "start": 12,
+      "end": 16,
+      "surface": "座ったり",
+      "headword": "座る",
+      "reading": "すわる",
+      "entryId": 1291800,
+      "isName": false
+    },
+    {
+      "start": 16,
+      "end": 18,
+      "surface": "する",
+      "headword": "為る",
+      "reading": "する",
+      "entryId": 1157170,
+      "isName": false
+    },
+    {
+      "start": 18,
+      "end": 20,
+      "surface": "時に",
+      "headword": "時に",
+      "reading": "ときに",
+      "entryId": 2021540,
+      "isName": false
+    },
+    {
+      "start": 20,
+      "end": 23,
+      "surface": "とても",
+      "headword": "迚も",
+      "reading": "とても",
+      "entryId": 1008630,
+      "isName": false
+    },
+    {
+      "start": 23,
+      "end": 25,
+      "surface": "大切",
+      "headword": "大切",
+      "reading": "たいせつ",
+      "entryId": 1414340,
+      "isName": false
+    },
+    {
+      "start": 25,
+      "end": 26,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "isName": false
+    },
+    {
+      "start": 26,
+      "end": 27,
+      "surface": "体",
+      "headword": "体",
+      "reading": "からだ",
+      "entryId": 1409140,
+      "isName": false
+    },
+    {
+      "start": 27,
+      "end": 28,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 28,
+      "end": 30,
+      "surface": "部分",
+      "headword": "部分",
+      "reading": "ぶぶん",
+      "entryId": 1499490,
+      "isName": false
+    },
+    {
+      "start": 30,
+      "end": 32,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "isName": false
+    },
+    {
+      "start": 33,
+      "end": 37,
+      "surface": "年を取る",
+      "headword": "年をとる",
+      "reading": "としをとる",
+      "entryId": 1468190,
+      "isName": false
+    },
+    {
+      "start": 37,
+      "end": 38,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "isName": false
+    },
+    {
+      "start": 39,
+      "end": 41,
+      "surface": "この",
+      "headword": "此の",
+      "reading": "この",
+      "entryId": 1582920,
+      "isName": false
+    },
+    {
+      "start": 41,
+      "end": 43,
+      "surface": "関節",
+      "headword": "関節",
+      "reading": "かんせつ",
+      "entryId": 1215960,
+      "isName": false
+    },
+    {
+      "start": 43,
+      "end": 44,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 44,
+      "end": 45,
+      "surface": "中",
+      "headword": "中",
+      "reading": "なか",
+      "entryId": 1423310,
+      "isName": false
+    },
+    {
+      "start": 45,
+      "end": 46,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "isName": false
+    },
+    {
+      "start": 46,
+      "end": 48,
+      "surface": "ある",
+      "headword": "有る",
+      "reading": "ある",
+      "entryId": 1296400,
+      "isName": false
+    },
+    {
+      "start": 48,
+      "end": 53,
+      "surface": "やわらかい",
+      "headword": "柔らかい",
+      "reading": "やわらかい",
+      "entryId": 1605630,
+      "isName": false
+    },
+    {
+      "start": 53,
+      "end": 54,
+      "surface": "骨",
+      "headword": "骨",
+      "reading": "ほね",
+      "entryId": 1288550,
+      "isName": false
+    },
+    {
+      "start": 54,
+      "end": 55,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 55,
+      "end": 59,
+      "surface": "少しずつ",
+      "headword": "少しずつ",
+      "reading": "すこしずつ",
+      "entryId": 1348880,
+      "isName": false
+    },
+    {
+      "start": 59,
+      "end": 67,
+      "surface": "なくなってしまう",
+      "headword": "なくなる",
+      "reading": "なくなる",
+      "entryId": 1529550,
+      "isName": false
+    },
+    {
+      "start": 67,
+      "end": 74,
+      "surface": "ことがあります",
+      "headword": "ことがある",
+      "reading": "ことがある",
+      "entryId": 1004540,
+      "isName": false
+    },
+    {
+      "start": 75,
+      "end": 80,
+      "surface": "そうなると",
+      "headword": "そうなると",
+      "reading": "そうなると",
+      "entryId": 2532460,
+      "isName": false
+    },
+    {
+      "start": 81,
+      "end": 83,
+      "surface": "痛み",
+      "headword": "痛み",
+      "reading": "いたみ",
+      "entryId": 1587300,
+      "isName": false
+    },
+    {
+      "start": 83,
+      "end": 84,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 84,
+      "end": 86,
+      "surface": "強く",
+      "headword": "強い",
+      "reading": "つよい",
+      "entryId": 1236070,
+      "isName": false
+    },
+    {
+      "start": 86,
+      "end": 88,
+      "surface": "なり",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "isName": false
+    },
+    {
+      "start": 89,
+      "end": 91,
+      "surface": "歩く",
+      "headword": "歩く",
+      "reading": "あるく",
+      "entryId": 1514320,
+      "isName": false
+    },
+    {
+      "start": 91,
+      "end": 92,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 92,
+      "end": 93,
+      "surface": "も",
+      "headword": "も",
+      "reading": "も",
+      "entryId": 2028940,
+      "isName": false
+    },
+    {
+      "start": 93,
+      "end": 96,
+      "surface": "難しく",
+      "headword": "難しい",
+      "reading": "むずかしい",
+      "entryId": 1460850,
+      "isName": false
+    },
+    {
+      "start": 96,
+      "end": 100,
+      "surface": "なります",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "isName": false
+    },
+    {
+      "start": 101,
+      "end": 103,
+      "surface": "この",
+      "headword": "此の",
+      "reading": "この",
+      "entryId": 1582920,
+      "isName": false
+    },
+    {
+      "start": 103,
+      "end": 105,
+      "surface": "状況",
+      "headword": "状況",
+      "reading": "じょうきょう",
+      "entryId": 1356700,
+      "isName": false
+    },
+    {
+      "start": 105,
+      "end": 106,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 106,
+      "end": 108,
+      "surface": "治す",
+      "headword": "治す",
+      "reading": "なおす",
+      "entryId": 2856318,
+      "isName": false
+    },
+    {
+      "start": 108,
+      "end": 111,
+      "surface": "ために",
+      "headword": "為に",
+      "reading": "ために",
+      "entryId": 1157150,
+      "isName": false
+    },
+    {
+      "start": 112,
+      "end": 114,
+      "surface": "医者",
+      "headword": "医者",
+      "reading": "いしゃ",
+      "entryId": 1159980,
+      "isName": false
+    },
+    {
+      "start": 114,
+      "end": 115,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 116,
+      "end": 120,
+      "surface": "人工関節",
+      "headword": "人工関節",
+      "reading": "じんこうかんせつ",
+      "entryId": 2854799,
+      "isName": false
+    },
+    {
+      "start": 120,
+      "end": 121,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 121,
+      "end": 123,
+      "surface": "手術",
+      "headword": "手術",
+      "reading": "しゅじゅつ",
+      "entryId": 1327790,
+      "isName": false
+    },
+    {
+      "start": 124,
+      "end": 125,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 125,
+      "end": 127,
+      "surface": "行う",
+      "headword": "行う",
+      "reading": "おこなう",
+      "entryId": 1589060,
+      "isName": false
+    },
+    {
+      "start": 127,
+      "end": 134,
+      "surface": "ことがあります",
+      "headword": "ことがある",
+      "reading": "ことがある",
+      "entryId": 1004540,
+      "isName": false
+    },
+    {
+      "start": 135,
+      "end": 137,
+      "surface": "これ",
+      "headword": "此れ",
+      "reading": "これ",
+      "entryId": 1628530,
+      "isName": false
+    },
+    {
+      "start": 137,
+      "end": 138,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 138,
+      "end": 140,
+      "surface": "古く",
+      "headword": "古い",
+      "reading": "ふるい",
+      "entryId": 1265070,
+      "isName": false
+    },
+    {
+      "start": 140,
+      "end": 143,
+      "surface": "なった",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "isName": false
+    },
+    {
+      "start": 143,
+      "end": 145,
+      "surface": "関節",
+      "headword": "関節",
+      "reading": "かんせつ",
+      "entryId": 1215960,
+      "isName": false
+    },
+    {
+      "start": 145,
+      "end": 146,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 146,
+      "end": 148,
+      "surface": "金属",
+      "headword": "金属",
+      "reading": "きんぞく",
+      "entryId": 1243040,
+      "isName": false
+    },
+    {
+      "start": 148,
+      "end": 149,
+      "surface": "や",
+      "headword": "や",
+      "reading": "や",
+      "entryId": 2028960,
+      "isName": false
+    },
+    {
+      "start": 149,
+      "end": 155,
+      "surface": "プラスチック",
+      "headword": "プラスチック",
+      "reading": "プラスチック",
+      "entryId": 1115670,
+      "isName": false
+    },
+    {
+      "start": 155,
+      "end": 156,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 156,
+      "end": 158,
+      "surface": "部品",
+      "headword": "部品",
+      "reading": "ぶひん",
+      "entryId": 1499480,
+      "isName": false
+    },
+    {
+      "start": 158,
+      "end": 159,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "isName": false
+    },
+    {
+      "start": 159,
+      "end": 164,
+      "surface": "取りかえる",
+      "headword": "取り替える",
+      "reading": "とりかえる",
+      "entryId": 1326830,
+      "isName": false
+    },
+    {
+      "start": 164,
+      "end": 166,
+      "surface": "方法",
+      "headword": "方法",
+      "reading": "ほうほう",
+      "entryId": 1517090,
+      "isName": false
+    },
+    {
+      "start": 166,
+      "end": 168,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "isName": false
+    },
+    {
+      "start": 171,
+      "end": 173,
+      "surface": "手術",
+      "headword": "手術",
+      "reading": "しゅじゅつ",
+      "entryId": 1327790,
+      "isName": false
+    },
+    {
+      "start": 173,
+      "end": 174,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "isName": false
+    },
+    {
+      "start": 174,
+      "end": 175,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 176,
+      "end": 178,
+      "surface": "医者",
+      "headword": "医者",
+      "reading": "いしゃ",
+      "entryId": 1159980,
+      "isName": false
+    },
+    {
+      "start": 178,
+      "end": 179,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 179,
+      "end": 181,
+      "surface": "患者",
+      "headword": "患者",
+      "reading": "かんじゃ",
+      "entryId": 1212210,
+      "isName": false
+    },
+    {
+      "start": 181,
+      "end": 182,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 182,
+      "end": 183,
+      "surface": "膝",
+      "headword": "膝",
+      "reading": "ひざ",
+      "entryId": 1487320,
+      "isName": false
+    },
+    {
+      "start": 183,
+      "end": 184,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 184,
+      "end": 189,
+      "surface": "切り開いて",
+      "headword": "切り開く",
+      "reading": "きりひらく",
+      "entryId": 1383920,
+      "isName": false
+    },
+    {
+      "start": 190,
+      "end": 195,
+      "surface": "悪くなった",
+      "headword": "悪くなる",
+      "reading": "わるくなる",
+      "entryId": 2691760,
+      "isName": false
+    },
+    {
+      "start": 195,
+      "end": 197,
+      "surface": "部分",
+      "headword": "部分",
+      "reading": "ぶぶん",
+      "entryId": 1499490,
+      "isName": false
+    },
+    {
+      "start": 197,
+      "end": 198,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 198,
+      "end": 204,
+      "surface": "取り出します",
+      "headword": "取り出す",
+      "reading": "とりだす",
+      "entryId": 1326770,
+      "isName": false
+    },
+    {
+      "start": 205,
+      "end": 209,
+      "surface": "それから",
+      "headword": "それから",
+      "reading": "それから",
+      "entryId": 1006980,
+      "isName": false
+    },
+    {
+      "start": 210,
+      "end": 213,
+      "surface": "新しい",
+      "headword": "新しい",
+      "reading": "あたらしい",
+      "entryId": 1361490,
+      "isName": false
+    },
+    {
+      "start": 213,
+      "end": 215,
+      "surface": "人工",
+      "headword": "人工",
+      "reading": "じんこう",
+      "entryId": 1367380,
+      "isName": false
+    },
+    {
+      "start": 215,
+      "end": 216,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 216,
+      "end": 218,
+      "surface": "部品",
+      "headword": "部品",
+      "reading": "ぶひん",
+      "entryId": 1499480,
+      "isName": false
+    },
+    {
+      "start": 218,
+      "end": 219,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 219,
+      "end": 220,
+      "surface": "骨",
+      "headword": "骨",
+      "reading": "ほね",
+      "entryId": 1288550,
+      "isName": false
+    },
+    {
+      "start": 220,
+      "end": 221,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "isName": false
+    },
+    {
+      "start": 221,
+      "end": 225,
+      "surface": "しっかり",
+      "headword": "確り",
+      "reading": "しっかり",
+      "entryId": 1594400,
+      "isName": false
+    },
+    {
+      "start": 225,
+      "end": 226,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "isName": false
+    },
+    {
+      "start": 226,
+      "end": 230,
+      "surface": "つけます",
+      "headword": "つける",
+      "reading": "つける",
+      "entryId": 1495770,
+      "isName": false
+    },
+    {
+      "start": 231,
+      "end": 233,
+      "surface": "手術",
+      "headword": "手術",
+      "reading": "しゅじゅつ",
+      "entryId": 1327790,
+      "isName": false
+    },
+    {
+      "start": 233,
+      "end": 235,
+      "surface": "には",
+      "headword": "には",
+      "reading": "には",
+      "entryId": 2215430,
+      "isName": false
+    },
+    {
+      "start": 236,
+      "end": 238,
+      "surface": "普通",
+      "headword": "普通",
+      "reading": "ふつう",
+      "entryId": 1497190,
+      "isName": false
+    },
+    {
+      "start": 238,
+      "end": 241,
+      "surface": "一時間",
+      "headword": "一時間",
+      "reading": "いちじかん",
+      "entryId": 1162940,
+      "isName": false
+    },
+    {
+      "start": 241,
+      "end": 243,
+      "surface": "から",
+      "headword": "から",
+      "reading": "から",
+      "entryId": 1002980,
+      "isName": false
+    },
+    {
+      "start": 243,
+      "end": 244,
+      "surface": "二",
+      "headword": "二",
+      "reading": "に",
+      "entryId": null,
+      "isName": false
+    },
+    {
+      "start": 244,
+      "end": 246,
+      "surface": "時間",
+      "headword": "時間",
+      "reading": "じかん",
+      "entryId": 1315920,
+      "isName": false
+    },
+    {
+      "start": 246,
+      "end": 248,
+      "surface": "ほど",
+      "headword": "程",
+      "reading": "ほど",
+      "entryId": 1436510,
+      "isName": false
+    },
+    {
+      "start": 248,
+      "end": 253,
+      "surface": "かかります",
+      "headword": "かかる",
+      "reading": "かかる",
+      "entryId": 1207590,
+      "isName": false
+    },
+    {
+      "start": 254,
+      "end": 257,
+      "surface": "その後",
+      "headword": "その後",
+      "reading": "そのあと",
+      "entryId": 1006860,
+      "isName": false
+    },
+    {
+      "start": 258,
+      "end": 260,
+      "surface": "患者",
+      "headword": "患者",
+      "reading": "かんじゃ",
+      "entryId": 1212210,
+      "isName": false
+    },
+    {
+      "start": 260,
+      "end": 261,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 261,
+      "end": 263,
+      "surface": "病院",
+      "headword": "病院",
+      "reading": "びょういん",
+      "entryId": 1490220,
+      "isName": false
+    },
+    {
+      "start": 263,
+      "end": 264,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "isName": false
+    },
+    {
+      "start": 264,
+      "end": 266,
+      "surface": "数日",
+      "headword": "数日",
+      "reading": "すうじつ",
+      "entryId": 1373200,
+      "isName": false
+    },
+    {
+      "start": 266,
+      "end": 268,
+      "surface": "入院",
+      "headword": "入院",
+      "reading": "にゅういん",
+      "entryId": 1465720,
+      "isName": false
+    },
+    {
+      "start": 268,
+      "end": 270,
+      "surface": "する",
+      "headword": "為る",
+      "reading": "する",
+      "entryId": 1157170,
+      "isName": false
+    },
+    {
+      "start": 270,
+      "end": 277,
+      "surface": "ことになります",
+      "headword": "ことになる",
+      "reading": "ことになる",
+      "entryId": 1004590,
+      "isName": false
+    },
+    {
+      "start": 278,
+      "end": 280,
+      "surface": "最近",
+      "headword": "最近",
+      "reading": "さいきん",
+      "entryId": 1293780,
+      "isName": false
+    },
+    {
+      "start": 280,
+      "end": 281,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "isName": false
+    },
+    {
+      "start": 281,
+      "end": 282,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 283,
+      "end": 285,
+      "surface": "医学",
+      "headword": "医学",
+      "reading": "いがく",
+      "entryId": 1159810,
+      "isName": false
+    },
+    {
+      "start": 285,
+      "end": 286,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 286,
+      "end": 289,
+      "surface": "進んで",
+      "headword": "進む",
+      "reading": "すすむ",
+      "entryId": 1365980,
+      "isName": false
+    },
+    {
+      "start": 289,
+      "end": 291,
+      "surface": "きて",
+      "headword": "くる",
+      "reading": "くる",
+      "entryId": 1547720,
+      "isName": false
+    },
+    {
+      "start": 292,
+      "end": 294,
+      "surface": "より",
+      "headword": "より",
+      "reading": "より",
+      "entryId": 1013190,
+      "isName": false
+    },
+    {
+      "start": 294,
+      "end": 297,
+      "surface": "小さく",
+      "headword": "小さい",
+      "reading": "ちいさい",
+      "entryId": 1347750,
+      "isName": false
+    },
+    {
+      "start": 297,
+      "end": 299,
+      "surface": "切る",
+      "headword": "切る",
+      "reading": "きる",
+      "entryId": 1384830,
+      "isName": false
+    },
+    {
+      "start": 299,
+      "end": 301,
+      "surface": "だけ",
+      "headword": "丈",
+      "reading": "だけ",
+      "entryId": 1007340,
+      "isName": false
+    },
+    {
+      "start": 301,
+      "end": 302,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "isName": false
+    },
+    {
+      "start": 302,
+      "end": 304,
+      "surface": "手術",
+      "headword": "手術",
+      "reading": "しゅじゅつ",
+      "entryId": 1327790,
+      "isName": false
+    },
+    {
+      "start": 304,
+      "end": 305,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 305,
+      "end": 316,
+      "surface": "できるようになりました",
+      "headword": "できるようになる",
+      "reading": "できるようになる",
+      "entryId": 1008400,
+      "isName": false
+    },
+    {
+      "start": 319,
+      "end": 321,
+      "surface": "手術",
+      "headword": "手術",
+      "reading": "しゅじゅつ",
+      "entryId": 1327790,
+      "isName": false
+    },
+    {
+      "start": 321,
+      "end": 322,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 322,
+      "end": 323,
+      "surface": "後",
+      "headword": "後",
+      "reading": "あと",
+      "entryId": 1269320,
+      "isName": false
+    },
+    {
+      "start": 324,
+      "end": 326,
+      "surface": "患者",
+      "headword": "患者",
+      "reading": "かんじゃ",
+      "entryId": 1212210,
+      "isName": false
+    },
+    {
+      "start": 326,
+      "end": 327,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 327,
+      "end": 331,
+      "surface": "少しずつ",
+      "headword": "少しずつ",
+      "reading": "すこしずつ",
+      "entryId": 1348880,
+      "isName": false
+    },
+    {
+      "start": 331,
+      "end": 333,
+      "surface": "歩く",
+      "headword": "歩く",
+      "reading": "あるく",
+      "entryId": 1514320,
+      "isName": false
+    },
+    {
+      "start": 333,
+      "end": 335,
+      "surface": "練習",
+      "headword": "練習",
+      "reading": "れんしゅう",
+      "entryId": 1559160,
+      "isName": false
+    },
+    {
+      "start": 335,
+      "end": 336,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 336,
+      "end": 340,
+      "surface": "始めます",
+      "headword": "始める",
+      "reading": "はじめる",
+      "entryId": 1307550,
+      "isName": false
+    },
+    {
+      "start": 341,
+      "end": 343,
+      "surface": "最初",
+      "headword": "最初",
+      "reading": "さいしょ",
+      "entryId": 1293990,
+      "isName": false
+    },
+    {
+      "start": 343,
+      "end": 344,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 344,
+      "end": 346,
+      "surface": "痛み",
+      "headword": "痛み",
+      "reading": "いたみ",
+      "entryId": 1587300,
+      "isName": false
+    },
+    {
+      "start": 346,
+      "end": 347,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 347,
+      "end": 349,
+      "surface": "ある",
+      "headword": "有る",
+      "reading": "ある",
+      "entryId": 1296400,
+      "isName": false
+    },
+    {
+      "start": 349,
+      "end": 356,
+      "surface": "かもしれません",
+      "headword": "かも知れません",
+      "reading": "かもしれません",
+      "entryId": 1002975,
+      "isName": false
+    },
+    {
+      "start": 356,
+      "end": 357,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 358,
+      "end": 359,
+      "surface": "薬",
+      "headword": "薬",
+      "reading": "くすり",
+      "entryId": 1538160,
+      "isName": false
+    },
+    {
+      "start": 359,
+      "end": 360,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 360,
+      "end": 363,
+      "surface": "使えば",
+      "headword": "使う",
+      "reading": "つかう",
+      "entryId": 1305990,
+      "isName": false
+    },
+    {
+      "start": 363,
+      "end": 364,
+      "surface": "楽",
+      "headword": "楽",
+      "reading": "らく",
+      "entryId": 1207230,
+      "isName": false
+    },
+    {
+      "start": 364,
+      "end": 365,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "isName": false
+    },
+    {
+      "start": 365,
+      "end": 369,
+      "surface": "なります",
+      "headword": "なる",
+      "reading": "なる",
+      "entryId": 1375610,
+      "isName": false
+    },
+    {
+      "start": 370,
+      "end": 371,
+      "surface": "何",
+      "headword": "何",
+      "reading": "なん",
+      "entryId": 2846738,
+      "isName": false
+    },
+    {
+      "start": 371,
+      "end": 373,
+      "surface": "週間",
+      "headword": "週間",
+      "reading": "しゅうかん",
+      "entryId": 1333500,
+      "isName": false
+    },
+    {
+      "start": 373,
+      "end": 375,
+      "surface": "もの",
+      "headword": "もの",
+      "reading": "もの",
+      "entryId": 2780660,
+      "isName": false
+    },
+    {
+      "start": 375,
+      "end": 376,
+      "surface": "間",
+      "headword": "間",
+      "reading": "あいだ",
+      "entryId": 1215230,
+      "isName": false
+    },
+    {
+      "start": 377,
+      "end": 381,
+      "surface": "リハビリ",
+      "headword": "リハビリ",
+      "reading": "リハビリ",
+      "entryId": 1142240,
+      "isName": false
+    },
+    {
+      "start": 381,
+      "end": 382,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "isName": false
+    },
+    {
+      "start": 382,
+      "end": 386,
+      "surface": "呼ばれる",
+      "headword": "呼ぶ",
+      "reading": "よぶ",
+      "entryId": 1266440,
+      "isName": false
+    },
+    {
+      "start": 386,
+      "end": 388,
+      "surface": "運動",
+      "headword": "運動",
+      "reading": "うんどう",
+      "entryId": 1172910,
+      "isName": false
+    },
+    {
+      "start": 388,
+      "end": 389,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "isName": false
+    },
+    {
+      "start": 389,
+      "end": 392,
+      "surface": "続ける",
+      "headword": "続ける",
+      "reading": "つづける",
+      "entryId": 1405800,
+      "isName": false
+    },
+    {
+      "start": 392,
+      "end": 394,
+      "surface": "こと",
+      "headword": "事",
+      "reading": "こと",
+      "entryId": 1313580,
+      "isName": false
+    },
+    {
+      "start": 394,
+      "end": 395,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 395,
+      "end": 397,
+      "surface": "大切",
+      "headword": "大切",
+      "reading": "たいせつ",
+      "entryId": 1414340,
+      "isName": false
+    },
+    {
+      "start": 397,
+      "end": 399,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "isName": false
+    },
+    {
+      "start": 400,
+      "end": 402,
+      "surface": "多く",
+      "headword": "多く",
+      "reading": "おおく",
+      "entryId": 1861770,
+      "isName": false
+    },
+    {
+      "start": 402,
+      "end": 403,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 403,
+      "end": 405,
+      "surface": "患者",
+      "headword": "患者",
+      "reading": "かんじゃ",
+      "entryId": 1212210,
+      "isName": false
+    },
+    {
+      "start": 405,
+      "end": 406,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "isName": false
+    },
+    {
+      "start": 407,
+      "end": 409,
+      "surface": "半年",
+      "headword": "半年",
+      "reading": "はんとし",
+      "entryId": 1583190,
+      "isName": false
+    },
+    {
+      "start": 409,
+      "end": 411,
+      "surface": "ほど",
+      "headword": "程",
+      "reading": "ほど",
+      "entryId": 1436510,
+      "isName": false
+    },
+    {
+      "start": 411,
+      "end": 412,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "isName": false
+    },
+    {
+      "start": 412,
+      "end": 414,
+      "surface": "普通",
+      "headword": "普通",
+      "reading": "ふつう",
+      "entryId": 1497190,
+      "isName": false
+    },
+    {
+      "start": 414,
+      "end": 415,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 415,
+      "end": 417,
+      "surface": "生活",
+      "headword": "生活",
+      "reading": "せいかつ",
+      "entryId": 1378860,
+      "isName": false
+    },
+    {
+      "start": 417,
+      "end": 418,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "isName": false
+    },
+    {
+      "start": 418,
+      "end": 420,
+      "surface": "戻る",
+      "headword": "戻る",
+      "reading": "もどる",
+      "entryId": 1535880,
+      "isName": false
+    },
+    {
+      "start": 420,
+      "end": 427,
+      "surface": "ことができます",
+      "headword": "ことができる",
+      "reading": "ことができる",
+      "entryId": 1004550,
+      "isName": false
+    },
+    {
+      "start": 428,
+      "end": 430,
+      "surface": "この",
+      "headword": "此の",
+      "reading": "この",
+      "entryId": 1582920,
+      "isName": false
+    },
+    {
+      "start": 430,
+      "end": 432,
+      "surface": "手術",
+      "headword": "手術",
+      "reading": "しゅじゅつ",
+      "entryId": 1327790,
+      "isName": false
+    },
+    {
+      "start": 432,
+      "end": 433,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 433,
+      "end": 437,
+      "surface": "おかげで",
+      "headword": "お陰で",
+      "reading": "おかげで",
+      "entryId": 1270210,
+      "isName": false
+    },
+    {
+      "start": 438,
+      "end": 441,
+      "surface": "世界中",
+      "headword": "世界中",
+      "reading": "せかいじゅう",
+      "entryId": 1753790,
+      "isName": false
+    },
+    {
+      "start": 441,
+      "end": 442,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "isName": false
+    },
+    {
+      "start": 442,
+      "end": 445,
+      "surface": "何百万",
+      "headword": "何百万",
+      "reading": "なんびゃくまん",
+      "entryId": null,
+      "isName": false
+    },
+    {
+      "start": 445,
+      "end": 446,
+      "surface": "人",
+      "headword": "人",
+      "reading": "にん",
+      "entryId": 2149890,
+      "isName": false
+    },
+    {
+      "start": 446,
+      "end": 448,
+      "surface": "もの",
+      "headword": "もの",
+      "reading": "もの",
+      "entryId": 2780660,
+      "isName": false
+    },
+    {
+      "start": 448,
+      "end": 450,
+      "surface": "人々",
+      "headword": "人々",
+      "reading": "ひとびと",
+      "entryId": 1580650,
+      "isName": false
+    },
+    {
+      "start": 450,
+      "end": 451,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "isName": false
+    },
+    {
+      "start": 452,
+      "end": 454,
+      "surface": "また",
+      "headword": "又",
+      "reading": "また",
+      "entryId": 1524930,
+      "isName": false
+    },
+    {
+      "start": 454,
+      "end": 457,
+      "surface": "自由に",
+      "headword": "自由に",
+      "reading": "じゆうに",
+      "entryId": 1318740,
+      "isName": false
+    },
+    {
+      "start": 457,
+      "end": 460,
+      "surface": "動ける",
+      "headword": "動く",
+      "reading": "うごく",
+      "entryId": 1451210,
+      "isName": false
+    },
+    {
+      "start": 460,
+      "end": 468,
+      "surface": "ようになっている",
+      "headword": "ようになる",
+      "reading": "ようになる",
+      "entryId": 1013130,
+      "isName": false
+    },
+    {
+      "start": 468,
+      "end": 471,
+      "surface": "のです",
+      "headword": "のです",
+      "reading": "のです",
+      "entryId": 2087820,
+      "isName": false
+    }
+  ]
+}

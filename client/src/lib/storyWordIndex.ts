@@ -183,7 +183,7 @@ export interface WordOccurrence {
  *       its conjugated-from lemma 楽しむ instead of the standalone unranked
  *       楽しませる entry.
  */
-export const WORD_INDEX_VERSION = 18;
+export const WORD_INDEX_VERSION = 19;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -261,11 +261,19 @@ export async function extractWordOccurrences(
         // No whole-span entry.
         if (part.kind === "annotated") {
           // A multi-character annotated block the LLM wrote starting with a
-          // numeral is a "numbered word" (一九二五年, 十四年, 二年前). JMdict
-          // rarely has a whole-span entry for these — emit it whole here and
-          // let `regroupNumberSpans` decide whether to keep it merged (JPDB
-          // ranks it) or split the numeral run from its counter.
-          if (end - start >= 2 && isNumeralChar(cleanText[start] ?? "")) {
+          // numeral — or a numeral qualifier (何百万人) — and carrying at least
+          // one real numeral is a "numbered word" (一九二五年, 十四年, 二年前).
+          // JMdict rarely has a whole-span entry for these — emit it whole here
+          // and let `regroupNumberSpans` decide whether to keep it merged (JPDB
+          // ranks it) or split the numeral run from its counter. The real-
+          // numeral guard keeps a non-numeric 何-led block (何色) on the normal
+          // sub-segmentation path.
+          const block = cleanText.slice(start, end);
+          if (
+            end - start >= 2 &&
+            isNumeralChar(block[0] ?? "") &&
+            [...block].some((ch) => NUMERAL_CHARS.has(ch))
+          ) {
             emit({
               start,
               end,
@@ -541,6 +549,13 @@ const NUMERAL_CHARS = new Set(
   "〇一二三四五六七八九十百千万億兆0123456789０１２３４５６７８９"
 );
 
+// Characters that qualify a numeric expression without being numerals
+// themselves — 何 ("how many": 何百万人) and 数 ("several": 数百万). Treated as
+// numerals by `isNumeralChar` so a block like 何百万人, which kuromoji and
+// JMdict won't whole-span, still routes through the number-span splitter and
+// has its trailing counter (人) peeled off.
+const NUMERAL_QUALIFIER_CHARS = new Set("何数");
+
 // Common counter kanji. Used to recognise an all-numeral/counter occurrence
 // as a number fragment; a numeral-led occurrence with no JMdict entry is also
 // treated as a fragment, so this set need not be exhaustive.
@@ -549,12 +564,15 @@ const COUNTER_CHARS = new Set(
 );
 
 function isNumeralChar(ch: string): boolean {
-  return NUMERAL_CHARS.has(ch);
+  return NUMERAL_CHARS.has(ch) || NUMERAL_QUALIFIER_CHARS.has(ch);
 }
 
 /**
- * True when every character is a numeral or a counter. Exported for unit
- * testing alongside {@link longestReadingSuffix}.
+ * True when every character is a numeral or a counter. Numeral *qualifiers*
+ * (何/数) are deliberately excluded: a bare 何 is the interrogative "what", a
+ * normal word — it joins a number run only via {@link isNumberAtom}'s
+ * entry-less-block branch. Exported for unit testing alongside
+ * {@link longestReadingSuffix}.
  */
 export function isNumberFragment(surface: string): boolean {
   if (surface.length === 0) return false;
@@ -586,8 +604,8 @@ function isNumberAtom(o: WordOccurrence): boolean {
   if (o.surface.length === 0) return false;
   if (isNumberFragment(o.surface)) return true;
   // A numeral-led occurrence with no JMdict entry — e.g. a merged block like
-  // 二年前 whose remainder (年前) isn't purely counters.
-  return NUMERAL_CHARS.has(o.surface[0]!) && o.entryId === null;
+  // 二年前 whose remainder (年前) isn't purely counters, or 何百万人.
+  return isNumeralChar(o.surface[0]!) && o.entryId === null;
 }
 
 /**
@@ -624,7 +642,7 @@ async function splitNumberRun(
   };
   // Leading maximal numeral run.
   let ns = runStart;
-  while (ns < runEnd && NUMERAL_CHARS.has(cleanText[ns]!)) ns++;
+  while (ns < runEnd && isNumeralChar(cleanText[ns]!)) ns++;
   // A pure number (no counter) — nothing to peel.
   if (ns >= runEnd) return [merged];
 
@@ -632,11 +650,24 @@ async function splitNumberRun(
   let rem = reading;
   for (let pos = runEnd - 1; pos >= ns; pos--) {
     const hit = await lookupAtBoundary(cleanText, pos, pos + 1, []);
-    const hw = hit ? headwordFromHit(hit) : null;
-    if (!hit || !hw) return [merged];
+    if (!hit) return [merged];
     const readings = hit.results.flatMap((wr) => wr.r?.map((r) => r.ent) ?? []);
     const match = longestReadingSuffix(rem, readings);
     if (!match) return [merged];
+    // Hoist the JMdict entry whose readings include the peeled reading, so the
+    // stamped entry/headword agree with the counter's actual reading: 人 with
+    // reading にん resolves to the counter entry, not 人「ひと」.
+    const ordered = [...hit.results].sort(
+      (a, b) =>
+        Number((b.r ?? []).some((r) => r.ent === match)) -
+        Number((a.r ?? []).some((r) => r.ent === match))
+    );
+    const hw = headwordFromHit({
+      ...hit,
+      results: ordered,
+      preferredReading: match,
+    });
+    if (!hw) return [merged];
     rem = rem.slice(0, rem.length - match.length);
     tail.unshift({
       start: pos,
@@ -644,7 +675,7 @@ async function splitNumberRun(
       surface: cleanText[pos]!,
       headword: hw.headword,
       reading: match,
-      entryId: hit.results[0]?.id ?? null,
+      entryId: ordered[0]?.id ?? null,
       isName: false,
     });
   }
@@ -698,7 +729,8 @@ async function regroupNumberSpans(
     const runEnd = sorted[j]!.end;
     const surface = cleanText.slice(runStart, runEnd);
     if (![...surface].some((ch) => NUMERAL_CHARS.has(ch))) {
-      // A lone counter (the 年 of 同じ年) — leave the members untouched.
+      // No real numeral — a lone counter (the 年 of 同じ年), or a 何/数
+      // qualifier with nothing numeric to qualify. Leave the members untouched.
       for (let k = i; k <= j; k++) out.push(sorted[k]!);
       i = j + 1;
       continue;

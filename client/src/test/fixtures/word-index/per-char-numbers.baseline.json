@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-18T05:34:23.380Z",
+  "generatedAt": "2026-05-18T23:58:09.334Z",
   "occurrences": [
     {
       "start": 0,
@@ -7,7 +7,8 @@
       "surface": "一九四五",
       "headword": "一九四五",
       "reading": "いちきゅうよんご",
-      "entryId": null
+      "entryId": null,
+      "isName": false
     },
     {
       "start": 4,
@@ -15,7 +16,8 @@
       "surface": "年",
       "headword": "年",
       "reading": "ねん",
-      "entryId": 1468060
+      "entryId": 2084840,
+      "isName": false
     },
     {
       "start": 6,
@@ -23,7 +25,8 @@
       "surface": "町",
       "headword": "町",
       "reading": "まち",
-      "entryId": 1603990
+      "entryId": 1603990,
+      "isName": false
     },
     {
       "start": 7,
@@ -31,7 +34,8 @@
       "surface": "に",
       "headword": "に",
       "reading": "に",
-      "entryId": 2028990
+      "entryId": 2028990,
+      "isName": false
     },
     {
       "start": 8,
@@ -39,7 +43,8 @@
       "surface": "店",
       "headword": "店",
       "reading": "みせ",
-      "entryId": 1582120
+      "entryId": 1582120,
+      "isName": false
     },
     {
       "start": 9,
@@ -47,7 +52,8 @@
       "surface": "が",
       "headword": "が",
       "reading": "が",
-      "entryId": 2028930
+      "entryId": 2028930,
+      "isName": false
     },
     {
       "start": 10,
@@ -55,7 +61,8 @@
       "surface": "十三",
       "headword": "十三",
       "reading": "じゅうさん",
-      "entryId": 1334610
+      "entryId": 1334610,
+      "isName": false
     },
     {
       "start": 12,
@@ -63,7 +70,8 @@
       "surface": "軒",
       "headword": "軒",
       "reading": "けん",
-      "entryId": 2078590
+      "entryId": 2078590,
+      "isName": false
     },
     {
       "start": 13,
@@ -71,7 +79,8 @@
       "surface": "ありました",
       "headword": "ある",
       "reading": "ある",
-      "entryId": 1296400
+      "entryId": 1296400,
+      "isName": false
     }
   ]
 }
