@@ -161,14 +161,6 @@ export default function Stories() {
     <div className="stories-page">
       <div className="stories-page-header">
         <h1>Composition History</h1>
-        <button
-          className="generate-open-btn"
-          onClick={() => setModalOpen(true)}
-          disabled={generating}
-          title={generating ? "Generation in progress…" : undefined}
-        >
-          {generating ? <>Generating<AnimatedDots /></> : "Generate"}
-        </button>
       </div>
       <GenerationModal open={modalOpen} onClose={() => setModalOpen(false)} />
       {error && <div className="error">{error}</div>}
@@ -231,7 +223,7 @@ export default function Stories() {
         </>
       )}
       {stories.length === 0 ? (
-        <p className="empty">No compositions yet. Use the Generate button above to create one.</p>
+        <p className="empty">No compositions yet. Tap the + button to create one.</p>
       ) : visibleStories.length === 0 ? (
         <p className="empty">No compositions match this filter.</p>
       ) : (
@@ -290,6 +282,20 @@ export default function Stories() {
           ))}
         </div>
       )}
+      <button
+        className="fab-generate"
+        onClick={() => setModalOpen(true)}
+        disabled={generating}
+        title={generating ? "Generation in progress…" : "Generate a new story"}
+        aria-label={generating ? "Generating…" : "Generate a new story"}
+      >
+        {generating ? <span className="fab-spinner" /> : (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        )}
+      </button>
     </div>
   );
 }
