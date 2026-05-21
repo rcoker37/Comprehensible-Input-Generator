@@ -1196,6 +1196,12 @@ export const japaneseTransforms: LanguageTransformDescriptor<Condition> = {
                 ...irregularVerbSuffixInflections('た', ['-た'], ['v5']),
                 suffixInflection('ました', 'ます', ['-た'], ['-ます']),
                 suffixInflection('でした', '', ['-た'], ['-ません']),
+                // Stand-alone でした as the past form of the copula です. The
+                // empty-string rule above strips でした for forms with content
+                // before it (静かでした → 静か, パンでした → パン); this rule
+                // handles bare でした so its tap target resolves to the です
+                // entry instead of でし (弟子, "disciple") + た.
+                suffixInflection('でした', 'です', ['-た'], []),
                 suffixInflection('かった', '', ['-た'], ['-ません', '-ん']),
             ],
         },

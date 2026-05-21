@@ -271,6 +271,16 @@ async function regroupParts(
       if (crosses && deinflectionMergeStartsOnParticle(hit, posByStart.get(start))) {
         continue;
       }
+      // Same shape for exact matches: a particle-led kuromoji-split merge into
+      // a kanji-canonical JMdict entry (殿, 螺) is a reading coincidence, not
+      // the word the reader is looking at. Compound particles like には are
+      // kana-canonical and pass.
+      if (
+        crosses &&
+        exactMergeStartsOnParticleIntoKanji(hit, posByStart.get(start))
+      ) {
+        continue;
+      }
       mergedTo = pi;
       break;
     }
@@ -407,8 +417,8 @@ export function spanIsInflectedSingleWord(
  * adjective, so it can only *start* on a content word. When kuromoji tags the
  * leading token as a particle, the "deinflection" is a coincidence — は|もう
  * deinflects to the volitional of the rare verb 食む — and the merge is wrong.
- * Exact matches are out of scope here (they have their own rank-based veto and
- * cover lexicalised compound particles like には); only `hit.base` hits apply.
+ * Exact matches are out of scope here (see
+ * {@link exactMergeStartsOnParticleIntoKanji}); only `hit.base` hits apply.
  *
  * Pure / no I/O — exposed for unit tests.
  */
@@ -417,6 +427,63 @@ export function deinflectionMergeStartsOnParticle(
   leadingPos: string | undefined
 ): boolean {
   return Boolean(hit.base) && leadingPos === PARTICLE_POS;
+}
+
+/**
+ * Veto decision for the exact-match counterpart of
+ * {@link deinflectionMergeStartsOnParticle}: should a kuromoji-split *exact*
+ * merge be refused, given the candidate `hit` and the kuromoji POS of the
+ * span's leading token?
+ *
+ * Fires when all four hold:
+ *   1. surface is pure-kana,
+ *   2. leading kuromoji token is a particle,
+ *   3. matched JMdict entry has at least one non-`sK` kanji form, AND
+ *   4. no sense of the entry is tagged `exp` (multi-word expression).
+ *
+ * Reading-folding lets a pure-kana particle run (と|の, に|し) collide with
+ * kanji words read identically (殿/との, 螺/にし) — and the existing JPDB-rank
+ * veto can miss those when the entry happens to clear the very-rare
+ * threshold (殿 rank 9260) or when a sibling rank pulls the cross-entry
+ * minimum down (にし also hits 西 rank 1960). A particle is not the start of
+ * a single-word kanji noun in those cases, so the merge is wrong.
+ *
+ * Three exits keep legitimate merges flowing:
+ *   - Pure-kana surface (gate 1): kanji-bearing surfaces with a leading kana
+ *     particle are genuine compounds where the kanji is *part of* the phrase —
+ *     に当たり (に+当たり), かも知れません (か+も+知れ+ません) keep merging.
+ *   - Kana-canonical entry (gate 3): JMdict's compound particles JPDB ranks
+ *     (には 22, とは 71, でも) all have k=[], so they keep merging.
+ *   - `exp` POS (gate 4): a JMdict entry tagged `exp` is a multi-word phrase
+ *     by construction, so a particle-led merge into it is exactly the
+ *     intended shape — の様に (のように), 五月雨, etc. The standalone-word
+ *     entries (殿, 螺, 八百) carry only `n`-family POS and stay vetoed.
+ *
+ * Deinflection merges are out of scope here ({@link
+ * deinflectionMergeStartsOnParticle} handles them and *doesn't* require the
+ * kanji-canonical or exp gates, because no compound particle is also a
+ * deinflectable verb).
+ *
+ * Pure / no I/O — exposed for unit tests.
+ */
+export function exactMergeStartsOnParticleIntoKanji(
+  hit: LookupHit,
+  leadingPos: string | undefined
+): boolean {
+  if (hit.base) return false;
+  if (leadingPos !== PARTICLE_POS) return false;
+  if (!isPureKana(hit.surface)) return false;
+  const entry = hit.results[0];
+  if (!entry) return false;
+  const hasNonSkKanji = (entry.k ?? []).some(
+    (k) => !(k.i ?? []).includes("sK")
+  );
+  if (!hasNonSkKanji) return false;
+  const isExpression = (entry.s ?? []).some((sense) =>
+    sense.pos?.includes(EXPRESSION_POS)
+  );
+  if (isExpression) return false;
+  return true;
 }
 
 /**
