@@ -1,0 +1,2323 @@
+{
+  "meta": {
+    "title": "エヴァンゲリオンの物語《ものがたり》",
+    "sourceStoryId": 227,
+    "exportedAt": "2026-05-21T01:06:49.592Z",
+    "wordIndexVersion": 22,
+    "jmdictVersion": null,
+    "fixtureFormatVersion": 1
+  },
+  "content": "「エヴァンゲリオン」は有名《ゆうめい》な日本《にほん》のアニメです。主人公《しゅじんこう》はシンジという十四才《じゅうよんさい》の少年《しょうねん》で、長《なが》い間《あいだ》会《あ》っていなかった父親《ちちおや》に急《きゅう》に呼《よ》ばれます。新《あたら》しい東京《とうきょう》という町《まち》に来《く》ると、そこでは「使徒《しと》」という巨大《きょだい》な化《ば》け物《もの》が人類《じんるい》を殺《ころ》そうとしているのでした。父《ちち》のゲンドウはシンジに「エヴァ」という大《おお》きなロボットに乗《の》って戦《たたか》えと命《めい》じます。不安《ふあん》で逃《に》げたい気持《きも》ちでしたが、彼《かれ》は結局《けっきょく》乗《の》ることを認《みと》めてしまいます。\n\nシンジの他《ほか》にも、エヴァに乗《の》る子《こ》がいます。レイという静《しず》かで不思議《ふしぎ》な少女《しょうじょ》と、アスカという強気《つよき》なドイツから来《き》た少女《しょうじょ》です。三人《さんにん》は何度《なんど》も使徒《しと》と戦《たたか》いますが、その度《たび》にシンジは心《こころ》に痛《いた》みを感《かん》じます。ミサトという女性《じょせい》がシンジの世話《せわ》をして、家《いえ》に住《す》ませてくれます。しかしシンジは自分《じぶん》の父《ちち》や周《まわ》りの人々《ひとびと》との関係《かんけい》を上手《じょうず》に作《つく》ることができず、いつも不安《ふあん》な状態《じょうたい》でいます。\n\n物語《ものがたり》の終《お》わりに近《ちか》づくと、本当《ほんとう》の目的《もくてき》が明《あき》らかになります。実《じつ》はゲンドウは、亡《な》くなったシンジの母《はは》にもう一度《いちど》会《あ》うために、人類《じんるい》全部《ぜんぶ》を一《ひと》つにしてしまう計画《けいかく》を進《すす》めていたのです。アスカは戦《たたか》いに負《ま》けて深《ふか》く苦《くる》しみ、レイの本当《ほんとう》の正体《しょうたい》も少《すこ》しずつ分《わ》かってきます。最後《さいご》に、人類《じんるい》の未来《みらい》を選《えら》ぶのは彼《かれ》でした。難《むずか》しい問題《もんだい》に苦《くる》しみながらも、シンジは自分《じぶん》で答《こた》えを出《だ》し、その終《お》わり方《かた》はとても不思議《ふしぎ》で、見《み》た人《ひと》の心《こころ》に長《なが》く残《のこ》ります。",
+  "expected": [
+    {
+      "start": 1,
+      "end": 9,
+      "surface": "エヴァンゲリオン",
+      "headword": "エヴァンゲリオン",
+      "reading": "エヴァンゲリオン",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 10,
+      "end": 11,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 11,
+      "end": 13,
+      "surface": "有名",
+      "headword": "有名",
+      "reading": "ゆうめい",
+      "entryId": 1541620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 13,
+      "end": 14,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 14,
+      "end": 16,
+      "surface": "日本",
+      "headword": "日本",
+      "reading": "にほん",
+      "entryId": 1582710,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 16,
+      "end": 17,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 17,
+      "end": 20,
+      "surface": "アニメ",
+      "headword": "アニメ",
+      "reading": "アニメ",
+      "entryId": 1017590,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 20,
+      "end": 22,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 23,
+      "end": 26,
+      "surface": "主人公",
+      "headword": "主人公",
+      "reading": "しゅじんこう",
+      "entryId": 1325680,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 26,
+      "end": 27,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 27,
+      "end": 30,
+      "surface": "シンジ",
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 30,
+      "end": 33,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 33,
+      "end": 35,
+      "surface": "十四",
+      "headword": "十四",
+      "reading": "じゅうよん",
+      "entryId": null,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 35,
+      "end": 36,
+      "surface": "才",
+      "headword": "歳",
+      "reading": "さい",
+      "entryId": 1294940,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 36,
+      "end": 37,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 37,
+      "end": 39,
+      "surface": "少年",
+      "headword": "少年",
+      "reading": "しょうねん",
+      "entryId": 1349170,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 39,
+      "end": 40,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 41,
+      "end": 44,
+      "surface": "長い間",
+      "headword": "長い間",
+      "reading": "ながいあいだ",
+      "entryId": 1429760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 44,
+      "end": 52,
+      "surface": "会っていなかった",
+      "headword": "会う",
+      "reading": "あう",
+      "entryId": 1198180,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 52,
+      "end": 54,
+      "surface": "父親",
+      "headword": "父親",
+      "reading": "ちちおや",
+      "entryId": 1497680,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 54,
+      "end": 55,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 55,
+      "end": 57,
+      "surface": "急に",
+      "headword": "急に",
+      "reading": "きゅうに",
+      "entryId": 2269050,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 57,
+      "end": 62,
+      "surface": "呼ばれます",
+      "headword": "呼ぶ",
+      "reading": "よぶ",
+      "entryId": 1266440,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 63,
+      "end": 66,
+      "surface": "新しい",
+      "headword": "新しい",
+      "reading": "あたらしい",
+      "entryId": 1361490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 66,
+      "end": 68,
+      "surface": "東京",
+      "headword": "東京",
+      "reading": "とうきょう",
+      "entryId": 1447690,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 68,
+      "end": 71,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 71,
+      "end": 72,
+      "surface": "町",
+      "headword": "町",
+      "reading": "まち",
+      "entryId": 1603990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 72,
+      "end": 73,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 73,
+      "end": 75,
+      "surface": "来る",
+      "headword": "来る",
+      "reading": "くる",
+      "entryId": 1547720,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 75,
+      "end": 76,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 77,
+      "end": 80,
+      "surface": "そこで",
+      "headword": "其処で",
+      "reading": "そこで",
+      "entryId": 1406090,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 80,
+      "end": 81,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 82,
+      "end": 84,
+      "surface": "使徒",
+      "headword": "使徒",
+      "reading": "しと",
+      "entryId": 1306060,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 85,
+      "end": 88,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 88,
+      "end": 90,
+      "surface": "巨大",
+      "headword": "巨大",
+      "reading": "きょだい",
+      "entryId": 1232180,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 90,
+      "end": 91,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 91,
+      "end": 94,
+      "surface": "化け物",
+      "headword": "化け物",
+      "reading": "ばけもの",
+      "entryId": 1601300,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 94,
+      "end": 95,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 95,
+      "end": 97,
+      "surface": "人類",
+      "headword": "人類",
+      "reading": "じんるい",
+      "entryId": 1369530,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 97,
+      "end": 98,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 98,
+      "end": 101,
+      "surface": "殺そう",
+      "headword": "殺す",
+      "reading": "ころす",
+      "entryId": 1299030,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 101,
+      "end": 104,
+      "surface": "として",
+      "headword": "として",
+      "reading": "として",
+      "entryId": 1008590,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 104,
+      "end": 106,
+      "surface": "いる",
+      "headword": "居る",
+      "reading": "いる",
+      "entryId": 1577980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 106,
+      "end": 110,
+      "surface": "のでした",
+      "headword": "のです",
+      "reading": "のです",
+      "entryId": 2087820,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 111,
+      "end": 112,
+      "surface": "父",
+      "headword": "父",
+      "reading": "ちち",
+      "entryId": 1497610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 112,
+      "end": 113,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 113,
+      "end": 117,
+      "surface": "ゲンドウ",
+      "headword": "言動",
+      "reading": "げんどう",
+      "entryId": 1264520,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 117,
+      "end": 118,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 118,
+      "end": 121,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 121,
+      "end": 122,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 123,
+      "end": 126,
+      "surface": "エヴァ",
+      "headword": "エヴァ",
+      "reading": "エヴァ",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 127,
+      "end": 130,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 130,
+      "end": 133,
+      "surface": "大きな",
+      "headword": "大きな",
+      "reading": "おおきな",
+      "entryId": 1412890,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 133,
+      "end": 137,
+      "surface": "ロボット",
+      "headword": "ロボット",
+      "reading": "ロボット",
+      "entryId": 1147870,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 137,
+      "end": 138,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 138,
+      "end": 141,
+      "surface": "乗って",
+      "headword": "乗る",
+      "reading": "のる",
+      "entryId": 1355120,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 141,
+      "end": 143,
+      "surface": "戦え",
+      "headword": "戦う",
+      "reading": "たたかう",
+      "entryId": 1596960,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 143,
+      "end": 144,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 144,
+      "end": 148,
+      "surface": "命じます",
+      "headword": "命じる",
+      "reading": "めいじる",
+      "entryId": 1531950,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 149,
+      "end": 151,
+      "surface": "不安",
+      "headword": "不安",
+      "reading": "ふあん",
+      "entryId": 1491150,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 151,
+      "end": 152,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 152,
+      "end": 156,
+      "surface": "逃げたい",
+      "headword": "逃げる",
+      "reading": "にげる",
+      "entryId": 1450330,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 156,
+      "end": 159,
+      "surface": "気持ち",
+      "headword": "気持ち",
+      "reading": "きもち",
+      "entryId": 1591430,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 159,
+      "end": 162,
+      "surface": "でした",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 162,
+      "end": 163,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 164,
+      "end": 165,
+      "surface": "彼",
+      "headword": "彼",
+      "reading": "かれ",
+      "entryId": 1483070,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 165,
+      "end": 166,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 166,
+      "end": 168,
+      "surface": "結局",
+      "headword": "結局",
+      "reading": "けっきょく",
+      "entryId": 1254730,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 168,
+      "end": 170,
+      "surface": "乗る",
+      "headword": "乗る",
+      "reading": "のる",
+      "entryId": 1355120,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 170,
+      "end": 172,
+      "surface": "こと",
+      "headword": "事",
+      "reading": "こと",
+      "entryId": 1313580,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 172,
+      "end": 173,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 173,
+      "end": 181,
+      "surface": "認めてしまいます",
+      "headword": "認める",
+      "reading": "みとめる",
+      "entryId": 1467530,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 184,
+      "end": 187,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 187,
+      "end": 188,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 188,
+      "end": 191,
+      "surface": "他にも",
+      "headword": "他にも",
+      "reading": "ほかにも",
+      "entryId": 2839191,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 192,
+      "end": 193,
+      "surface": "エ",
+      "headword": "え",
+      "reading": "え",
+      "entryId": 2122310,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 195,
+      "end": 196,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 196,
+      "end": 198,
+      "surface": "乗る",
+      "headword": "乗る",
+      "reading": "のる",
+      "entryId": 1355120,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 198,
+      "end": 199,
+      "surface": "子",
+      "headword": "子",
+      "reading": "こ",
+      "entryId": 1307770,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 199,
+      "end": 200,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 200,
+      "end": 203,
+      "surface": "います",
+      "headword": "居る",
+      "reading": "いる",
+      "entryId": 1577980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 204,
+      "end": 206,
+      "surface": "レイ",
+      "headword": "レイ",
+      "reading": "レイ",
+      "entryId": null,
+      "isName": true,
+      "manual": true
+    },
+    {
+      "start": 206,
+      "end": 209,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 209,
+      "end": 211,
+      "surface": "静か",
+      "headword": "静か",
+      "reading": "しずか",
+      "entryId": 1381820,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 211,
+      "end": 212,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 212,
+      "end": 215,
+      "surface": "不思議",
+      "headword": "不思議",
+      "reading": "ふしぎ",
+      "entryId": 1492570,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 215,
+      "end": 216,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 216,
+      "end": 218,
+      "surface": "少女",
+      "headword": "少女",
+      "reading": "しょうじょ",
+      "entryId": 1580290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 218,
+      "end": 219,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 220,
+      "end": 223,
+      "surface": "アスカ",
+      "headword": "アスカ",
+      "reading": "アスカ",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 223,
+      "end": 226,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 226,
+      "end": 228,
+      "surface": "強気",
+      "headword": "強気",
+      "reading": "つよき",
+      "entryId": 1236230,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 228,
+      "end": 229,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 229,
+      "end": 232,
+      "surface": "ドイツ",
+      "headword": "独逸",
+      "reading": "ドイツ",
+      "entryId": 1599200,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 232,
+      "end": 234,
+      "surface": "から",
+      "headword": "から",
+      "reading": "から",
+      "entryId": 1002980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 234,
+      "end": 236,
+      "surface": "来た",
+      "headword": "来る",
+      "reading": "くる",
+      "entryId": 1547720,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 236,
+      "end": 238,
+      "surface": "少女",
+      "headword": "少女",
+      "reading": "しょうじょ",
+      "entryId": 1580290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 238,
+      "end": 240,
+      "surface": "です",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 241,
+      "end": 243,
+      "surface": "三人",
+      "headword": "三人",
+      "reading": "さんにん",
+      "entryId": 1301000,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 243,
+      "end": 244,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 244,
+      "end": 247,
+      "surface": "何度も",
+      "headword": "何度も",
+      "reading": "なんども",
+      "entryId": 1189200,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 247,
+      "end": 249,
+      "surface": "使徒",
+      "headword": "使徒",
+      "reading": "しと",
+      "entryId": 1306060,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 249,
+      "end": 250,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 250,
+      "end": 254,
+      "surface": "戦います",
+      "headword": "戦う",
+      "reading": "たたかう",
+      "entryId": 1596960,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 254,
+      "end": 255,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 256,
+      "end": 259,
+      "surface": "その度",
+      "headword": "その度",
+      "reading": "そのたび",
+      "entryId": 2651400,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 259,
+      "end": 260,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 260,
+      "end": 263,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 263,
+      "end": 264,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 264,
+      "end": 265,
+      "surface": "心",
+      "headword": "心",
+      "reading": "こころ",
+      "entryId": 1360480,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 265,
+      "end": 266,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 266,
+      "end": 268,
+      "surface": "痛み",
+      "headword": "痛み",
+      "reading": "いたみ",
+      "entryId": 1587300,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 268,
+      "end": 269,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 269,
+      "end": 273,
+      "surface": "感じます",
+      "headword": "感じる",
+      "reading": "かんじる",
+      "entryId": 1212260,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 274,
+      "end": 277,
+      "surface": "ミサト",
+      "headword": "ミサト",
+      "reading": "ミサト",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 277,
+      "end": 280,
+      "surface": "という",
+      "headword": "と言う",
+      "reading": "という",
+      "entryId": 1922760,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 280,
+      "end": 282,
+      "surface": "女性",
+      "headword": "女性",
+      "reading": "じょせい",
+      "entryId": 1345250,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 282,
+      "end": 283,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 283,
+      "end": 286,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 286,
+      "end": 287,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 287,
+      "end": 292,
+      "surface": "世話をして",
+      "headword": "世話をする",
+      "reading": "せわをする",
+      "entryId": 2253800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 293,
+      "end": 294,
+      "surface": "家",
+      "headword": "家",
+      "reading": "いえ",
+      "entryId": 1191730,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 294,
+      "end": 295,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 295,
+      "end": 299,
+      "surface": "住ませて",
+      "headword": "住む",
+      "reading": "すむ",
+      "entryId": 1334040,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 299,
+      "end": 303,
+      "surface": "くれます",
+      "headword": "呉れる",
+      "reading": "くれる",
+      "entryId": 1269130,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 304,
+      "end": 307,
+      "surface": "しかし",
+      "headword": "然し",
+      "reading": "しかし",
+      "entryId": 1505990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 307,
+      "end": 310,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 310,
+      "end": 311,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 311,
+      "end": 313,
+      "surface": "自分",
+      "headword": "自分",
+      "reading": "じぶん",
+      "entryId": 1318610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 313,
+      "end": 314,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 314,
+      "end": 315,
+      "surface": "父",
+      "headword": "父",
+      "reading": "ちち",
+      "entryId": 1497610,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 315,
+      "end": 316,
+      "surface": "や",
+      "headword": "や",
+      "reading": "や",
+      "entryId": 2028960,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 316,
+      "end": 318,
+      "surface": "周り",
+      "headword": "周り",
+      "reading": "まわり",
+      "entryId": 1604290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 318,
+      "end": 319,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 319,
+      "end": 321,
+      "surface": "人々",
+      "headword": "人々",
+      "reading": "ひとびと",
+      "entryId": 1580650,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 321,
+      "end": 322,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 322,
+      "end": 323,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 323,
+      "end": 325,
+      "surface": "関係",
+      "headword": "関係",
+      "reading": "かんけい",
+      "entryId": 1215810,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 325,
+      "end": 326,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 326,
+      "end": 328,
+      "surface": "上手",
+      "headword": "上手",
+      "reading": "じょうず",
+      "entryId": 1353320,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 328,
+      "end": 329,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 329,
+      "end": 331,
+      "surface": "作る",
+      "headword": "作る",
+      "reading": "つくる",
+      "entryId": 1597890,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 331,
+      "end": 337,
+      "surface": "ことができず",
+      "headword": "ことが出来る",
+      "reading": "ことができる",
+      "entryId": 1004550,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 338,
+      "end": 341,
+      "surface": "いつも",
+      "headword": "何時も",
+      "reading": "いつも",
+      "entryId": 1188890,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 341,
+      "end": 343,
+      "surface": "不安",
+      "headword": "不安",
+      "reading": "ふあん",
+      "entryId": 1491150,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 343,
+      "end": 344,
+      "surface": "な",
+      "headword": "な",
+      "reading": "な",
+      "entryId": 2029110,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 344,
+      "end": 346,
+      "surface": "状態",
+      "headword": "状態",
+      "reading": "じょうたい",
+      "entryId": 1356730,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 346,
+      "end": 347,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 347,
+      "end": 350,
+      "surface": "います",
+      "headword": "居る",
+      "reading": "いる",
+      "entryId": 1577980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 353,
+      "end": 355,
+      "surface": "物語",
+      "headword": "物語",
+      "reading": "ものがたり",
+      "entryId": 1502480,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 355,
+      "end": 356,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 356,
+      "end": 359,
+      "surface": "終わり",
+      "headword": "終わる",
+      "reading": "おわる",
+      "entryId": 1589600,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 359,
+      "end": 360,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 360,
+      "end": 363,
+      "surface": "近づく",
+      "headword": "近づく",
+      "reading": "ちかづく",
+      "entryId": 1242170,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 363,
+      "end": 364,
+      "surface": "と",
+      "headword": "と",
+      "reading": "と",
+      "entryId": 1008490,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 365,
+      "end": 367,
+      "surface": "本当",
+      "headword": "本当",
+      "reading": "ほんとう",
+      "entryId": 1523060,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 367,
+      "end": 368,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 368,
+      "end": 370,
+      "surface": "目的",
+      "headword": "目的",
+      "reading": "もくてき",
+      "entryId": 1535560,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 370,
+      "end": 371,
+      "surface": "が",
+      "headword": "が",
+      "reading": "が",
+      "entryId": 2028930,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 371,
+      "end": 379,
+      "surface": "明らかになります",
+      "headword": "明らかになる",
+      "reading": "あきらかになる",
+      "entryId": 1532330,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 380,
+      "end": 382,
+      "surface": "実は",
+      "headword": "実は",
+      "reading": "じつは",
+      "entryId": 1320830,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 382,
+      "end": 386,
+      "surface": "ゲンドウ",
+      "headword": "言動",
+      "reading": "げんどう",
+      "entryId": 1264520,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 386,
+      "end": 387,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 388,
+      "end": 393,
+      "surface": "亡くなった",
+      "headword": "亡くなる",
+      "reading": "なくなる",
+      "entryId": 1518540,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 393,
+      "end": 396,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 396,
+      "end": 397,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 397,
+      "end": 398,
+      "surface": "母",
+      "headword": "母",
+      "reading": "はは",
+      "entryId": 1514990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 398,
+      "end": 399,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 399,
+      "end": 403,
+      "surface": "もう一度",
+      "headword": "もう一度",
+      "reading": "もういちど",
+      "entryId": 2005860,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 403,
+      "end": 405,
+      "surface": "会う",
+      "headword": "会う",
+      "reading": "あう",
+      "entryId": 1198180,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 405,
+      "end": 408,
+      "surface": "ために",
+      "headword": "為に",
+      "reading": "ために",
+      "entryId": 1157150,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 409,
+      "end": 411,
+      "surface": "人類",
+      "headword": "人類",
+      "reading": "じんるい",
+      "entryId": 1369530,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 411,
+      "end": 413,
+      "surface": "全部",
+      "headword": "全部",
+      "reading": "ぜんぶ",
+      "entryId": 1396130,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 413,
+      "end": 414,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 414,
+      "end": 416,
+      "surface": "一つ",
+      "headword": "一つ",
+      "reading": "ひとつ",
+      "entryId": 1160820,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 416,
+      "end": 417,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 417,
+      "end": 422,
+      "surface": "してしまう",
+      "headword": "為る",
+      "reading": "する",
+      "entryId": 1157170,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 422,
+      "end": 424,
+      "surface": "計画",
+      "headword": "計画",
+      "reading": "けいかく",
+      "entryId": 1252090,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 424,
+      "end": 425,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 425,
+      "end": 430,
+      "surface": "進めていた",
+      "headword": "進める",
+      "reading": "すすめる",
+      "entryId": 1365990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 430,
+      "end": 433,
+      "surface": "のです",
+      "headword": "のです",
+      "reading": "のです",
+      "entryId": 2087820,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 434,
+      "end": 437,
+      "surface": "アスカ",
+      "headword": "アスカ",
+      "reading": "アスカ",
+      "entryId": null,
+      "manual": false,
+      "isName": true
+    },
+    {
+      "start": 437,
+      "end": 438,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 438,
+      "end": 440,
+      "surface": "戦い",
+      "headword": "戦い",
+      "reading": "たたかい",
+      "entryId": 1596950,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 440,
+      "end": 441,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 441,
+      "end": 444,
+      "surface": "負けて",
+      "headword": "負ける",
+      "reading": "まける",
+      "entryId": 1497980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 444,
+      "end": 446,
+      "surface": "深く",
+      "headword": "深い",
+      "reading": "ふかい",
+      "entryId": 1362640,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 446,
+      "end": 449,
+      "surface": "苦しみ",
+      "headword": "苦しむ",
+      "reading": "くるしむ",
+      "entryId": 1244350,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 450,
+      "end": 452,
+      "surface": "レイ",
+      "headword": "レイ",
+      "reading": "レイ",
+      "entryId": null,
+      "isName": true,
+      "manual": true
+    },
+    {
+      "start": 452,
+      "end": 453,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 453,
+      "end": 455,
+      "surface": "本当",
+      "headword": "本当",
+      "reading": "ほんとう",
+      "entryId": 1523060,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 455,
+      "end": 456,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 456,
+      "end": 458,
+      "surface": "正体",
+      "headword": "正体",
+      "reading": "しょうたい",
+      "entryId": 1377530,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 458,
+      "end": 459,
+      "surface": "も",
+      "headword": "も",
+      "reading": "も",
+      "entryId": 2028940,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 459,
+      "end": 463,
+      "surface": "少しずつ",
+      "headword": "少しずつ",
+      "reading": "すこしずつ",
+      "entryId": 1348880,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 463,
+      "end": 467,
+      "surface": "分かって",
+      "headword": "分かる",
+      "reading": "わかる",
+      "entryId": 1606560,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 467,
+      "end": 470,
+      "surface": "きます",
+      "headword": "来る",
+      "reading": "くる",
+      "entryId": 1547720,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 471,
+      "end": 473,
+      "surface": "最後",
+      "headword": "最後",
+      "reading": "さいご",
+      "entryId": 1293810,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 473,
+      "end": 474,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 475,
+      "end": 477,
+      "surface": "人類",
+      "headword": "人類",
+      "reading": "じんるい",
+      "entryId": 1369530,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 477,
+      "end": 478,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 478,
+      "end": 480,
+      "surface": "未来",
+      "headword": "未来",
+      "reading": "みらい",
+      "entryId": 1528060,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 480,
+      "end": 481,
+      "surface": "を",
+      "headword": "を",
+      "reading": "を",
+      "entryId": 2029010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 481,
+      "end": 483,
+      "surface": "選ぶ",
+      "headword": "選ぶ",
+      "reading": "えらぶ",
+      "entryId": 1588730,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 483,
+      "end": 484,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 484,
+      "end": 485,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 485,
+      "end": 486,
+      "surface": "彼",
+      "headword": "彼",
+      "reading": "かれ",
+      "entryId": 1483070,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 486,
+      "end": 489,
+      "surface": "でした",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 490,
+      "end": 493,
+      "surface": "難しい",
+      "headword": "難しい",
+      "reading": "むずかしい",
+      "entryId": 1460850,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 493,
+      "end": 495,
+      "surface": "問題",
+      "headword": "問題",
+      "reading": "もんだい",
+      "entryId": 1536010,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 495,
+      "end": 496,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 496,
+      "end": 499,
+      "surface": "苦しみ",
+      "headword": "苦しむ",
+      "reading": "くるしむ",
+      "entryId": 1244350,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 499,
+      "end": 503,
+      "surface": "ながらも",
+      "headword": "乍らも",
+      "reading": "ながらも",
+      "entryId": 2135520,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 504,
+      "end": 507,
+      "surface": "シンジ",
+      "headword": "神事",
+      "reading": "しんじ",
+      "entryId": 2816620,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 507,
+      "end": 508,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 508,
+      "end": 511,
+      "surface": "自分で",
+      "headword": "自分で",
+      "reading": "じぶんで",
+      "entryId": 2830519,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 511,
+      "end": 516,
+      "surface": "答えを出し",
+      "headword": "答えを出す",
+      "reading": "こたえをだす",
+      "entryId": 2654960,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 517,
+      "end": 519,
+      "surface": "その",
+      "headword": "其の",
+      "reading": "その",
+      "entryId": 1006830,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 519,
+      "end": 522,
+      "surface": "終わり",
+      "headword": "終わる",
+      "reading": "おわる",
+      "entryId": 1589600,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 522,
+      "end": 523,
+      "surface": "方",
+      "headword": "方",
+      "reading": "かた",
+      "entryId": 1516925,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 523,
+      "end": 524,
+      "surface": "は",
+      "headword": "は",
+      "reading": "は",
+      "entryId": 2028920,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 524,
+      "end": 527,
+      "surface": "とても",
+      "headword": "迚も",
+      "reading": "とても",
+      "entryId": 1008630,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 527,
+      "end": 530,
+      "surface": "不思議",
+      "headword": "不思議",
+      "reading": "ふしぎ",
+      "entryId": 1492570,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 530,
+      "end": 531,
+      "surface": "で",
+      "headword": "で",
+      "reading": "で",
+      "entryId": 2028980,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 532,
+      "end": 534,
+      "surface": "見た",
+      "headword": "見る",
+      "reading": "みる",
+      "entryId": 1259290,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 534,
+      "end": 535,
+      "surface": "人",
+      "headword": "人",
+      "reading": "ひと",
+      "entryId": 1580640,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 535,
+      "end": 536,
+      "surface": "の",
+      "headword": "の",
+      "reading": "の",
+      "entryId": 1469800,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 536,
+      "end": 537,
+      "surface": "心",
+      "headword": "心",
+      "reading": "こころ",
+      "entryId": 1360480,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 537,
+      "end": 538,
+      "surface": "に",
+      "headword": "に",
+      "reading": "に",
+      "entryId": 2028990,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 538,
+      "end": 540,
+      "surface": "長く",
+      "headword": "長い",
+      "reading": "ながい",
+      "entryId": 1429750,
+      "manual": false,
+      "isName": false
+    },
+    {
+      "start": 540,
+      "end": 544,
+      "surface": "残ります",
+      "headword": "残る",
+      "reading": "のこる",
+      "entryId": 1304510,
+      "manual": false,
+      "isName": false
+    }
+  ]
+}

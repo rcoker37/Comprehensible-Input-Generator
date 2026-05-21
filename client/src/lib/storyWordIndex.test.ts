@@ -1,9 +1,25 @@
 import { describe, it, expect } from "vitest";
+import type { WordResult } from "@birchill/jpdict-idb";
 import {
+  isAllKanjiCanonicalNonUk,
   isNumberFragment,
   longestReadingSuffix,
   partitionReading,
 } from "./storyWordIndex";
+
+function wr(opts: {
+  k?: { ent: string; i?: string[] }[];
+  r?: { ent: string }[];
+  pos?: string[];
+  misc?: string[];
+}): WordResult {
+  return {
+    id: 0,
+    k: opts.k ?? [],
+    r: opts.r ?? [],
+    s: [{ pos: opts.pos ?? ["n"], misc: opts.misc }],
+  } as unknown as WordResult;
+}
 
 describe("isNumberFragment", () => {
   it("accepts all-numeral and numeral+counter surfaces", () => {
@@ -62,5 +78,50 @@ describe("partitionReading", () => {
     expect(
       partitionReading("さみだれ", [["ごがつ", "さつき"], ["あめ", "さめ"]])
     ).toBe(null);
+  });
+});
+
+describe("isAllKanjiCanonicalNonUk", () => {
+  it("returns true on an empty list (no-match surface routes to name branch)", () => {
+    expect(isAllKanjiCanonicalNonUk([])).toBe(true);
+  });
+
+  it("returns true when every entry is kanji-canonical without `uk`", () => {
+    // シンジ matches 神事/新字/鍼治 — all have a kanji form and no uk sense.
+    expect(
+      isAllKanjiCanonicalNonUk([
+        wr({ k: [{ ent: "神事" }], r: [{ ent: "しんじ" }] }),
+        wr({ k: [{ ent: "新字" }], r: [{ ent: "しんじ" }] }),
+        wr({ k: [{ ent: "鍼治" }], r: [{ ent: "しんじ" }] }),
+      ])
+    ).toBe(true);
+  });
+
+  it("returns false when any entry carries `uk` (real katakana loanword)", () => {
+    // ドイツ matches 独逸 with misc=uk — bucket 3, keep the JMdict match.
+    expect(
+      isAllKanjiCanonicalNonUk([
+        wr({
+          k: [{ ent: "独逸" }, { ent: "独乙" }],
+          r: [{ ent: "ドイツ" }],
+          misc: ["uk"],
+        }),
+      ])
+    ).toBe(false);
+  });
+
+  it("returns false when an entry is kana-canonical (k=[])", () => {
+    // レイ matches a kana-canonical entry — not a kanji-folding coincidence.
+    expect(
+      isAllKanjiCanonicalNonUk([wr({ k: [], r: [{ ent: "レイ" }] })])
+    ).toBe(false);
+  });
+
+  it("treats `sK` kanji forms as if absent (same precedence as headwordFromHit)", () => {
+    expect(
+      isAllKanjiCanonicalNonUk([
+        wr({ k: [{ ent: "乃", i: ["sK"] }], r: [{ ent: "の" }] }),
+      ])
+    ).toBe(false);
   });
 });

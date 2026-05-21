@@ -16,7 +16,7 @@
 // per-part dictionary lookup. A typical 5-paragraph story produces a few
 // hundred lookups — fast enough to run in the background after the user
 // clicks Read.
-import { getDictionaryState } from "./dictionary";
+import { getDictionaryState, lookupWord } from "./dictionary";
 import { loadFrequencyIndex, lookupFrequencySync } from "./frequency";
 import { headwordFromHit } from "./headword";
 import { lookupAtBoundary, type LookupHit } from "./lookupAtCursor";
@@ -31,6 +31,7 @@ import {
   tokenizeText,
   type KuromojiTokenInfo,
 } from "./tokenizer";
+import type { WordResult } from "@birchill/jpdict-idb";
 import type { Story } from "../types";
 
 export interface WordOccurrence {
@@ -201,8 +202,28 @@ export interface WordOccurrence {
  *       matching it before the JPDB-rank tiebreaker. 「〜ていった」 resolves to
  *       行く (kuromoji's lemma), not the merely-commoner 言う; できなかった to
  *       出来る, not the suppletive-potential する.
+ *  23 — four pipeline fixes for the エヴァンゲリオン fixture's manual overrides.
+ *       (a) `pickDeinflection` now applies `baseHint` as a tiebreaker *among*
+ *       annotation-fitters instead of only when no annotation fits — fixes the
+ *       partial-ruby case where two godan classes share the same -て / -ます
+ *       form (分《わ》かって → 分かる, not 分かつ; 命《めい》じます → 命じる, not 命ずる).
+ *       (b) `regroupWords` refuses a kuromoji-split exact-match merge whose
+ *       leading token is a 助詞 and whose hit is into a kanji-canonical JMdict
+ *       entry (`exactMergeStartsOnParticleIntoKanji`) — keeps と+の from
+ *       collapsing into 殿 (rank 9260, slipped past the kana-rank veto) and
+ *       に+し from collapsing into 螺 (a sibling 西 hit pulled the rank-veto's
+ *       cross-entry minimum down enough to clear the threshold).
+ *       (c) Bare でした now deinflects to です (the copula). The existing
+ *       strip-to-empty rule still handles compound forms (静かでした → 静か).
+ *       (d) `extractWordOccurrences` runs a post-pass (`detectKatakanaNames`)
+ *       that emits a katakana run as a name span when at least one kuromoji
+ *       token in the run is tagged `固有名詞` AND the run's JMdict lookup is
+ *       either empty or only kanji-canonical non-`uk` entries. シンジ no
+ *       longer maps to 神事; ゲンドウ no longer maps to 言動; ミサト merges
+ *       even when kuromoji splits ミ+サト; ドイツ (uk) and ロボット (一般)
+ *       stay as JMdict matches.
  */
-export const WORD_INDEX_VERSION = 22;
+export const WORD_INDEX_VERSION = 23;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -319,7 +340,8 @@ export async function extractWordOccurrences(
       }
     }
   }
-  return regroupNumberSpans(occurrences, cleanText, annotations, freqReady);
+  const named = await detectKatakanaNames(occurrences, cleanText, tokens);
+  return regroupNumberSpans(named, cleanText, annotations, freqReady);
 }
 
 /**
@@ -355,6 +377,153 @@ async function lookupSpanOccurrence(
     entryId: hit.results[0]?.id ?? null,
     isName: false,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Katakana name detection
+//
+// Kuromoji's IPADIC tags character/place/organisation names as `名詞-固有名詞`
+// (proper noun). For pure-katakana proper nouns the JMdict situation breaks
+// into three buckets and the regular lookup pipeline mis-handles two of them:
+//
+//   1. No JMdict entry at all (エヴァンゲリオン, エヴァ, アスカ). The per-char
+//      fallback splits the name into single-kana lookups (エ → 絵, オン → ＯＮ,
+//      …) which is gibberish.
+//   2. JMdict has a kanji-canonical entry whose reading folds onto the name
+//      (シンジ → 神事, ゲンドウ → 言動). The lookup hits the kanji word the
+//      reader almost certainly doesn't mean — the entry just happens to read
+//      identically.
+//   3. JMdict has a `uk` ("usually kana") entry whose reading is the surface
+//      (ドイツ → 独逸, カナダ → 加奈陀). These are real, common loanwords; the
+//      JMdict match is what the reader wants.
+//
+// Bucket 3 is the JMdict-the-reader-meant case, so the rule has to skip it.
+// Buckets 1 and 2 are emitted as name spans (`isName=true`, `entryId=null`).
+//
+// Run-level detection is needed because kuromoji occasionally fragments a
+// katakana name (ミサト → ミ「general」+ サト「proper noun」). Any contiguous
+// katakana token run that contains *at least one* `固有名詞` token, where the
+// run's surface either has no JMdict entry or only buckets-2 entries, is
+// merged and emitted as one name span — replacing any per-token / per-char
+// occurrences that fell inside the run.
+//
+// Single-token loanwords kuromoji tags `一般` (general — ロボット, レイ) miss
+// this rule and keep their JMdict match. レイ specifically is ambiguous
+// (could be a name or "ray") and stays a known gap.
+// ---------------------------------------------------------------------------
+
+function isKatakanaChar(ch: string): boolean {
+  const c = ch.codePointAt(0) ?? 0;
+  // Full-width katakana block, including the prolonged-sound mark ー so ヴァー
+  // doesn't break the run, plus half-width katakana.
+  if (c >= 0x30a0 && c <= 0x30ff) return true;
+  if (c >= 0xff66 && c <= 0xff9f) return true;
+  return false;
+}
+
+function isKatakanaToken(token: KuromojiTokenInfo): boolean {
+  for (const ch of token.surface) {
+    if (!isKatakanaChar(ch)) return false;
+  }
+  return token.surface.length > 0;
+}
+
+/**
+ * True when every JMdict `WordResult` is *kanji-canonical with no `uk` sense* —
+ * i.e. the reader most likely doesn't mean the kanji word these readings fold
+ * onto. シンジ → 神事/新字/鍼治 (all kanji, none uk) passes; ドイツ → 独逸 (kanji
+ * with `uk`) fails. Empty list is treated as "all" and returns true so a
+ * no-match surface routes to the name branch.
+ *
+ * Pure / no I/O — exported for unit tests.
+ */
+export function isAllKanjiCanonicalNonUk(results: WordResult[]): boolean {
+  if (results.length === 0) return true;
+  for (const wr of results) {
+    const hasNonSkKanji = (wr.k ?? []).some(
+      (k) => !(k.i ?? []).includes("sK")
+    );
+    if (!hasNonSkKanji) return false;
+    const hasUk = (wr.s ?? []).some((sense) => sense.misc?.includes("uk"));
+    if (hasUk) return false;
+  }
+  return true;
+}
+
+/**
+ * Replace any per-token / per-char occurrence inside a katakana-name run with
+ * one name span. A "katakana-name run" is a maximal contiguous sequence of
+ * katakana kuromoji tokens that contains at least one `固有名詞` token, where
+ * the run's surface JMdict lookup is either empty or only matches kanji-
+ * canonical, non-`uk` entries (see {@link isAllKanjiCanonicalNonUk}).
+ *
+ * Returns a new array; input is not mutated. Occurrences that don't intersect
+ * any qualifying run are passed through unchanged. Pure logic plus one
+ * `lookupWord` per candidate run.
+ */
+async function detectKatakanaNames(
+  occurrences: WordOccurrence[],
+  cleanText: string,
+  tokens: KuromojiTokenInfo[]
+): Promise<WordOccurrence[]> {
+  const nameSpans: { start: number; end: number; surface: string }[] = [];
+
+  let i = 0;
+  while (i < tokens.length) {
+    const head = tokens[i]!;
+    if (!isKatakanaToken(head)) {
+      i++;
+      continue;
+    }
+    // Maximal contiguous katakana run.
+    let j = i;
+    while (
+      j + 1 < tokens.length &&
+      tokens[j + 1]!.start === tokens[j]!.end &&
+      isKatakanaToken(tokens[j + 1]!)
+    ) {
+      j++;
+    }
+    const runTokens = tokens.slice(i, j + 1);
+    const hasProper = runTokens.some(isProperNoun);
+    if (!hasProper) {
+      i = j + 1;
+      continue;
+    }
+    const start = head.start;
+    const end = tokens[j]!.end;
+    const surface = cleanText.slice(start, end);
+    const exact = await lookupWord(surface);
+    if (isAllKanjiCanonicalNonUk(exact)) {
+      nameSpans.push({ start, end, surface });
+    }
+    i = j + 1;
+  }
+
+  if (nameSpans.length === 0) return occurrences;
+
+  // Drop any occurrence whose [start, end) intersects a name run; then add the
+  // name spans themselves.
+  const intersects = (
+    occ: WordOccurrence,
+    run: { start: number; end: number }
+  ): boolean => occ.start < run.end && occ.end > run.start;
+  const survivors = occurrences.filter(
+    (occ) => !nameSpans.some((run) => intersects(occ, run))
+  );
+  for (const run of nameSpans) {
+    survivors.push({
+      start: run.start,
+      end: run.end,
+      surface: run.surface,
+      headword: run.surface,
+      reading: run.surface,
+      entryId: null,
+      isName: true,
+    });
+  }
+  survivors.sort((a, b) => a.start - b.start);
+  return survivors;
 }
 
 /** Fold a katakana run to hiragana so a kuromoji reading (ヤマテ) can serve as

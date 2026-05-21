@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-19T18:47:00.181Z",
+  "generatedAt": "2026-05-21T02:18:25.307Z",
   "occurrences": [
     {
       "start": 0,
@@ -723,11 +723,20 @@
     },
     {
       "start": 196,
+      "end": 197,
+      "surface": "や",
+      "headword": "や",
+      "reading": "や",
+      "entryId": 2028960,
+      "isName": false
+    },
+    {
+      "start": 197,
       "end": 198,
-      "surface": "やお",
-      "headword": "８００",
-      "reading": "はっぴゃく",
-      "entryId": 2038570,
+      "surface": "お",
+      "headword": "御",
+      "reading": "お",
+      "entryId": 2826528,
       "isName": false
     },
     {
@@ -878,9 +887,9 @@
       "start": 233,
       "end": 236,
       "surface": "入れて",
-      "headword": "入る",
-      "reading": "はいる",
-      "entryId": 1465590,
+      "headword": "入れる",
+      "reading": "いれる",
+      "entryId": 1465610,
       "isName": false
     },
     {
@@ -1346,9 +1355,9 @@
       "start": 349,
       "end": 353,
       "surface": "生まれた",
-      "headword": "生む",
-      "reading": "うむ",
-      "entryId": 1588410,
+      "headword": "生まれる",
+      "reading": "うまれる",
+      "entryId": 1378690,
       "isName": false
     },
     {

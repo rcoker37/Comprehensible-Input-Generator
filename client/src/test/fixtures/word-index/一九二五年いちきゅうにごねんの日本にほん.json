@@ -1151,21 +1151,11 @@
     },
     {
       "start": 265,
-      "end": 267,
-      "surface": "でし",
-      "headword": "弟子",
-      "reading": "でし",
-      "entryId": 1581960,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 267,
       "end": 268,
-      "surface": "た",
-      "headword": "た",
-      "reading": "た",
-      "entryId": 2654250,
+      "surface": "でした",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
       "manual": false,
       "isName": false
     },
@@ -1411,21 +1401,11 @@
     },
     {
       "start": 321,
-      "end": 323,
-      "surface": "でし",
-      "headword": "弟子",
-      "reading": "でし",
-      "entryId": 1581960,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 323,
       "end": 324,
-      "surface": "た",
-      "headword": "た",
-      "reading": "た",
-      "entryId": 2654250,
+      "surface": "でした",
+      "headword": "です",
+      "reading": "です",
+      "entryId": 1628500,
       "manual": false,
       "isName": false
     },

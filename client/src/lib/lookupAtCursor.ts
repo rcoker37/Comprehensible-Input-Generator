@@ -824,14 +824,18 @@ function candidateMatchesLemma(hit: LookupHit, lemma: string): boolean {
  * Choose among the deinflection candidates for a kuromoji-動詞 / 形容詞 span.
  *
  * When the LLM furigana cover the span they positively disambiguate homophone
- * stems (降《ふ》り → 降る, not 降りる). Failing that, `baseHint` — kuromoji's
- * in-context lemma for the span — picks the candidate kuromoji already resolved
- * to: 「〜ていった」's いった is the past of 行く / 言う / 要る alike, but kuromoji
- * tags it 行く, so the frequency tiebreaker (which would take the commoner 言う)
- * is overruled. Only with no furigana and no usable lemma do the candidates
- * differ solely by godan class — なって is the 〜て form of なう / なつ / なる — and
- * the most common lemma is the right bet: なって → the everyday なる (rank 16),
- * not the rare 綯う (45,193). Falls back to `deinflect`'s priority order when no
+ * stems (降《ふ》り → 降る, not 降りる). The furigana often only cover the kanji
+ * (分《わ》かって) — leaving the verb suffix unannotated — so several candidates
+ * fit the annotation. Among the fitters, `baseHint` (kuromoji's in-context
+ * lemma) picks the candidate kuromoji already resolved to: 分《わ》かって fits
+ * both 分かる and 分かつ via the わ ruby, but kuromoji tags it 分かる, so 分かる
+ * wins. Similarly 命《めい》じます fits 命じる and 命ずる; baseHint picks 命じる.
+ * Only with no furigana evidence — 「〜ていった」's いった is the past of 行く /
+ * 言う / 要る alike — does baseHint stand alone (kuromoji tags it 行く, so the
+ * JPDB-rank tiebreaker that would take the commoner 言う is overruled). With
+ * neither furigana nor usable lemma — pure-kana なって differs only by godan
+ * class — the most common lemma wins (なって → the everyday なる, rank 16, not
+ * the rare 綯う, 45,193). Falls back to `deinflect`'s priority order when no
  * candidate is ranked. Returns null when there were none.
  */
 async function pickDeinflection(
@@ -842,23 +846,32 @@ async function pickDeinflection(
   baseHint?: string
 ): Promise<LookupHit | null> {
   if (candidates.length === 0) return null;
-  if (surfaceReadingFromAnnotations(surface, surfaceStart, annotations)) {
-    const fit = candidates.find((h) =>
-      deinflectionFitsAnnotations(
-        surface,
-        surfaceStart,
-        annotations,
-        h.base!,
-        h.results
+  // When the furigana cover the span, narrow to candidates the ruby fits — the
+  // annotation can only positively rule lemmas in, never out — but don't return
+  // yet: a partial ruby (分《わ》かって) leaves several candidates fitting and the
+  // tiebreakers below pick among them.
+  const hasAnnot = !!surfaceReadingFromAnnotations(
+    surface,
+    surfaceStart,
+    annotations
+  );
+  const fitters = hasAnnot
+    ? candidates.filter((h) =>
+        deinflectionFitsAnnotations(
+          surface,
+          surfaceStart,
+          annotations,
+          h.base!,
+          h.results
+        )
       )
-    );
-    if (fit) return fit;
-  }
+    : candidates;
+  const pool = fitters.length > 0 ? fitters : candidates;
   if (baseHint) {
-    const fit = candidates.find((h) => candidateMatchesLemma(h, baseHint));
+    const fit = pool.find((h) => candidateMatchesLemma(h, baseHint));
     if (fit) return fit;
   }
-  return (await mostCommonHit(candidates)) ?? candidates[0]!;
+  return (await mostCommonHit(pool)) ?? pool[0]!;
 }
 
 /**

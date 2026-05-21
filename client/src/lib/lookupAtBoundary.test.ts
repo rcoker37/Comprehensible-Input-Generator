@@ -336,4 +336,54 @@ describe("lookupAtBoundary baseHint deinflection disambiguation", () => {
     expect(hit).not.toBeNull();
     expect(hit!.base).toBe("いう");
   });
+
+  // Bare でした should deinflect to the copula です (1628500) instead of
+  // splitting into でし (弟子, "disciple") + た. The existing strip-to-empty
+  // rule still handles 静かでした → 静か.
+  it("deinflects bare でした to です", async () => {
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "です") {
+        return [wr({ r: ["です"], pos: ["cop"], misc: ["uk"], id: 1628500 })];
+      }
+      return [];
+    });
+    const hit = await lookupAtBoundary("でした", 0, 3);
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("です");
+    expect(hit!.results[0]?.id).toBe(1628500);
+  });
+
+  // 分かって's て-form is identical for 分かる (5-dan ら) and 分かつ (5-dan た).
+  // The LLM ruby 分《わ》 covers only the kanji, so the annotation fits both
+  // bases — baseHint must break the tie among the fitters.
+  it("uses baseHint to tiebreak when furigana fit multiple candidates", async () => {
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "分かる") {
+        return [wr({ k: ["分かる"], r: ["わかる"], pos: ["v5r", "vi"], id: 10 })];
+      }
+      if (search === "分かつ") {
+        return [wr({ k: ["分かつ"], r: ["わかつ"], pos: ["v5t", "vt"], id: 11 })];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      // Make 分かつ rank-better than 分かる so a pure rank tiebreaker would
+      // pick the wrong one — the test verifies baseHint overrules rank.
+      if (id === 10) return { rank: 700, tier: "common", headword: "分かる", reading: "わかる" };
+      if (id === 11) return { rank: 100, tier: "very-common", headword: "分かつ", reading: "わかつ" };
+      return null;
+    });
+    const annotations = [{ start: 0, end: 1, surface: "分", reading: "わ" }];
+    const hit = await lookupAtBoundary(
+      "分かって",
+      0,
+      4,
+      annotations,
+      "動詞",
+      "分かる"
+    );
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("分かる");
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("分かる");
+  });
 });
