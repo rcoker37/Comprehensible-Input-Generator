@@ -74,12 +74,13 @@ export function buildPrompt(
     ...(hasUnseenWords
       ? ["kanji that appear in the unseen common words listed below"]
       : []),
-    "kanji genuinely needed for the topic, the writing style, or vocabulary that naturally belongs in this piece",
+    "kanji and vocabulary that the chosen topic or writing style naturally calls for — domain-specific terms, characteristic expressions, and the words a piece on this subject genuinely lives on",
   ];
   rules.push(
     `- Keep the kanji you use within these groups: ${kanjiGroups
       .map((g, i) => `(${i + 1}) ${g}`)
       .join("; ")}. Outside these groups, prefer simpler wording over reaching for another kanji.`,
+    "- When a topic or writing style is provided, lean into the concrete vocabulary and kanji that anchor a piece in that subject or voice — reach for the topical words rather than paraphrasing around them with generic language. Treat group (3) as an invitation, not just permission.",
     "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
     "- Write every word in its standard modern spelling, with every kanji that spelling uses. Do not substitute kana for a word's kanji — not the whole word when it is normally written with kanji (法律《ほうりつ》, never ほうりつ), and not part of it (法律《ほうりつ》, never 法《ほう》りつ; 医療《いりょう》, never 医《い》りょう). Ordinary okurigana — the べる of 食べる, the しい of 新しい — is part of the standard spelling, not a substitution, so keep it. When a word has more than one kanji form, use the common form rather than a rare or archaic one.",
     "- Once you choose to use a word, all of its kanji are allowed: the kanji groups above limit which words you reach for, not how you spell a word you have already chosen."

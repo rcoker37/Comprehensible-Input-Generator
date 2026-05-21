@@ -54,7 +54,13 @@ describe("buildPrompt", () => {
     const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).toContain("Keep the kanji you use within these groups");
     expect(result).toContain("(1) kanji from the allowed list above");
-    expect(result).toContain("vocabulary that naturally belongs in this piece");
+    expect(result).toContain("the chosen topic or writing style naturally calls for");
+  });
+
+  it("nudges the model to reach for topic- and style-specific vocabulary", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite");
+    expect(result).toContain("lean into the concrete vocabulary and kanji that anchor a piece");
+    expect(result).toContain("invitation, not just permission");
   });
 
   it("describes the unseen-word kanji group only when unseen words are supplied", () => {
