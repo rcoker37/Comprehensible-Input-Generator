@@ -1,6 +1,7 @@
 {
   "name": "comprehensible-input-generator",
   "private": true,
+  "license": "GPL-3.0-only",
   "workspaces": ["client"],
   "scripts": {
     "postinstall": "mkdir -p client/public/dict && cp node_modules/@aiktb/kuromoji/dict/* client/public/dict/",
