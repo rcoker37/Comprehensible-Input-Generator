@@ -310,6 +310,19 @@ export default function WordPopover({
 
   const [frequency, setFrequency] = useState<BestFrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
+  // When the user taps a word row in the kanji detail list, we navigate to
+  // that word inside the same popover without involving the parent.
+  const [overrideWord, setOverrideWord] = useState<{
+    headword: string;
+    entryId: number | null;
+  } | null>(null);
+  // When overrideWord is set (user tapped a word from the kanji list), treat
+  // the popover as headword-mode for that word, ignoring the original mode.
+  const effectiveHeadwordParam = overrideWord?.headword ?? headwordParam;
+  const effectiveHeadwordEntryId =
+    overrideWord !== null ? overrideWord.entryId : headwordEntryId;
+  const effectiveIsTap = isTap && overrideWord === null;
+
   // Loading flags for the three headword-dependent fetches. The popover body
   // is gated on these being false so badges/cards don't pop in one at a time
   // after the initial render. Initialized to true on open so there's no flicker
@@ -348,10 +361,7 @@ export default function WordPopover({
     return null;
   }, [lookupIsName, lookupHeadword, lookupReading, hit]);
 
-  // Reset transient UI state when we open against a different tap point or
-  // headword. Re-keys on whichever identity is active for the current mode.
-  useEffect(() => {
-    if (!open) return;
+  const resetWordState = useCallback(() => {
     setShowAllSenses(false);
     setActiveKanji(null);
     setActiveKanjiRow(null);
@@ -369,8 +379,23 @@ export default function WordPopover({
     setUsagesLoading(true);
     setEncountersLoading(true);
     setFrequencyLoading(true);
+  }, []);
+
+  // Reset transient UI state when we open against a different tap point or
+  // headword. Re-keys on whichever identity is active for the current mode.
+  useEffect(() => {
+    if (!open) return;
+    resetWordState();
+    setOverrideWord(null);
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
-  }, [open, tapStart, tapEnd, headwordParam]);
+  }, [open, tapStart, tapEnd, headwordParam, resetWordState]);
+
+  // Reset word state when the user navigates to a word from the kanji list.
+  // Does not clear overrideWord itself — that's what triggered this effect.
+  useEffect(() => {
+    if (!open || overrideWord === null) return;
+    resetWordState();
+  }, [open, overrideWord, resetWordState]);
 
   // Tap-mode lookup: span-bounded against the story's clean text. Constrained
   // to the rendered span so the popover doesn't reach past the button the
@@ -384,7 +409,7 @@ export default function WordPopover({
   // span so the sentence snippet, record-lookup call, and carousel queries
   // still use the offsets the user actually tapped.
   useEffect(() => {
-    if (!open || !isTap) return;
+    if (!open || !effectiveIsTap) return;
     if (tapStart === null || tapEnd === null) return;
     if (dictState !== "ready") return;
     let cancelled = false;
@@ -477,7 +502,7 @@ export default function WordPopover({
     };
   }, [
     open,
-    isTap,
+    effectiveIsTap,
     tapStart,
     tapEnd,
     tapCleanText,
@@ -499,16 +524,16 @@ export default function WordPopover({
   // entry carried an `entryId`, the matching JMdict result is hoisted to
   // position 0 so `headwordFromHit` names the entry the card pointed at.
   useEffect(() => {
-    if (!open || isTap || !headwordParam) return;
+    if (!open || effectiveIsTap || !effectiveHeadwordParam) return;
     if (dictState !== "ready") return;
     let cancelled = false;
     setLookingUp(true);
-    void lookupWord(headwordParam)
+    void lookupWord(effectiveHeadwordParam)
       .then((results) => {
         if (cancelled) return;
         let ordered = results;
-        if (headwordEntryId !== null && results.length > 1) {
-          const idx = results.findIndex((r) => r.id === headwordEntryId);
+        if (effectiveHeadwordEntryId !== null && results.length > 1) {
+          const idx = results.findIndex((r) => r.id === effectiveHeadwordEntryId);
           if (idx > 0) {
             const match = results[idx]!;
             ordered = [
@@ -520,8 +545,8 @@ export default function WordPopover({
         }
         setHit({
           start: 0,
-          end: headwordParam.length,
-          surface: headwordParam,
+          end: effectiveHeadwordParam.length,
+          surface: effectiveHeadwordParam,
           results: ordered,
         });
       })
@@ -531,7 +556,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, isTap, headwordParam, headwordEntryId, dictState]);
+  }, [open, effectiveIsTap, effectiveHeadwordParam, effectiveHeadwordEntryId, overrideWord, dictState]);
 
   // Once the hit resolves, record the lookup (tap mode only — opening the
   // popover from Stats isn't a "tap" event we want to log) and fetch the
@@ -539,7 +564,7 @@ export default function WordPopover({
   // recording is best-effort and never blocks the carousel from rendering.
   useEffect(() => {
     if (!open || !hit) return;
-    if (isTap && tapStoryId !== null) {
+    if (effectiveIsTap && tapStoryId !== null) {
       void recordWordLookup(tapStoryId, hit);
     }
     if (!headword) return;
@@ -558,7 +583,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, hit, headword, isTap, tapStoryId]);
+  }, [open, hit, headword, effectiveIsTap, tapStoryId]);
 
   // Resolve JPDB frequency by JMdict entry id. The by-entry index handles
   // the homophone-disambiguation problem at build time (it honours JMdict's
@@ -659,7 +684,7 @@ export default function WordPopover({
       .filter(
         (u) =>
           !(
-            isTap &&
+            effectiveIsTap &&
             tapStoryId !== null &&
             u.storyId === tapStoryId &&
             u.startOffset === hit.start &&
@@ -681,7 +706,7 @@ export default function WordPopover({
           annotations: parsed.annotations,
         };
       });
-    if (!isTap || tapStoryId === null) return others;
+    if (!effectiveIsTap || tapStoryId === null) return others;
     const current: CurrentCard = {
       kind: "current",
       storyId: tapStoryId,
@@ -696,7 +721,7 @@ export default function WordPopover({
       annotations: tapAnnotations,
     };
     return [current, ...others];
-  }, [hit, usages, isTap, tapStoryId, tapCleanText, tapAnnotations]);
+  }, [hit, usages, effectiveIsTap, tapStoryId, tapCleanText, tapAnnotations]);
 
   // Clamp cardIndex if usages shrink (e.g., refetch returns fewer rows).
   useEffect(() => {
@@ -758,6 +783,15 @@ export default function WordPopover({
     if (delta < 0) goToCard(cardIndex + 1);
     else goToCard(cardIndex - 1);
   };
+
+  const handleKanjiWordSelect = useCallback(
+    (headword: string, entryId: number | null) => {
+      setActiveKanji(null);
+      setActiveKanjiRow(null);
+      setOverrideWord({ headword, entryId });
+    },
+    []
+  );
 
   const handleKanjiClick = async (ch: string) => {
     if (loadingKanji) return;
@@ -919,14 +953,14 @@ export default function WordPopover({
   const showCarouselNav = cards.length > 1;
 
   return (
-    <Modal open={true} onClose={() => onOpenChange(false)} className="word-popover">
+    <Modal open={true} onClose={() => onOpenChange(false)} className="word-popover" hideClose={!!activeKanji}>
       <div className="word-popover__inner">
         {!contentReady ? (
           <div className="word-popover__loading">
             Loading<AnimatedDots />
           </div>
         ) : activeKanji ? (
-          <div className="word-popover__body">
+          <div className="word-popover__kanji-view">
             <KanjiInlineDetail
               char={activeKanji}
               initialRow={activeKanjiRow ?? undefined}
@@ -934,6 +968,7 @@ export default function WordPopover({
                 setActiveKanji(null);
                 setActiveKanjiRow(null);
               }}
+              onWordSelect={handleKanjiWordSelect}
             />
           </div>
         ) : (

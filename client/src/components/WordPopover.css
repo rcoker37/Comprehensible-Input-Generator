@@ -29,6 +29,13 @@
   gap: 0.75rem;
 }
 
+.word-popover__kanji-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .word-popover__loading {
   flex: 1;
   min-height: 12rem;
