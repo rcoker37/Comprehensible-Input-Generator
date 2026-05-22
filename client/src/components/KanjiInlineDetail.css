@@ -105,22 +105,32 @@
 }
 
 .kanji-inline__word-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 1rem;
   border-top: 1px solid var(--border);
 }
 
-.kanji-inline__word-row--clickable {
+.kanji-inline__word-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  color: inherit;
+  text-align: left;
   cursor: pointer;
 }
 
 @media (hover: hover) {
-  .kanji-inline__word-row--clickable:hover {
+  .kanji-inline__word-btn:hover:not(:disabled) {
     background: var(--bg-dim);
   }
 }
+
+.kanji-inline__word-btn:disabled {
+  cursor: default;
+}
+
 
 .kanji-inline__word-left {
   flex: 1;

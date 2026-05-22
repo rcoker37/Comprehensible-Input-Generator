@@ -703,11 +703,12 @@ export interface KanjiWordResult {
  * `char`. Used by KanjiInlineDetail to populate the "WORDS USING X" list.
  */
 export async function getKanjiWords(char: string): Promise<KanjiWordResult[]> {
-  const { data: storyData } = await supabase
+  const { data: storyData, error: storyError } = await supabase
     .from("stories")
     .select("id")
     .eq("status", "complete")
     .gt("read_count", 0);
+  if (storyError) throw new Error(storyError.message);
   const readStoryIds = ((storyData ?? []) as { id: number }[]).map((s) => s.id);
   if (readStoryIds.length === 0) return [];
 
@@ -730,6 +731,7 @@ export async function getKanjiWords(char: string): Promise<KanjiWordResult[]> {
         reading: row.reading,
         entryId: row.entry_id,
       });
+      if (seen.size >= 100) break;
     }
   }
   return [...seen.values()];

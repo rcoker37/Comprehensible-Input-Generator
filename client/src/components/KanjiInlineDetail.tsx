@@ -8,7 +8,6 @@ import {
   lookupFrequencyByEntrySync,
   lookupFrequencyByCanonicalSync,
 } from "../lib/frequency";
-import { KANJI_REGEX } from "../lib/constants";
 import AnimatedDots from "./AnimatedDots";
 import "./KanjiInlineDetail.css";
 
@@ -26,6 +25,8 @@ interface WordRow {
   reading: string | null;
   meaning: string;
   rank: number | null;
+  entryId: number | null;
+  hasKanji: boolean;
 }
 
 export default function KanjiInlineDetail({
@@ -50,7 +51,7 @@ export default function KanjiInlineDetail({
   const [wordsLoading, setWordsLoading] = useState(true);
 
   const { kanjiExposures } = useSeenKanji();
-  const { vocabEncounters } = useVocab();
+  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
   const kanjiEncounters = kanjiExposures.get(char) ?? 0;
 
   useEffect(() => {
@@ -81,11 +82,11 @@ export default function KanjiInlineDetail({
     };
   }, [char, initialRow]);
 
-  // Fetch words containing this kanji from the user's read stories. Encounter
-  // counts are NOT stored here — they're read from vocabEncounters at render
-  // time so this effect only re-runs when `char` changes, not on every vocab
-  // context update.
+  // Depends on vocabEncountersLoaded so the effect re-runs once the frequency
+  // index is ready — without this, lookupFrequencyByEntrySync throws on first
+  // open and every word shows rank: null with no retry.
   useEffect(() => {
+    if (!vocabEncountersLoaded) return;
     let cancelled = false;
     setWordsLoading(true);
     setWords([]);
@@ -109,16 +110,15 @@ export default function KanjiInlineDetail({
               // fall back to stored reading, no meaning
             }
             let rank: number | null = null;
-            try {
-              const freq =
-                w.entryId !== null
-                  ? lookupFrequencyByEntrySync(w.entryId)
-                  : lookupFrequencyByCanonicalSync(w.headword);
-              rank = freq?.rank ?? null;
-            } catch {
-              // frequency index not yet loaded
-            }
-            return { headword: w.headword, reading, meaning, rank };
+            const freq =
+              w.entryId !== null
+                ? lookupFrequencyByEntrySync(w.entryId)
+                : lookupFrequencyByCanonicalSync(w.headword);
+            rank = freq?.rank ?? null;
+            const hasKanji = [...w.headword].some(
+              (ch) => ch >= "一" && ch <= "鿿" || ch >= "㐀" && ch <= "䶿"
+            );
+            return { headword: w.headword, reading, meaning, rank, entryId: w.entryId, hasKanji };
           })
         );
         if (cancelled) return;
@@ -137,7 +137,7 @@ export default function KanjiInlineDetail({
     return () => {
       cancelled = true;
     };
-  }, [char]);
+  }, [char, vocabEncountersLoaded]);
 
   const meaningsDisplay = row?.meanings
     .split(/[,、]\s*/)
@@ -232,62 +232,59 @@ export default function KanjiInlineDetail({
         ) : (
           <ul className="kanji-inline__word-list">
             {words.map((w) => {
-              const hasKanji = [...w.headword].some((ch) =>
-                KANJI_REGEX.test(ch)
-              );
               const encounters = vocabEncounters.get(w.headword) ?? 0;
               return (
-                <li
-                  key={w.headword}
-                  className={`kanji-inline__word-row${onWordSelect ? " kanji-inline__word-row--clickable" : ""}`}
-                  onClick={() => onWordSelect?.(w.headword, null)}
-                  role={onWordSelect ? "button" : undefined}
-                  tabIndex={onWordSelect ? 0 : undefined}
-                  onKeyDown={onWordSelect ? (e) => { if (e.key === "Enter" || e.key === " ") onWordSelect(w.headword, null); } : undefined}
-                >
-                  <div className="kanji-inline__word-left">
-                    {hasKanji && w.reading ? (
-                      <ruby className="kanji-inline__word-headword">
-                        {w.headword}
-                        <rt>{w.reading}</rt>
-                      </ruby>
-                    ) : (
-                      <span className="kanji-inline__word-headword">
-                        {w.headword}
-                      </span>
-                    )}
-                    {w.meaning && (
-                      <span className="kanji-inline__word-meaning">
-                        {w.meaning}
-                      </span>
-                    )}
-                  </div>
-                  <div className="kanji-inline__word-right">
-                    <div className="kanji-inline__word-stats">
-                      {w.rank !== null && (
-                        <span className="kanji-inline__word-rank">
-                          #{w.rank.toLocaleString()}
+                <li key={w.headword} className="kanji-inline__word-row">
+                  <button
+                    type="button"
+                    className="kanji-inline__word-btn"
+                    onClick={() => onWordSelect?.(w.headword, w.entryId)}
+                    disabled={!onWordSelect}
+                  >
+                    <div className="kanji-inline__word-left">
+                      {w.hasKanji && w.reading ? (
+                        <ruby className="kanji-inline__word-headword">
+                          {w.headword}
+                          <rt>{w.reading}</rt>
+                        </ruby>
+                      ) : (
+                        <span className="kanji-inline__word-headword">
+                          {w.headword}
                         </span>
                       )}
-                      <span className="kanji-inline__word-enc">
-                        {encounters}×
-                      </span>
+                      {w.meaning && (
+                        <span className="kanji-inline__word-meaning">
+                          {w.meaning}
+                        </span>
+                      )}
                     </div>
-                    <svg
-                      className="kanji-inline__word-chevron"
-                      width="8"
-                      height="12"
-                      viewBox="0 0 8 12"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <path d="M2 2l4 4-4 4" />
-                    </svg>
-                  </div>
+                    <div className="kanji-inline__word-right">
+                      <div className="kanji-inline__word-stats">
+                        {w.rank !== null && (
+                          <span className="kanji-inline__word-rank">
+                            #{w.rank.toLocaleString()}
+                          </span>
+                        )}
+                        <span className="kanji-inline__word-enc">
+                          {encounters}×
+                        </span>
+                      </div>
+                      <svg
+                        className="kanji-inline__word-chevron"
+                        width="8"
+                        height="12"
+                        viewBox="0 0 8 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M2 2l4 4-4 4" />
+                      </svg>
+                    </div>
+                  </button>
                 </li>
               );
             })}

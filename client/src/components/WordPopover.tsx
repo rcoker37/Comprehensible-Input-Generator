@@ -361,10 +361,7 @@ export default function WordPopover({
     return null;
   }, [lookupIsName, lookupHeadword, lookupReading, hit]);
 
-  // Reset transient UI state when we open against a different tap point or
-  // headword. Re-keys on whichever identity is active for the current mode.
-  useEffect(() => {
-    if (!open) return;
+  const resetWordState = useCallback(() => {
     setShowAllSenses(false);
     setActiveKanji(null);
     setActiveKanjiRow(null);
@@ -382,32 +379,23 @@ export default function WordPopover({
     setUsagesLoading(true);
     setEncountersLoading(true);
     setFrequencyLoading(true);
+  }, []);
+
+  // Reset transient UI state when we open against a different tap point or
+  // headword. Re-keys on whichever identity is active for the current mode.
+  useEffect(() => {
+    if (!open) return;
+    resetWordState();
     setOverrideWord(null);
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
-  }, [open, tapStart, tapEnd, headwordParam]);
+  }, [open, tapStart, tapEnd, headwordParam, resetWordState]);
 
   // Reset word state when the user navigates to a word from the kanji list.
   // Does not clear overrideWord itself — that's what triggered this effect.
   useEffect(() => {
     if (!open || overrideWord === null) return;
-    setShowAllSenses(false);
-    setActiveKanji(null);
-    setActiveKanjiRow(null);
-    setLoadingKanji(null);
-    setHit(null);
-    setUsages([]);
-    setCardIndex(0);
-    setOtherStoryTranslations({});
-    setTranslationPending(false);
-    setTranslationRegenerating(false);
-    setTranslationError(null);
-    setTranslationRequested(false);
-    setFrequency(null);
-    setEncounters(null);
-    setUsagesLoading(true);
-    setEncountersLoading(true);
-    setFrequencyLoading(true);
-  }, [open, overrideWord]);
+    resetWordState();
+  }, [open, overrideWord, resetWordState]);
 
   // Tap-mode lookup: span-bounded against the story's clean text. Constrained
   // to the rendered span so the popover doesn't reach past the button the

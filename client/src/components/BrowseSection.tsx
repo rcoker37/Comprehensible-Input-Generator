@@ -89,8 +89,8 @@ export default function BrowseSection() {
   const [activeKanji, setActiveKanji] = useState<Kanji | null>(null);
   const [activeHeadword, setActiveHeadword] = useState<{
     headword: string;
-    entryId: number;
-    el: HTMLElement;
+    entryId: number | null;
+    el?: HTMLElement;
   } | null>(null);
 
   useEffect(() => {
@@ -542,6 +542,10 @@ export default function BrowseSection() {
         <KanjiModal
           kanji={activeKanji}
           onClose={() => setActiveKanji(null)}
+          onWordSelect={(headword, entryId) => {
+            setActiveKanji(null);
+            setActiveHeadword({ headword, entryId });
+          }}
         />
       )}
 
@@ -560,7 +564,7 @@ export default function BrowseSection() {
   );
 }
 
-function KanjiModal({ kanji, onClose }: { kanji: Kanji; onClose: () => void }) {
+function KanjiModal({ kanji, onClose, onWordSelect }: { kanji: Kanji; onClose: () => void; onWordSelect: (headword: string, entryId: number | null) => void }) {
   const initialRow: KanjiRow = {
     character: kanji.character,
     grade: kanji.grade,
@@ -571,12 +575,13 @@ function KanjiModal({ kanji, onClose }: { kanji: Kanji; onClose: () => void }) {
   };
 
   return (
-    <Modal open={true} onClose={onClose} className="browse-modal">
+    <Modal open={true} onClose={onClose} className="browse-modal" hideClose={true}>
       <div className="browse-modal-body">
         <KanjiInlineDetail
           char={kanji.character}
           initialRow={initialRow}
           onBack={onClose}
+          onWordSelect={onWordSelect}
         />
       </div>
     </Modal>
