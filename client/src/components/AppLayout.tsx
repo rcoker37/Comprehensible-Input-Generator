@@ -10,7 +10,6 @@ import { StoriesProvider } from "../contexts/StoriesContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
 import AnimatedDots from "./AnimatedDots";
-import ThemeToggle from "./ThemeToggle";
 
 function DictionaryStatusChip() {
   const { state, error } = useDictionary();
@@ -69,7 +68,6 @@ export default function AppLayout() {
                     <span className="nav-user">
                       <DictionaryStatusChip />
                       <NavTotalScore />
-                      <ThemeToggle />
                       <span>{user.email}</span>
                     </span>
                   )}

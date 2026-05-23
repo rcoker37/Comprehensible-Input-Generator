@@ -5,63 +5,38 @@
 }
 
 :root {
-  /* Dark theme — Slate & Sakura (also serves as the default if no data-theme is set) */
-  --bg: #14171C;
-  --surface: #1E242B;
-  --surface-2: #2A323B33;
-  --bg-dim: #0F1216;
-  --bg-card: #1E242B;
-  --accent: #F4A6A6;
-  --accent-soft: #F4A6A650;
-  --text: #E8EAEE;
-  --text-dim: #9099A4;
-  --border: #3A434F;
-  --success: #A8D5A8;
-  --success-soft: #2E443833;
-  --warning-bg: #f5a52422;
-  --warning-fg: #f5a524;
-  --error-bg: #e9456022;
-  --error-fg: #e94560;
+  /* Yoake (夜明け / Dawn) */
+  --bg: #13110f;
+  --surface: #1a1714;
+  --surface-2: #211d18;
+  --bg-dim: #13110f;
+  --bg-card: #211d18;
+  --accent: #f5a896;
+  --accent-soft: #f5a89626;
+  --accent-border: #f5a89655;
+  --text: #f5ede0;
+  --text-dim: #867d70;
+  --border: rgba(255, 243, 228, 0.08);
+  --success: #88c0a4;
+  --success-soft: #88c0a426;
+  --warning-bg: #f5c97722;
+  --warning-fg: #f5c977;
+  --error-bg: #e07a6422;
+  --error-fg: #e07a64;
   /* Word-frequency rarity gradient (very common → very rare). Drives the
    * WordPopover frequency badge and StoryDisplay's new-word underline. */
-  --freq-very-common: #A8D5A8;
-  --freq-common: #d7e481;
-  --freq-uncommon: #eec458;
-  --freq-rare: #f0834c;
-  --freq-very-rare: #e94560;
+  --freq-very-common: #88c0a4;
+  --freq-common: #b8c585;
+  --freq-uncommon: #f5c977;
+  --freq-rare: #f5a896;
+  --freq-very-rare: #e07a64;
   --radius: 8px;
   color-scheme: dark;
 }
 
-[data-theme="light"] {
-  /* Light theme — Parchment */
-  --bg: #F5EFE1;
-  --surface: #EBE2CF;
-  --surface-2: #C9BFA833;
-  --bg-dim: #E0D5BD;
-  --bg-card: #EBE2CF;
-  --accent: #8B4513;
-  --accent-soft: #8B451350;
-  --text: #2A1F15;
-  --text-dim: #7A6B5C;
-  --border: #C9BFA8;
-  --success: #5A7A3C;
-  --success-soft: #D4D0BA33;
-  --warning-bg: #c0801922;
-  --warning-fg: #8A5A0E;
-  --error-bg: #B0354022;
-  --error-fg: #8A2530;
-  /* Word-frequency rarity gradient — see :root. */
-  --freq-very-common: #5A7A3C;
-  --freq-common: #979b2c;
-  --freq-uncommon: #ab8421;
-  --freq-rare: #ab5426;
-  --freq-very-rare: #8A2530;
-  color-scheme: light;
-}
-
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Zen Kaku Gothic New", "Noto Serif JP", "Segoe UI", system-ui,
+    -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);
   line-height: 1.6;
@@ -86,6 +61,8 @@ body {
 }
 
 .nav-brand {
+  font-family: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic",
+    "Noto Sans JP", "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
   font-size: 1.4rem;
   font-weight: bold;
   color: var(--accent);
@@ -130,23 +107,6 @@ body {
   border-color: var(--error-fg);
 }
 
-.theme-toggle {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 0.3rem 0.55rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  font-size: 0.9rem;
-  line-height: 1;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-.theme-toggle:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
 .nav-links a {
   color: var(--text-dim);
   text-decoration: none;
@@ -162,7 +122,7 @@ body {
 
 .nav-links a.active {
   color: var(--accent);
-  background: var(--accent-soft);
+  background: var(--surface-2);
 }
 
 .main {
@@ -188,22 +148,22 @@ h1 {
   padding: 0.3rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 20px;
-  background: transparent;
-  color: var(--text-dim);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   font-size: 0.85rem;
   transition: all 0.2s;
 }
 
 .chip:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-border);
   color: var(--text);
 }
 
 .chip.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 .chip:disabled {
