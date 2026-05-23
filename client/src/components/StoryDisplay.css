@@ -116,8 +116,8 @@
 
 .story-content {
   position: relative;
-  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP",
-    "Hiragino Kaku Gothic ProN", system-ui, sans-serif;
+  font-family: "Zen Kaku Gothic New", "Noto Serif JP", "Hiragino Mincho ProN",
+    "Yu Mincho", "YuMincho", serif;
   font-size: 1.25rem;
   line-height: 2.1;
   letter-spacing: 0.02em;
