@@ -40,16 +40,16 @@ import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
 import type {
   DisplayMode,
+  HighlightMode,
   SentenceTranslation,
   Story,
   StoryTranslations,
 } from "../types";
 import "./StoryDisplay.css";
 
-// Toggle-cycle order for the furigana and highlight controls. Tapping a
-// control advances to the next mode and wraps around. (The DisplayMode
-// type — "off"/"unseen"/"all" — lives in ../types so it can be persisted
-// in `profiles.preferences.reader`.)
+// Toggle-cycle order for the furigana control. Tapping advances to the
+// next mode and wraps around. (DisplayMode lives in ../types so it can
+// be persisted in `profiles.preferences.reader`.)
 const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
 
 const DISPLAY_LABEL: Record<DisplayMode, string> = {
@@ -60,6 +60,39 @@ const DISPLAY_LABEL: Record<DisplayMode, string> = {
 
 const nextMode = (m: DisplayMode): DisplayMode =>
   DISPLAY_ORDER[(DISPLAY_ORDER.indexOf(m) + 1) % DISPLAY_ORDER.length]!;
+
+const HIGHLIGHT_ORDER: HighlightMode[] = ["off", "frequency", "encounters"];
+
+const HIGHLIGHT_LABEL: Record<HighlightMode, string> = {
+  off: "off",
+  frequency: "frequency",
+  encounters: "encounters",
+};
+
+const nextHighlight = (m: HighlightMode): HighlightMode =>
+  HIGHLIGHT_ORDER[(HIGHLIGHT_ORDER.indexOf(m) + 1) % HIGHLIGHT_ORDER.length]!;
+
+// Map an encounter count to the same 5-tier colour ramp the frequency
+// view uses. 0 reads = the dark-red "very-rare" tier; 1–9 reads spread
+// across the remaining four colours; 10+ returns null, so a well-worn
+// word loses its underline entirely.
+const encountersToTier = (n: number): FrequencyTier | null => {
+  if (n <= 0) return "very-rare";
+  if (n <= 2) return "rare";
+  if (n <= 4) return "uncommon";
+  if (n <= 6) return "common";
+  if (n <= 9) return "very-common";
+  return null;
+};
+
+// Migrate any legacy `reader.highlight` preference saved before the
+// mode split (off/unseen/all → off/encounters/frequency).
+const coerceHighlightMode = (raw: unknown): HighlightMode | null => {
+  if (raw === "off" || raw === "frequency" || raw === "encounters") return raw;
+  if (raw === "all") return "frequency";
+  if (raw === "unseen") return "encounters";
+  return null;
+};
 
 interface Props {
   story: Story;
@@ -110,7 +143,8 @@ export default function StoryDisplay({
     end: number;
   } | null>(null);
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
-  const [highlightMode, setHighlightMode] = useState<DisplayMode>("unseen");
+  const [highlightMode, setHighlightMode] =
+    useState<HighlightMode>("encounters");
 
   // Hydrate the furigana / highlight controls from the persisted
   // `reader` preferences section exactly once, the way GenerationModal
@@ -123,7 +157,8 @@ export default function StoryDisplay({
     /* eslint-disable react-hooks/set-state-in-effect -- one-time sync from the
        async-resolved profile; state initializers run before the fetch lands. */
     if (reader?.furigana) setFuriganaMode(reader.furigana);
-    if (reader?.highlight) setHighlightMode(reader.highlight);
+    const migrated = coerceHighlightMode(reader?.highlight);
+    if (migrated) setHighlightMode(migrated);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [profile]);
 
@@ -142,7 +177,7 @@ export default function StoryDisplay({
   };
   const cycleHighlight = () => {
     setHighlightMode((prev) => {
-      const next = nextMode(prev);
+      const next = nextHighlight(prev);
       updatePreferences({
         reader: { furigana: furiganaMode, highlight: next },
       }).catch((err) =>
@@ -510,12 +545,24 @@ export default function StoryDisplay({
     return out;
   };
 
-  // Whether a span gets the rarity underline. Driven by the highlight
-  // control, independent of the furigana control: "off" underlines
-  // nothing, "all" underlines every word, "unseen" underlines only words
-  // new to the reader.
-  const isNew = (start: number, end: number): boolean =>
-    showForMode(highlightMode, start, end);
+  // Resolve a span's underline tier for the active highlight mode.
+  // Returns undefined when the span shouldn't be underlined at all.
+  //   off        — nobody gets an underline.
+  //   frequency  — every span underlined; tier = its JPDB rarity tier.
+  //   encounters — tier derived from read-count of its headword (0 = dark
+  //                red, 9 = green, 10+ unhighlighted). Skipped until the
+  //                encounter map is available; we don't fall back to an
+  //                accent underline because that'd visibly flash before
+  //                the real colour lands.
+  const highlightTier = (start: number, end: number): FrequencyTier | null => {
+    if (highlightMode === "off") return null;
+    if (highlightMode === "frequency") {
+      return tierBySpan.get(`${start}-${end}`) ?? null;
+    }
+    const count = encounters.get(`${start}-${end}`);
+    if (count === undefined) return null;
+    return encountersToTier(count);
+  };
 
   const inOverrideRegion = (start: number, end: number): boolean =>
     overrideSpan !== null &&
@@ -524,10 +571,10 @@ export default function StoryDisplay({
 
   const tokenClass = (start: number, end: number): string => {
     const parts = ["word-token"];
-    if (isNew(start, end)) {
+    const tier = highlightTier(start, end);
+    if (tier) {
       parts.push("word-token--new");
-      const tier = tierBySpan.get(`${start}-${end}`);
-      if (tier) parts.push(`word-token--freq-${tier}`);
+      parts.push(`word-token--freq-${tier}`);
     }
     if (inOverrideRegion(start, end)) parts.push("word-token--in-override");
     return parts.join(" ");
@@ -713,7 +760,7 @@ export default function StoryDisplay({
               className="furigana-toggle"
               onClick={cycleHighlight}
             >
-              {DISPLAY_LABEL[highlightMode]}
+              {HIGHLIGHT_LABEL[highlightMode]}
             </button>
           </div>
         </div>

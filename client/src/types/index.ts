@@ -98,14 +98,20 @@ export interface StoriesPreferences {
   sortDir: SortDir;
 }
 
-// Per-word display modes for the StoryDisplay furigana / highlight
-// controls: "off" never shown, "unseen" only on words new to the reader,
-// "all" on every word.
+// Per-word display modes for the StoryDisplay furigana control:
+// "off" never shown, "unseen" only on words new to the reader, "all" on
+// every word.
 export type DisplayMode = "off" | "unseen" | "all";
+
+// Highlight control modes: "off" no underline, "frequency" colours every
+// word by its JPDB rarity tier, "encounters" colours each word by how
+// many times the reader has encountered it (0 = dark red through 9 =
+// green; 10+ unhighlighted).
+export type HighlightMode = "off" | "frequency" | "encounters";
 
 export interface ReaderPreferences {
   furigana: DisplayMode;
-  highlight: DisplayMode;
+  highlight: HighlightMode;
 }
 
 export interface Preferences {
