@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-19T17:24:05.541Z",
+  "generatedAt": "2026-05-24T00:15:03.063Z",
   "occurrences": [
     {
       "start": 0,
@@ -102,20 +102,11 @@
     },
     {
       "start": 23,
-      "end": 25,
-      "surface": "大切",
+      "end": 26,
+      "surface": "大切な",
       "headword": "大切",
       "reading": "たいせつ",
       "entryId": 1414340,
-      "isName": false
-    },
-    {
-      "start": 25,
-      "end": 26,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "isName": false
     },
     {

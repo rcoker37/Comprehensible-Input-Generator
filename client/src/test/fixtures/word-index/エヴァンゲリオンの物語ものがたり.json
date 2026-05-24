@@ -31,21 +31,11 @@
     },
     {
       "start": 11,
-      "end": 13,
-      "surface": "有名",
+      "end": 14,
+      "surface": "有名な",
       "headword": "有名",
       "reading": "ゆうめい",
       "entryId": 1541620,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 13,
-      "end": 14,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -351,21 +341,11 @@
     },
     {
       "start": 88,
-      "end": 90,
-      "surface": "巨大",
+      "end": 91,
+      "surface": "巨大な",
       "headword": "巨大",
       "reading": "きょだい",
       "entryId": 1232180,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 90,
-      "end": 91,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -861,21 +841,11 @@
     },
     {
       "start": 212,
-      "end": 215,
-      "surface": "不思議",
+      "end": 216,
+      "surface": "不思議な",
       "headword": "不思議",
       "reading": "ふしぎ",
       "entryId": 1492570,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 215,
-      "end": 216,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -921,21 +891,11 @@
     },
     {
       "start": 226,
-      "end": 228,
-      "surface": "強気",
+      "end": 229,
+      "surface": "強気な",
       "headword": "強気",
       "reading": "つよき",
       "entryId": 1236230,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 228,
-      "end": 229,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -1451,21 +1411,11 @@
     },
     {
       "start": 341,
-      "end": 343,
-      "surface": "不安",
+      "end": 344,
+      "surface": "不安な",
       "headword": "不安",
       "reading": "ふあん",
       "entryId": 1491150,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 343,
-      "end": 344,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },

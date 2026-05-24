@@ -222,8 +222,15 @@ export interface WordOccurrence {
  *       longer maps to 神事; ゲンドウ no longer maps to 言動; ミサト merges
  *       even when kuromoji splits ミ+サト; ドイツ (uk) and ロボット (一般)
  *       stay as JMdict matches.
+ *  24 — `lookupAtBoundary` recognises a na-adjective's prenominal な
+ *       (`naAdjPrenominalHit`): a span ending in な whose stem is an adj-na
+ *       JMdict entry resolves to that entry. JMdict has no entry for this な
+ *       (it lives inside the copula だ), and a single-char な exact-matches
+ *       the prohibitive particle (entry 2029110, "don't"), so 静か+な used to
+ *       split into 静か + な (prohibitive). The regroup pass now merges 静かな
+ *       into one tap target grouped under 静か.
  */
-export const WORD_INDEX_VERSION = 23;
+export const WORD_INDEX_VERSION = 24;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

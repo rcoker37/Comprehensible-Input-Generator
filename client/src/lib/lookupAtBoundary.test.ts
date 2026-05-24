@@ -353,6 +353,64 @@ describe("lookupAtBoundary baseHint deinflection disambiguation", () => {
     expect(hit!.results[0]?.id).toBe(1628500);
   });
 
+  // 静かな is the na-adj 静か + the copula's prenominal な. JMdict has no
+  // entry for this な (it lives inside だ), and bare な exact-matches the
+  // prohibitive particle, so the merge has to come from a surface-shape
+  // rule that recognises the adj-na stem.
+  it("resolves 静かな to the 静か adj-na entry", async () => {
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "静かな") return [];
+      if (search === "静か") {
+        return [
+          wr({
+            k: ["静か", "閑か"],
+            r: ["しずか"],
+            pos: ["adj-na", "n"],
+            id: 1381820,
+          }),
+        ];
+      }
+      return [];
+    });
+    const hit = await lookupAtBoundary("静かな夜", 0, 3);
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("静か");
+    expect(hit!.derivations).toEqual(["na-adjective"]);
+    expect(hit!.results[0]?.id).toBe(1381820);
+    expect(hit!.surface).toBe("静かな");
+  });
+
+  // The branch must only fire when the stem is itself an adj-na entry —
+  // otherwise a surface like 雨な would wrongly resolve to the noun 雨.
+  it("does not fire when the stem is not adj-na", async () => {
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "雨な") return [];
+      if (search === "雨") {
+        return [wr({ k: ["雨"], r: ["あめ"], pos: ["n"], id: 1171900 })];
+      }
+      return [];
+    });
+    const hit = await lookupAtBoundary("雨な", 0, 2);
+    expect(hit).toBeNull();
+  });
+
+  // Bare な has no stem to check, so the branch is bypassed and the
+  // prohibitive-particle exact match (the only な entry JMdict carries that
+  // makes any sense as a standalone tap) is what's returned. This is the
+  // correct behaviour for prohibitive な after a verb (行く + な).
+  it("leaves bare な alone (no stem to check)", async () => {
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "な") {
+        return [wr({ r: ["な"], pos: ["prt"], id: 2029110 })];
+      }
+      return [];
+    });
+    const hit = await lookupAtBoundary("な", 0, 1);
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBeUndefined();
+    expect(hit!.results[0]?.id).toBe(2029110);
+  });
+
   // 分かって's て-form is identical for 分かる (5-dan ら) and 分かつ (5-dan た).
   // The LLM ruby 分《わ》 covers only the kanji, so the annotation fits both
   // bases — baseHint must break the tie among the fitters.

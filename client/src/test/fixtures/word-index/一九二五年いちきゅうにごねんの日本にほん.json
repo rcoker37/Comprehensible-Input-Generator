@@ -1551,21 +1551,11 @@
     },
     {
       "start": 357,
-      "end": 360,
-      "surface": "不思議",
+      "end": 361,
+      "surface": "不思議な",
       "headword": "不思議",
       "reading": "ふしぎ",
       "entryId": 1492570,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 360,
-      "end": 361,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },

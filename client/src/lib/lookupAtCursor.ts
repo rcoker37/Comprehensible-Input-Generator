@@ -304,7 +304,49 @@ export async function lookupAtBoundary(
     };
   }
 
+  const naAdj = await naAdjPrenominalHit(prefix, start, end);
+  if (naAdj) return naAdj;
+
   return null;
+}
+
+/**
+ * Prenominal form of a na-adjective + the copula's な suffix (静か + な → 静か).
+ * JMdict has no entry for this な — it lives entirely inside the copula だ
+ * (1517840) — so 「静かな」 exact-matches nothing and 「な」 alone exact-matches
+ * the prohibitive particle (2029110, "don't"), neither of which is the word
+ * the reader is looking at. Kuromoji tags this な as `助動詞 / basicForm=だ`
+ * (the copula auxiliary), and the surface-shape constraint is unambiguous on
+ * its own: a span ending in な whose stem JMdict tags `adj-na` is the
+ * prenominal form. The regroup pass tries 静か+な as a kuromoji-aligned merge
+ * candidate and accepts this hit, so the merged tap target spans 静かな and
+ * groups under 静か.
+ *
+ * Bare な (prefix.length === 1) bypasses this — there is no stem to check —
+ * so a standalone prohibitive な (行く + な) still resolves to its own entry.
+ * Returns a deinflection-shaped hit so the popover renders the conjugation
+ * chain and `headwordFromHit` resolves the headword from the na-adj entry.
+ */
+async function naAdjPrenominalHit(
+  prefix: string,
+  start: number,
+  end: number
+): Promise<LookupHit | null> {
+  if (prefix.length < 2 || !prefix.endsWith("な")) return null;
+  const stem = prefix.slice(0, -1);
+  const stemHits = await lookupWord(stem);
+  const naAdjHits = stemHits.filter((wr) =>
+    (wr.s ?? []).some((sense) => sense.pos?.includes("adj-na"))
+  );
+  if (naAdjHits.length === 0) return null;
+  return {
+    start,
+    end,
+    surface: prefix,
+    base: stem,
+    derivations: ["na-adjective"],
+    results: naAdjHits,
+  };
 }
 
 /**
