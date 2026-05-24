@@ -12,6 +12,7 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:index": "vitest run --project word-index --reporter=verbose",
+    "test:index:one": "vitest run --project word-index --reporter=verbose -t",
     "test:index:accept": "INDEX_ACCEPT=1 vitest run --project word-index --reporter=verbose"
   },
   "dependencies": {

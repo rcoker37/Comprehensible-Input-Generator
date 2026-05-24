@@ -15,8 +15,12 @@ the vendored JMdict snapshot (`client/src/test/jpdict/`) and flags any change.
 
 ## The loop
 
-- `npm run test:index` — fails if detection changed since the baseline, or if
-  the algorithm broke a span the fixture says it once got right.
+- `npm run test:index` — runs the full corpus (~3 min); fails if detection
+  changed since the baseline, or if the algorithm broke a span the fixture
+  says it once got right.
+- `npm run test:index:one -- <pattern>` — runs only fixtures whose name
+  matches `<pattern>` (substring, case-sensitive). `npm run test:index:one --
+  秋` lands in ~11s and is the right loop while iterating on one fixture.
 - `npm run test:index:accept` — after reviewing a diff, blesses the current
   output as the new baseline.
 - Spans you hand-fixed in the override editor (`manual: true`) are tracked as
