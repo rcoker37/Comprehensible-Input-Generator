@@ -272,6 +272,26 @@ export async function lookupAtBoundary(
     );
   }
 
+  // Pure-kana noun/adverb preempt — mirror of the 動詞 branch at the top of
+  // this function. When kuromoji confidently tags the span as a non-verb
+  // content word AND the exact match carries that POS, the exact match wins
+  // before the rank-based deinflection arbitration below has a chance to
+  // displace it with a verb. Stops みんな (皆, n+adv) being deinflected to
+  // 見る via the "imperative negative slang" rule み+んな — 見る's rank beats
+  // 皆's, so `exactRankWins` would pick the verb without this guard. Only
+  // fires when kuromoji and JMdict agree on the POS, which keeps cases like
+  // 「のせる」 (kuromoji 動詞, exact 乗せる v1, the existing arbitration is
+  // correct) on their existing path.
+  if (
+    exact.length > 0 &&
+    exactMatchesNonVerbContentPos(exact, posHint)
+  ) {
+    return applyAnnotatedReading(
+      { start, end, surface: prefix, results: exact },
+      annotations
+    );
+  }
+
   const deinflected = await firstDeinflectionHit(
     prefix,
     exact.length > 0,
@@ -606,12 +626,16 @@ export function annotationContradictsHit(
  * Abstains (returns true — the caller then keeps `deinflect`'s own priority
  * order) when there is no furigana evidence: no annotation covers the span,
  * the surface suffix isn't kana at the tail of the composed reading, or the
- * lemma carries no readings. A verb whose kanji reading itself shifts under
- * inflection (来 reads き in 来て but く in 来る) yields a false "doesn't fit",
- * but that is harmless — the caller falls back to priority order, which still
- * surfaces the lemma when it is the only / top candidate. The mistake to avoid
- * is a false "fit", and that needs a reading collision with the wrong lemma.
- * Pure / no I/O — exposed for unit tests.
+ * lemma carries no readings. Also abstains for `vk` (来る-class irregular)
+ * candidates: 来's kanji reading shifts with conjugation (き in 来て, く in
+ * 来る, こ in 来ない), so the reverse-prediction above predicts きる for 来る
+ * given 来《き》て and incorrectly rejects it. Abstaining lets a competing
+ * coincidental fit (like the 連用形 of 来てる, which reads きてる→きて — same
+ * kanji reading both ways) get displaced by `baseHint` / rank tiebreakers
+ * downstream instead of stealing the verdict. (Other irregulars don't need
+ * this: する's kanji form 為 is `sK` and never displays; godan / ichidan
+ * kanji readings are invariant under inflection.) Pure / no I/O — exposed for
+ * unit tests.
  */
 export function deinflectionFitsAnnotations(
   surface: string,
@@ -620,6 +644,13 @@ export function deinflectionFitsAnnotations(
   base: string,
   baseResults: WordResult[]
 ): boolean {
+  if (
+    baseResults.some((wr) =>
+      (wr.s ?? []).some((sense) => sense.pos?.includes("vk"))
+    )
+  ) {
+    return true;
+  }
   const surfaceReading = surfaceReadingFromAnnotations(
     surface,
     surfaceStart,
@@ -719,6 +750,56 @@ export function hasVerbPos(results: WordResult[]): boolean {
       for (const tag of sense.pos ?? []) {
         if (tag === "vi" || tag === "vt") continue;
         if (tag[0] === "v") return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
+ * JMdict POS tags `lookupAtBoundary`'s noun-preempt accepts for each kuromoji
+ * hint. The mapping is deliberately narrow:
+ *
+ *   - 名詞 → `n` and its substructure (`n-suf`/`n-pref`/`n-adv`/`n-t`/`pn`).
+ *     Excludes counters (`ctr`) and numerals (`num`) — those have their own
+ *     code paths in the indexer (`regroupNumberSpans`).
+ *   - 副詞 → `adv`, `adv-to`.
+ *
+ * 形容詞 / 連体詞 are intentionally absent: an い-adjective 連用形 (古く)
+ * tagged 副詞 by kuromoji is already handled by the `adj-i` deinflection branch
+ * above, and the rest of the adjective family conjugates productively, so a
+ * blanket noun-preempt would steal real adjective lemmas.
+ */
+const POS_HINT_TO_NON_VERB_CONTENT_POS: Record<string, Set<string>> = {
+  "名詞": new Set(["n", "n-suf", "n-pref", "n-adv", "n-t", "pn"]),
+  "副詞": new Set(["adv", "adv-to"]),
+};
+
+/**
+ * True iff `posHint` is one of the non-verb content categories above AND some
+ * sense of `exact` carries a JMdict POS in the corresponding tag set. Like
+ * {@link hasVerbPos} it skips `arch`/`obs` senses so a classical noun-tagged
+ * entry doesn't satisfy a modern 名詞 hint. Used to preempt a verb-
+ * deinflection arbitration when kuromoji and JMdict both agree the span is a
+ * noun/adverb — the mirror image of the 動詞 preempt at the top of
+ * {@link lookupAtBoundary} (mapped onto the pure-kana arbitration path
+ * because mixed-script exact matches are already returned unconditionally
+ * upstream). Stops みんな (皆, n+adv) being deinflected to 見る via the
+ * "imperative negative slang" rule み+んな when kuromoji confidently tags the
+ * span 名詞 / 副詞.
+ */
+export function exactMatchesNonVerbContentPos(
+  exact: WordResult[],
+  posHint: string | undefined
+): boolean {
+  if (!posHint) return false;
+  const tags = POS_HINT_TO_NON_VERB_CONTENT_POS[posHint];
+  if (!tags) return false;
+  for (const wr of exact) {
+    for (const sense of wr.s ?? []) {
+      if (sense.misc?.some((m) => m === "arch" || m === "obs")) continue;
+      for (const tag of sense.pos ?? []) {
+        if (tags.has(tag)) return true;
       }
     }
   }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-19T18:47:19.785Z",
+  "generatedAt": "2026-05-24T20:00:52.387Z",
   "occurrences": [
     {
       "start": 0,
@@ -212,9 +212,9 @@
       "start": 42,
       "end": 45,
       "surface": "みんな",
-      "headword": "見る",
-      "reading": "みる",
-      "entryId": 1259290,
+      "headword": "皆",
+      "reading": "みな",
+      "entryId": 1202150,
       "isName": false
     },
     {
@@ -761,9 +761,9 @@
       "start": 171,
       "end": 173,
       "surface": "来て",
-      "headword": "来てる",
-      "reading": "きてる",
-      "entryId": 2830009,
+      "headword": "来る",
+      "reading": "くる",
+      "entryId": 1547720,
       "isName": false
     },
     {
@@ -923,9 +923,9 @@
       "start": 205,
       "end": 208,
       "surface": "みんな",
-      "headword": "見る",
-      "reading": "みる",
-      "entryId": 1259290,
+      "headword": "皆",
+      "reading": "みな",
+      "entryId": 1202150,
       "isName": false
     },
     {
@@ -1328,9 +1328,9 @@
       "start": 317,
       "end": 320,
       "surface": "みんな",
-      "headword": "見る",
-      "reading": "みる",
-      "entryId": 1259290,
+      "headword": "皆",
+      "reading": "みな",
+      "entryId": 1202150,
       "isName": false
     },
     {
