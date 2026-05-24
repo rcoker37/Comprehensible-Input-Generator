@@ -1471,21 +1471,11 @@
     },
     {
       "start": 353,
-      "end": 355,
-      "surface": "静か",
+      "end": 356,
+      "surface": "静かな",
       "headword": "静か",
       "reading": "しずか",
       "entryId": 1381820,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 355,
-      "end": 356,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },

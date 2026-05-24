@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-19T17:25:24.378Z",
+  "generatedAt": "2026-05-24T00:08:09.772Z",
   "occurrences": [
     {
       "start": 0,
@@ -534,20 +534,11 @@
     },
     {
       "start": 128,
-      "end": 130,
-      "surface": "静か",
+      "end": 131,
+      "surface": "静かな",
       "headword": "静か",
       "reading": "しずか",
       "entryId": 1381820,
-      "isName": false
-    },
-    {
-      "start": 130,
-      "end": 131,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "isName": false
     },
     {

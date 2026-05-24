@@ -2,8 +2,8 @@
   "meta": {
     "title": "秋《あき》の一日《いちにち》",
     "sourceStoryId": 9,
-    "exportedAt": "2026-05-17T23:58:31.975Z",
-    "wordIndexVersion": 9,
+    "exportedAt": "2026-05-23T23:44:06.584Z",
+    "wordIndexVersion": 23,
     "jmdictVersion": null,
     "fixtureFormatVersion": 1
   },
@@ -601,21 +601,11 @@
     },
     {
       "start": 128,
-      "end": 130,
-      "surface": "静か",
+      "end": 131,
+      "surface": "静かな",
       "headword": "静か",
       "reading": "しずか",
       "entryId": 1381820,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 130,
-      "end": 131,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },

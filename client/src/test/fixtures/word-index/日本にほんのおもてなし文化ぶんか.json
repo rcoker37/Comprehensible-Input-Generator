@@ -221,21 +221,11 @@
     },
     {
       "start": 44,
-      "end": 46,
-      "surface": "親切",
+      "end": 47,
+      "surface": "親切な",
       "headword": "親切",
       "reading": "しんせつ",
       "entryId": 1365250,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 46,
-      "end": 47,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -951,21 +941,11 @@
     },
     {
       "start": 227,
-      "end": 230,
-      "surface": "きれい",
+      "end": 231,
+      "surface": "きれいな",
       "headword": "綺麗",
       "reading": "きれい",
       "entryId": 1591900,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 230,
-      "end": 231,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -1411,21 +1391,11 @@
     },
     {
       "start": 329,
-      "end": 333,
-      "surface": "このよう",
+      "end": 334,
+      "surface": "このような",
       "headword": "この様",
       "reading": "このよう",
       "entryId": 1725380,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 333,
-      "end": 334,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
@@ -2081,21 +2051,11 @@
     },
     {
       "start": 495,
-      "end": 497,
-      "surface": "大切",
+      "end": 498,
+      "surface": "大切な",
       "headword": "大切",
       "reading": "たいせつ",
       "entryId": 1414340,
-      "manual": false,
-      "isName": false
-    },
-    {
-      "start": 497,
-      "end": 498,
-      "surface": "な",
-      "headword": "な",
-      "reading": "な",
-      "entryId": 2029110,
       "manual": false,
       "isName": false
     },
