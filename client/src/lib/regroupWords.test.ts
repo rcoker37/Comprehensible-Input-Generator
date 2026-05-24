@@ -3,7 +3,7 @@ import {
   regroupWords,
   crossesKuromojiBoundary,
   deinflectionMergeStartsOnParticle,
-  exactMergeStartsOnParticleIntoKanji,
+  exactMergeStartsOnFunctionWordIntoKanji,
   hitIsExpression,
   kanaSpanTooRareToMerge,
   spanIsInflectedSingleWord,
@@ -742,7 +742,26 @@ describe("deinflectionMergeStartsOnParticle", () => {
   });
 });
 
-describe("exactMergeStartsOnParticleIntoKanji", () => {
+describe("exactMergeStartsOnFunctionWordIntoKanji", () => {
+  type HitArg = Parameters<typeof exactMergeStartsOnFunctionWordIntoKanji>[0];
+  const tok = (
+    pos: string,
+    basicForm: string,
+    surface = basicForm
+  ): KuromojiTokenInfo => ({
+    surface,
+    pos,
+    posDetail1: "*",
+    start: 0,
+    end: surface.length,
+    basicForm,
+  });
+  const particle = tok("助詞", "と");
+  const copulaNa = tok("助動詞", "だ", "な");
+  const verb = tok("動詞", "する");
+  const noun = tok("名詞", "犬");
+  const ms = tok("助動詞", "ます", "ます"); // non-copula auxiliary
+
   // The 殿 entry: kanji-canonical, reads との.
   const tono = {
     start: 0,
@@ -756,7 +775,24 @@ describe("exactMergeStartsOnParticleIntoKanji", () => {
         s: [{ pos: ["n", "pn"], misc: ["hon"] }],
       },
     ],
-  } as unknown as Parameters<typeof exactMergeStartsOnParticleIntoKanji>[0];
+  } as unknown as HitArg;
+
+  // The 七日 entry: kanji-canonical noun, reads なのか. Same shape as 殿 but
+  // the leading kuromoji token (な) is the copula 助動詞 (basicForm=だ), not a
+  // particle. The copula branch of the rule is what vetoes this.
+  const nanoka = {
+    start: 0,
+    end: 3,
+    surface: "なのか",
+    results: [
+      {
+        id: 1579630,
+        k: [{ ent: "七日" }, { ent: "7日" }],
+        r: [{ ent: "なのか" }, { ent: "なぬか" }],
+        s: [{ pos: ["n"] }],
+      },
+    ],
+  } as unknown as HitArg;
 
   // The に当たり entry: a kanji-bearing expression (に+当たり). Surface
   // contains the kanji 当 — must NOT be vetoed even though the leading token
@@ -773,7 +809,7 @@ describe("exactMergeStartsOnParticleIntoKanji", () => {
         s: [{ pos: ["exp"] }],
       },
     ],
-  } as unknown as Parameters<typeof exactMergeStartsOnParticleIntoKanji>[0];
+  } as unknown as HitArg;
 
   // The には compound-particle entry: kana-canonical.
   const niwa = {
@@ -788,7 +824,7 @@ describe("exactMergeStartsOnParticleIntoKanji", () => {
         s: [{ pos: ["exp", "prt"] }],
       },
     ],
-  } as unknown as Parameters<typeof exactMergeStartsOnParticleIntoKanji>[0];
+  } as unknown as HitArg;
 
   // A 殿-like entry whose only kanji form is `sK` (search-only).
   const sKonly = {
@@ -803,40 +839,54 @@ describe("exactMergeStartsOnParticleIntoKanji", () => {
         s: [{ pos: ["n"] }],
       },
     ],
-  } as unknown as Parameters<typeof exactMergeStartsOnParticleIntoKanji>[0];
+  } as unknown as HitArg;
 
   it("vetoes an exact merge whose leading token is a particle into a kanji-canonical entry", () => {
-    expect(exactMergeStartsOnParticleIntoKanji(tono, "助詞")).toBe(true);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(tono, particle)).toBe(true);
+  });
+
+  it("vetoes an exact merge whose leading token is the copula な (助動詞/だ) into a kanji-canonical entry", () => {
+    // 「運命なのか」: kuromoji tokenises な|の|か, JMdict greedy-matches なのか
+    // against 七日 ("seventh day"). The leading な is the copula's prenominal
+    // form, not a particle, so the particle-only rule wouldn't fire — but the
+    // reading-coincidence pattern is identical and the merge is wrong.
+    expect(exactMergeStartsOnFunctionWordIntoKanji(nanoka, copulaNa)).toBe(true);
+  });
+
+  it("does NOT veto when the 助動詞 is a non-copula auxiliary (ます / た / ない)", () => {
+    // These never lead an independent span in practice (they attach to verb
+    // stems), but the gate is explicit: only the copula counts as a function
+    // word here, since auxiliaries that aren't copulas can't open a kana run.
+    expect(exactMergeStartsOnFunctionWordIntoKanji(tono, ms)).toBe(false);
   });
 
   it("allows the merge when the entry is kana-canonical (compound particles)", () => {
-    expect(exactMergeStartsOnParticleIntoKanji(niwa, "助詞")).toBe(false);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(niwa, particle)).toBe(false);
   });
 
-  it("allows the merge when the leading token is not a particle", () => {
-    expect(exactMergeStartsOnParticleIntoKanji(tono, "動詞")).toBe(false);
-    expect(exactMergeStartsOnParticleIntoKanji(tono, "名詞")).toBe(false);
-    expect(exactMergeStartsOnParticleIntoKanji(tono, undefined)).toBe(false);
+  it("allows the merge when the leading token is not a particle or copula", () => {
+    expect(exactMergeStartsOnFunctionWordIntoKanji(tono, verb)).toBe(false);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(tono, noun)).toBe(false);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(tono, undefined)).toBe(false);
   });
 
   it("ignores `sK` kanji forms (the same precedence headwordFromHit uses)", () => {
-    expect(exactMergeStartsOnParticleIntoKanji(sKonly, "助詞")).toBe(false);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(sKonly, particle)).toBe(false);
   });
 
   it("never vetoes a deinflection hit — that path has its own guard", () => {
-    const deinflection = { ...tono, base: "殿" };
-    expect(
-      exactMergeStartsOnParticleIntoKanji(
-        deinflection as Parameters<typeof exactMergeStartsOnParticleIntoKanji>[0],
-        "助詞"
-      )
-    ).toBe(false);
+    const deinflection = { ...tono, base: "殿" } as HitArg;
+    expect(exactMergeStartsOnFunctionWordIntoKanji(deinflection, particle)).toBe(
+      false
+    );
   });
 
   it("allows the merge when the surface contains kanji (kanji-bearing phrases)", () => {
     // に+当たり, の+様に, か+も+知れません: leading particle, but the kanji in
     // the surface means the phrase is the real word the user wrote.
-    expect(exactMergeStartsOnParticleIntoKanji(niAtari, "助詞")).toBe(false);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(niAtari, particle)).toBe(
+      false
+    );
   });
 
   // のように entry 1010030: k=[の様に], r=[のように], pos=exp+adv, misc=uk.
@@ -855,10 +905,12 @@ describe("exactMergeStartsOnParticleIntoKanji", () => {
         s: [{ pos: ["exp", "adv"], misc: ["uk"] }],
       },
     ],
-  } as unknown as Parameters<typeof exactMergeStartsOnParticleIntoKanji>[0];
+  } as unknown as HitArg;
 
   it("allows the merge when the entry is a multi-word `exp` phrase", () => {
-    expect(exactMergeStartsOnParticleIntoKanji(noYouNi, "助詞")).toBe(false);
+    expect(exactMergeStartsOnFunctionWordIntoKanji(noYouNi, particle)).toBe(
+      false
+    );
   });
 });
 

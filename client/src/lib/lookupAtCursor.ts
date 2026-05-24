@@ -279,6 +279,33 @@ export async function lookupAtBoundary(
     start
   );
 
+  // A pure-kana exact match that is a JPDB-ranked fixed phrase (exp / conj /
+  // int) beats its deinflection on relaxed terms: it doesn't have to *outrank*
+  // the lemma, only stay within an order of magnitude of it. JMdict registers
+  // the surface as a unitary lexical item with no productive conjugation;
+  // once JPDB also ranks it, the phrase entry is a better tap target than the
+  // lemma the conjugation rules can produce — unless the lemma is dramatically
+  // more common. Mirrors {@link exactIsUnrankedExpression} (an unranked
+  // expression loses to deinflection entirely, e.g. 見られる → 見る).
+  //
+  // The relaxation is what fixes 「そうすれば」 (然うすれば conj, rank 2316) —
+  // it stays the conjunction instead of yielding to そうする (rank 815) on
+  // exactOutranksDeinflection's strict ≤ comparison. The order-of-magnitude
+  // ceiling keeps 「により」 (に因り exp, rank 22986) yielding to the verb に依る
+  // (rank 200, ~115× more common) — picking the rare expression there would
+  // lose the user a far more useful headword. The ceiling generalises:
+  // としても (351) vs とする (60) ≈ 6× → exp; どうしたら (5560) vs unranked
+  // どうする → exp.
+  if (
+    exact.length > 0 &&
+    (await expExactBeatsDeinflection(exact, deinflected?.results ?? null))
+  ) {
+    return applyAnnotatedReading(
+      { start, end, surface: prefix, results: exact },
+      annotations
+    );
+  }
+
   // Pure-kana exact match: kept only when JPDB frequency rates it at least as
   // common as the deinflection's lemma (「のせる」 → 乗せる, not the rare
   // potential-form 伸す), otherwise the deinflection wins (「いきたい」 → 行く,
@@ -934,6 +961,73 @@ async function exactIsUnrankedExpression(
   );
   if (!allExpression) return false;
   return (await bestRank(results)) === null;
+}
+
+/**
+ * Largest rank ratio `(exact / deinflection)` at which a JPDB-ranked
+ * fixed-phrase exact match still beats its deinflection. 10× is one order of
+ * magnitude — a lemma that's "merely" more common than the fixed phrase
+ * (そうする 815 vs 然うすれば 2316 ≈ 2.8×; とする 60 vs としても 351 ≈ 6×)
+ * loses to the phrase, but a lemma that's dramatically more common (に依る
+ * 200 vs に因り 22986 ≈ 115×) still wins. Tighter (3-5×) would split
+ * そうすれば and としても; looser (50-100×) would let に因り capture により.
+ */
+const FIXED_PHRASE_RANK_RATIO_LIMIT = 10;
+
+/**
+ * JMdict POS tags identifying a "fixed phrase" — a surface JMdict registers
+ * as a unitary lexical item with no productive conjugation: multi-word
+ * `exp`ression, `conj`unction (然うすれば, それから), or `int`erjection
+ * (じゃあね, いただきます). All three categories are surfaces the reader
+ * encountered as fixed phrases, not as one form of a paradigm — when JMdict
+ * lists the surface under these tags AND JPDB ranks it, the phrase entry is a
+ * better tap target than whatever lemma the conjugation rules can produce.
+ *
+ * `prt` (particle) and `adv` (adverb) are deliberately excluded: particles
+ * are highly productive (`exactMergeStartsOnFunctionWordIntoKanji` handles
+ * particle-led merges separately), and lexicalised adverbs collide with
+ * adjective 連用形 — kuromoji tags 古く as 副詞 and JMdict carries a standalone
+ * 古く adverb that {@link hasAdjPos} already steers around.
+ */
+const FIXED_PHRASE_POS = new Set(["exp", "conj", "int"]);
+
+/**
+ * True when an exact JMdict match is a JPDB-ranked fixed phrase that should
+ * beat the competing deinflection. The phrase entry wins when:
+ *
+ *   - some sense of some result carries a {@link FIXED_PHRASE_POS} tag,
+ *   - that result (or some sibling) is JPDB-ranked, AND
+ *   - either the deinflection is unranked, or the phrase's rank is within
+ *     {@link FIXED_PHRASE_RANK_RATIO_LIMIT}× of the deinflection's rank.
+ *
+ * The rank-ratio gate is the load-bearing part: an unconditional "ranked
+ * fixed phrase wins" rule would let に因り (rank 22986) capture 「により」
+ * away from the much-more-common verb lemma に依る (rank 200). The ratio
+ * ceiling keeps the rule firing only when the phrase is "comparable" in
+ * commonness — 然うすれば (2316 vs lemma 815 = 2.8×) wins, に因り (22986 vs
+ * lemma 200 = 115×) loses.
+ *
+ * Mirrors {@link exactIsUnrankedExpression} (an unranked exp loses to
+ * deinflection entirely, e.g. 見られる → 見る). The test bench covers this
+ * via `lookupAtBoundary`; no need to export.
+ */
+async function expExactBeatsDeinflection(
+  exact: WordResult[],
+  deinflection: WordResult[] | null
+): Promise<boolean> {
+  if (exact.length === 0) return false;
+  const isFixedPhrase = exact.some((wr) =>
+    (wr.s ?? []).some((sense) =>
+      sense.pos?.some((tag) => FIXED_PHRASE_POS.has(tag))
+    )
+  );
+  if (!isFixedPhrase) return false;
+  const exactRank = await bestRank(exact);
+  if (exactRank === null) return false;
+  if (!deinflection) return true;
+  const deinflectionRank = await bestRank(deinflection);
+  if (deinflectionRank === null) return true;
+  return exactRank <= deinflectionRank * FIXED_PHRASE_RANK_RATIO_LIMIT;
 }
 
 /**

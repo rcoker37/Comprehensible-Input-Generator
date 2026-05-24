@@ -229,8 +229,26 @@ export interface WordOccurrence {
  *       the prohibitive particle (entry 2029110, "don't"), so 静か+な used to
  *       split into 静か + な (prohibitive). The regroup pass now merges 静かな
  *       into one tap target grouped under 静か.
+ *  25 — two reading-coincidence fixes from the 真しんの世界線せかいせん fixture.
+ *       (a) The exact-merge veto (`exactMergeStartsOnFunctionWordIntoKanji` in
+ *       regroupWords.ts) is broadened from leading 助詞 to leading
+ *       function words — particles *or* the copula auxiliary (助動詞 with
+ *       basicForm だ / です). The な|の|か run in 「これが運命なのか」 no longer
+ *       collapses into the kanji noun 七日 (なのか, "seventh day" — rank 12,559,
+ *       under the very-rare threshold so the rank-based veto missed it).
+ *       (b) `lookupAtBoundary` now lets a pure-kana JPDB-ranked fixed phrase
+ *       (`exp` / `conj` / `int`) keep its exact-match entry when the competing
+ *       deinflection lemma is no more than 10× more common
+ *       (`expExactBeatsDeinflection`). 「そうすれば」 keeps 然うすれば (conj,
+ *       rank 2316) instead of falling through to そうする (rank 815 ≈ 2.8×) —
+ *       the existing `exactRankWins` only kept the exact when it strictly
+ *       *outranked* the lemma, and the conj category is also new (the
+ *       previous attempt was exp-only and 然うすれば is plain conj). 「により」
+ *       still deinflects to に依る (rank 200) over the exp に因り (rank 22986
+ *       ≈ 115×). Mirrors `exactIsUnrankedExpression` (an unranked phrase
+ *       loses to deinflection entirely, e.g. 見られる → 見る).
  */
-export const WORD_INDEX_VERSION = 24;
+export const WORD_INDEX_VERSION = 25;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

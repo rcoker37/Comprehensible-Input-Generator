@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "真《しん》の世界線《せかいせん》",
-    "sourceStoryId": 220,
-    "exportedAt": "2026-05-18T05:43:27.306Z",
-    "wordIndexVersion": 13,
+    "sourceStoryId": 11,
+    "exportedAt": "2026-05-24T04:32:37.539Z",
+    "wordIndexVersion": 24,
     "jmdictVersion": null,
     "fixtureFormatVersion": 1
   },
@@ -441,12 +441,12 @@
     },
     {
       "start": 93,
-      "end": 96,
-      "surface": "なのか",
-      "headword": "７日",
-      "reading": "なのか",
-      "entryId": 1579630,
-      "manual": false,
+      "end": 95,
+      "surface": "なの",
+      "headword": "なの",
+      "reading": "なの",
+      "entryId": 2425930,
+      "manual": true,
       "isName": false
     },
     {
@@ -1301,12 +1301,22 @@
     },
     {
       "start": 309,
+      "end": 311,
+      "surface": "自分",
+      "headword": "自分",
+      "reading": "じぶん",
+      "entryId": 1318610,
+      "manual": true,
+      "isName": false
+    },
+    {
+      "start": 311,
       "end": 313,
-      "surface": "自分から",
-      "headword": "自分から",
-      "reading": "じぶんから",
-      "entryId": 2825980,
-      "manual": false,
+      "surface": "から",
+      "headword": "から",
+      "reading": "から",
+      "entryId": 1002980,
+      "manual": true,
       "isName": false
     },
     {
@@ -1443,10 +1453,10 @@
       "start": 341,
       "end": 346,
       "surface": "そうすれば",
-      "headword": "そうする",
-      "reading": "そうする",
-      "entryId": 2084700,
-      "manual": false,
+      "headword": "然うすれば",
+      "reading": "そうすれば",
+      "entryId": 2084030,
+      "manual": true,
       "isName": false
     },
     {
