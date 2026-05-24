@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-24T00:16:47.272Z",
+  "generatedAt": "2026-05-24T05:20:41.248Z",
   "occurrences": [
     {
       "start": 0,
@@ -390,11 +390,20 @@
     },
     {
       "start": 93,
+      "end": 95,
+      "surface": "なの",
+      "headword": "なの",
+      "reading": "なの",
+      "entryId": 2425930,
+      "isName": false
+    },
+    {
+      "start": 95,
       "end": 96,
-      "surface": "なのか",
-      "headword": "７日",
-      "reading": "なのか",
-      "entryId": 1579630,
+      "surface": "か",
+      "headword": "か",
+      "reading": "か",
+      "entryId": 2028970,
       "isName": false
     },
     {
@@ -1292,9 +1301,9 @@
       "start": 341,
       "end": 346,
       "surface": "そうすれば",
-      "headword": "そうする",
-      "reading": "そうする",
-      "entryId": 2084700,
+      "headword": "然うすれば",
+      "reading": "そうすれば",
+      "entryId": 2084030,
       "isName": false
     },
     {

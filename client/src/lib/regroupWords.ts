@@ -133,11 +133,18 @@ export async function regroupWords(
   // passed alongside the POS hint so lookupAtBoundary can disambiguate
   // homophone deinflections (「〜ていった」 → 行く, not 言う).
   const baseByStart = new Map<number, string>();
+  // Parallel map of the leading kuromoji token itself per token start —
+  // exposed so the function-word merge veto can read the token's basicForm,
+  // not just its POS (a copula 助動詞 「な」 has basicForm=だ, but kuromoji
+  // also tags た / ます / ない as 助動詞 — they're not function words that
+  // veto a kanji-noun merge).
+  const tokenByStart = new Map<number, KuromojiTokenInfo>();
   for (let i = 0; i < tokens.length; i++) {
     const hint = verbHintAt(tokens, i);
     if (hint !== undefined) posByStart.set(tokens[i]!.start, hint);
     const base = tokens[i]!.basicForm;
     if (base && base !== "*") baseByStart.set(tokens[i]!.start, base);
+    tokenByStart.set(tokens[i]!.start, tokens[i]!);
   }
 
   const result: DisplayParagraph[] = [];
@@ -154,6 +161,7 @@ export async function regroupWords(
         auxAfterVerbBoundaries,
         posByStart,
         baseByStart,
+        tokenByStart,
         rareMergeProbe
       );
       newSentences.push({ ...sent, parts: newParts });
@@ -179,6 +187,7 @@ async function regroupParts(
   auxAfterVerbBoundaries: Set<number>,
   posByStart: Map<number, string>,
   baseByStart: Map<number, string>,
+  tokenByStart: Map<number, KuromojiTokenInfo>,
   rareMergeProbe: RareMergeProbe
 ): Promise<SegmentPart[]> {
   if (parts.length === 0) return [];
@@ -271,13 +280,15 @@ async function regroupParts(
       if (crosses && deinflectionMergeStartsOnParticle(hit, posByStart.get(start))) {
         continue;
       }
-      // Same shape for exact matches: a particle-led kuromoji-split merge into
-      // a kanji-canonical JMdict entry (殿, 螺) is a reading coincidence, not
-      // the word the reader is looking at. Compound particles like には are
+      // Same shape for exact matches: a function-word-led kuromoji-split merge
+      // into a kanji-canonical JMdict entry (殿, 螺, 七日) is a reading
+      // coincidence, not the word the reader is looking at — for both
+      // particles (と|の → 殿) and the copula auxiliary (な|の|か → 七日, where
+      // な is kuromoji's 助動詞 form of だ). Compound particles like には are
       // kana-canonical and pass.
       if (
         crosses &&
-        exactMergeStartsOnParticleIntoKanji(hit, posByStart.get(start))
+        exactMergeStartsOnFunctionWordIntoKanji(hit, tokenByStart.get(start))
       ) {
         continue;
       }
@@ -432,21 +443,27 @@ export function deinflectionMergeStartsOnParticle(
 /**
  * Veto decision for the exact-match counterpart of
  * {@link deinflectionMergeStartsOnParticle}: should a kuromoji-split *exact*
- * merge be refused, given the candidate `hit` and the kuromoji POS of the
- * span's leading token?
+ * merge be refused, given the candidate `hit` and the kuromoji token at the
+ * span's leading position?
  *
  * Fires when all four hold:
  *   1. surface is pure-kana,
- *   2. leading kuromoji token is a particle,
+ *   2. leading kuromoji token is a function word — either a particle (助詞)
+ *      or the copula auxiliary (助動詞 with basicForm だ / です),
  *   3. matched JMdict entry has at least one non-`sK` kanji form, AND
  *   4. no sense of the entry is tagged `exp` (multi-word expression).
  *
- * Reading-folding lets a pure-kana particle run (と|の, に|し) collide with
- * kanji words read identically (殿/との, 螺/にし) — and the existing JPDB-rank
- * veto can miss those when the entry happens to clear the very-rare
- * threshold (殿 rank 9260) or when a sibling rank pulls the cross-entry
- * minimum down (にし also hits 西 rank 1960). A particle is not the start of
- * a single-word kanji noun in those cases, so the merge is wrong.
+ * Reading-folding lets a pure-kana function-word run (と|の, に|し, な|の|か)
+ * collide with kanji words read identically (殿/との, 螺/にし, 七日/なのか) —
+ * and the existing JPDB-rank veto can miss those when the entry happens to
+ * clear the very-rare threshold (殿 rank 9260; 七日 rank 12559) or when a
+ * sibling rank pulls the cross-entry minimum down (にし also hits 西 rank
+ * 1960). A function word is not the start of a single-word kanji noun in
+ * those cases, so the merge is wrong. The copula branch is what lets
+ * 「運命なのか」 stay 運命+なの+か rather than collapsing the な-の-か run into
+ * 七日 (なのか, "seventh day"): kuromoji tags な as 助動詞/だ here, so the
+ * particle-only rule wouldn't fire, but a copula at the start of a kana run
+ * blocking a kanji-canonical noun is the same reading-coincidence pattern.
  *
  * Three exits keep legitimate merges flowing:
  *   - Pure-kana surface (gate 1): kanji-bearing surfaces with a leading kana
@@ -455,23 +472,30 @@ export function deinflectionMergeStartsOnParticle(
  *   - Kana-canonical entry (gate 3): JMdict's compound particles JPDB ranks
  *     (には 22, とは 71, でも) all have k=[], so they keep merging.
  *   - `exp` POS (gate 4): a JMdict entry tagged `exp` is a multi-word phrase
- *     by construction, so a particle-led merge into it is exactly the
- *     intended shape — の様に (のように), 五月雨, etc. The standalone-word
- *     entries (殿, 螺, 八百) carry only `n`-family POS and stay vetoed.
+ *     by construction, so a function-word-led merge into it is exactly the
+ *     intended shape — の様に (のように), 五月雨, なの (rank 99 exp), etc. The
+ *     standalone-word entries (殿, 螺, 七日, 八百) carry only `n`-family POS
+ *     and stay vetoed.
  *
  * Deinflection merges are out of scope here ({@link
  * deinflectionMergeStartsOnParticle} handles them and *doesn't* require the
  * kanji-canonical or exp gates, because no compound particle is also a
- * deinflectable verb).
+ * deinflectable verb). The auxiliary-only side of 助動詞 (た, ます, ない) is
+ * intentionally excluded: those never appear as the first token of an
+ * independent span — they only attach to verb stems — so adding them would
+ * be vacuous, while a copula 「な」 / 「だ」 routinely opens a kana run.
  *
  * Pure / no I/O — exposed for unit tests.
  */
-export function exactMergeStartsOnParticleIntoKanji(
+export function exactMergeStartsOnFunctionWordIntoKanji(
   hit: LookupHit,
-  leadingPos: string | undefined
+  leadingToken: KuromojiTokenInfo | undefined
 ): boolean {
   if (hit.base) return false;
-  if (leadingPos !== PARTICLE_POS) return false;
+  if (!leadingToken) return false;
+  const isParticle = leadingToken.pos === PARTICLE_POS;
+  const isCopula = isCopulaToken(leadingToken);
+  if (!isParticle && !isCopula) return false;
   if (!isPureKana(hit.surface)) return false;
   const entry = hit.results[0];
   if (!entry) return false;

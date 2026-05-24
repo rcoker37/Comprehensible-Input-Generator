@@ -445,3 +445,191 @@ describe("lookupAtBoundary baseHint deinflection disambiguation", () => {
     expect(hit!.results[0]?.k?.[0]?.ent).toBe("分かる");
   });
 });
+
+describe("lookupAtBoundary ranked fixed-phrase exact-match preempts deinflection", () => {
+  beforeEach(() => {
+    mockLookup.mockReset();
+    mockRank.mockReset();
+  });
+
+  it("keeps 然うすれば (conj, rank 2316) over the lemma そうする (rank 815) — within the 10× ratio", async () => {
+    // 「そうすれば」 is pure-kana. JMdict exact-matches 然うすれば — tagged
+    // `conj` (conjunction) only, no `exp`. The -ば rule deinflects to そうする
+    // (`exp`,`vs-i`). `exactRankWins(2316, 815)` returns false (lemma is
+    // strictly more common), but the new fixed-phrase branch keeps the
+    // conjunction because 2316 / 815 ≈ 2.8 < 10. The `conj` POS is the
+    // load-bearing part: a previous exp-only attempt missed this case
+    // because 然うすれば carries no `exp` tag.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "そうすれば") {
+        return [
+          wr({
+            k: ["然うすれば"],
+            r: ["そうすれば"],
+            pos: ["conj"],
+            misc: ["uk"],
+            id: 2084030,
+          }),
+        ];
+      }
+      if (search === "そうする") {
+        return [
+          wr({
+            k: ["然うする"],
+            r: ["そうする"],
+            pos: ["exp", "vs-i"],
+            misc: ["uk"],
+            id: 2084700,
+          }),
+        ];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 2084030) {
+        return {
+          rank: 2316,
+          tier: "common",
+          headword: "そうすれば",
+          reading: "そうすれば",
+        };
+      }
+      if (id === 2084700) {
+        return {
+          rank: 815,
+          tier: "common",
+          headword: "そうする",
+          reading: "そうする",
+        };
+      }
+      return null;
+    });
+
+    // Leading kuromoji token for そう is 副詞 (adverb).
+    const hit = await lookupAtBoundary("そうすれば", 0, 5, [], "副詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBeUndefined();
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("然うすれば");
+  });
+
+  it("yields to the deinflection when the exp is dramatically rarer (に因り 22986 vs に依る 200, ~115×)", async () => {
+    // 「により」 in 「これにより」: JMdict exact-matches the exp に因り (rank
+    // 22986, "due to") and the -り conditional rule deinflects to the verb
+    // lemma に依る (rank 200). The lemma is ~115× more common — well past the
+    // exp-vs-deinflection rule's 10× ceiling — so deinflection wins.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "により") {
+        return [
+          wr({
+            k: ["に因り"],
+            r: ["により"],
+            pos: ["exp"],
+            misc: ["uk"],
+            id: 2076730,
+          }),
+        ];
+      }
+      if (search === "による") {
+        return [
+          wr({
+            k: ["に依る", "に因る", "に拠る"],
+            r: ["による"],
+            pos: ["exp", "v5r"],
+            misc: ["uk"],
+            id: 1009660,
+          }),
+        ];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 2076730) {
+        return { rank: 22986, tier: "rare", headword: "により", reading: "により" };
+      }
+      if (id === 1009660) {
+        return {
+          rank: 200,
+          tier: "very-common",
+          headword: "による",
+          reading: "による",
+        };
+      }
+      return null;
+    });
+
+    const hit = await lookupAtBoundary("により", 0, 3, [], "助詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("による");
+  });
+
+  it("prefers a ranked exp when the deinflection is unranked", async () => {
+    // どうしたら (exp, rank 5560) deinflects to どうする (unranked). With the
+    // lemma unranked the exp wins regardless of its own rank.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "どうしたら") {
+        return [
+          wr({
+            r: ["どうしたら"],
+            pos: ["exp"],
+            id: 8000,
+          }),
+        ];
+      }
+      if (search === "どうする") {
+        return [
+          wr({ r: ["どうする"], pos: ["exp", "vs-i"], id: 8001 }),
+        ];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 8000) {
+        return { rank: 5560, tier: "uncommon", headword: "どうしたら", reading: "どうしたら" };
+      }
+      return null; // どうする unranked
+    });
+
+    const hit = await lookupAtBoundary("どうしたら", 0, 5, [], "副詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBeUndefined();
+    expect(hit!.results[0]?.id).toBe(8000);
+  });
+
+  it("does not fire for an unranked `exp` exact match (still defers to deinflection)", async () => {
+    // Symmetry with `exactIsUnrankedExpression`. 「見られる」 exact-matches an
+    // unranked honorific phrase entry; it should still deinflect to 見る. The
+    // exp-vs-deinflection branch only fires when JPDB ranks the expression —
+    // no rank, no preemption.
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "みられる") {
+        return [
+          wr({
+            r: ["みられる"],
+            pos: ["exp", "v1"],
+            id: 9000,
+          }),
+        ];
+      }
+      if (search === "みる") {
+        return [
+          wr({ k: ["見る"], r: ["みる"], pos: ["v1", "vt"], id: 9001 }),
+        ];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 9001) {
+        return { rank: 50, tier: "very-common", headword: "見る", reading: "みる" };
+      }
+      return null;
+    });
+
+    const hit = await lookupAtBoundary("みられる", 0, 4, [], "動詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBe("みる");
+  });
+});
