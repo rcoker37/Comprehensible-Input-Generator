@@ -158,6 +158,9 @@
   text-decoration-color: var(--accent);
   text-decoration-thickness: 2px;
   text-underline-offset: 0.18em;
+  /* Tiny gap so adjacent highlighted words' underlines don't run
+   * together — makes word boundaries visible in continuous Japanese. */
+  margin-right: 2px;
 }
 
 /* Rarity-tier underline colours — the --freq-* gradient from App.css, the
