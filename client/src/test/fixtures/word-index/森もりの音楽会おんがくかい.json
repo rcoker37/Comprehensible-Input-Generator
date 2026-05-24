@@ -1,9 +1,9 @@
 {
   "meta": {
     "title": "森《もり》の音楽会《おんがくかい》",
-    "sourceStoryId": 123,
-    "exportedAt": "2026-05-18T20:09:59.730Z",
-    "wordIndexVersion": 17,
+    "sourceStoryId": 14,
+    "exportedAt": "2026-05-24T18:00:14.143Z",
+    "wordIndexVersion": 25,
     "jmdictVersion": null,
     "fixtureFormatVersion": 1
   },
@@ -243,10 +243,10 @@
       "start": 42,
       "end": 45,
       "surface": "みんな",
-      "headword": "見る",
-      "reading": "みる",
-      "entryId": 1259290,
-      "manual": false,
+      "headword": "皆",
+      "reading": "みな",
+      "entryId": 1202150,
+      "manual": true,
       "isName": false
     },
     {
@@ -853,10 +853,10 @@
       "start": 171,
       "end": 173,
       "surface": "来て",
-      "headword": "来てる",
-      "reading": "きてる",
-      "entryId": 2830009,
-      "manual": false,
+      "headword": "来る",
+      "reading": "くる",
+      "entryId": 1547720,
+      "manual": true,
       "isName": false
     },
     {
@@ -1033,10 +1033,10 @@
       "start": 205,
       "end": 208,
       "surface": "みんな",
-      "headword": "見る",
-      "reading": "みる",
-      "entryId": 1259290,
-      "manual": false,
+      "headword": "皆",
+      "reading": "みな",
+      "entryId": 1202150,
+      "manual": true,
       "isName": false
     },
     {
@@ -1483,10 +1483,10 @@
       "start": 317,
       "end": 320,
       "surface": "みんな",
-      "headword": "見る",
-      "reading": "みる",
-      "entryId": 1259290,
-      "manual": false,
+      "headword": "皆",
+      "reading": "みな",
+      "entryId": 1202150,
+      "manual": true,
       "isName": false
     },
     {
