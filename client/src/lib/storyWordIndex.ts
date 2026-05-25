@@ -292,8 +292,22 @@ export interface WordOccurrence {
  *       Fixes 「よく分からない」 → 良い (adj-i, rank 515) when 良く (adv, rank
  *       143) is the everyday adverb the reader sees; 古く still deinflects
  *       to 古い (adv unranked, lemma rank 1192).
+ *  29 — two fixes that together let 「短所があり、」 → ある (verb continuative)
+ *       instead of stamping the noun-tagged 在り (entry 2150170, rank 275).
+ *       (a) `hasVerbPos` now excludes classical-only verb POS classes (`vr`,
+ *       `vn`, `v2*`, `v4*`) the same way it excludes `arch`/`obs`-tagged
+ *       senses. 在り sense 3 is a literary `[vr, vi]` "to be" tagged
+ *       `["uk", "form"]` — not `arch`, so the misc-only exclusion missed it,
+ *       and the modern-verb gate wrongly considered 在り to already satisfy
+ *       kuromoji's 動詞 hint. (b) `expExactBeatsDeinflection` now requires the
+ *       fixed-phrase entry's primary form to equal the surface
+ *       (`isFixedPhraseEntryForSurface`). Without this, fix (a) routed 「あり」
+ *       to the interjection あれ (entry 2847612, rank 137) "huh?" — JMdict
+ *       lists あり as the 5th alternate reading of あれ, but the primary
+ *       reading is あれ, not あり. The existing 「いえ」 → int 1583250 case
+ *       still fires (the int entry's primary reading IS いえ).
  */
-export const WORD_INDEX_VERSION = 28;
+export const WORD_INDEX_VERSION = 29;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {

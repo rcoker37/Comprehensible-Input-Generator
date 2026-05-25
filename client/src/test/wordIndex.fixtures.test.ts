@@ -112,11 +112,12 @@ describe("word-index fixtures", () => {
   for (const file of fixtureFiles) {
     const slug = file.replace(/\.json$/, "");
 
-    // 90s per fixture: the longer texts hit several hundred per-span JMdict
-    // lookups serially, and the default 30s timeout is right on the edge for
-    // the heaviest fixtures (真しんの世界線せかいせん runs ~60s on a warm cache
-    // — close enough to a hard 60s limit that any code path adding a per-call
-    // microtask flips it red).
+    // 120s per fixture: the longer texts hit several hundred per-span JMdict
+    // lookups serially, and the previous 90s limit had the heaviest fixtures
+    // (真しんの世界線せかいせん, 正体しょうたい不明ふめいの肉にく) running at
+    // 80-85s — close enough to red that any defense that fires the verb-
+    // deinflection branch more often (v29's `hasVerbPos` excluding classical
+    // verb POS, for instance) tips them over.
     it(
       slug,
       async () => {
@@ -186,10 +187,9 @@ describe("word-index fixtures", () => {
           log.push(`  ${diff.regressions} regression(s):`);
           log.push(regressionLines(fixture.content, diff));
         }
-        // Perf budget alarm: warn at 80% of the 90s per-fixture timeout so
-        // creep is visible before it breaks. The heavy fixtures sit ~60s
-        // already; another ~12s of new overhead and we're red.
-        const PERF_WARN_MS = 90_000 * 0.8;
+        // Perf budget alarm: warn at 80% of the 120s per-fixture timeout so
+        // creep is visible before it breaks.
+        const PERF_WARN_MS = 120_000 * 0.8;
         if (elapsedMs > PERF_WARN_MS) {
           log.push(
             `  ⚠ perf: ${elapsedMs}ms (>${PERF_WARN_MS}ms — 80% of timeout)`
@@ -221,7 +221,7 @@ describe("word-index fixtures", () => {
           ).toBe(0);
         }
       },
-      90_000
+      120_000
     );
   }
 });
