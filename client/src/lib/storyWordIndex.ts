@@ -285,8 +285,15 @@ export interface WordOccurrence {
  *       dropped entirely (sub-segment can't reconstruct ふじわら because わら
  *       isn't a JMdict reading of 原) and 千花 going through the numeral
  *       path (千 ∈ NUMERAL_CHARS) with `isName: false`.
+ *  28 — the adj-i continuative preempt in `lookupAtBoundary` now arbitrates
+ *       by JPDB rank against the deinflection lemma instead of firing
+ *       unconditionally. A standalone-adverb exact match keeps its entry
+ *       when `exactOutranksDeinflection` agrees it beats the adj-i lemma.
+ *       Fixes 「よく分からない」 → 良い (adj-i, rank 515) when 良く (adv, rank
+ *       143) is the everyday adverb the reader sees; 古く still deinflects
+ *       to 古い (adv unranked, lemma rank 1192).
  */
-export const WORD_INDEX_VERSION = 27;
+export const WORD_INDEX_VERSION = 28;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
