@@ -179,6 +179,62 @@ function sentenceKey(start: number, end: number): string {
   return `${start}-${end}`;
 }
 
+// Wrap only the kanji middle of `surface` in <ruby>, stripping matching
+// leading/trailing kana so the furigana sits over the actual kanji glyphs
+// rather than smearing the whole reading across the kana parts too:
+//   大切にする (たいせつにする) → 大切《たいせつ》にする
+//   食べる (たべる)             → 食《た》べる
+//   お父さん (おとうさん)        → お 父《とう》 さん
+//   中 (うち)                   → 中《うち》
+//   うち (うち) / pure kana     → plain text (no ruby)
+function renderSurfaceRuby(
+  surface: string,
+  reading: string | null
+): ReactNode {
+  if (!reading || surface === reading) return surface;
+  const chars = [...surface];
+  const readingChars = [...reading];
+  let leadLen = 0;
+  while (
+    leadLen < chars.length &&
+    leadLen < readingChars.length &&
+    !KANJI_REGEX.test(chars[leadLen]!) &&
+    chars[leadLen] === readingChars[leadLen]
+  ) {
+    leadLen++;
+  }
+  let trailLen = 0;
+  while (
+    trailLen < chars.length - leadLen &&
+    trailLen < readingChars.length - leadLen &&
+    !KANJI_REGEX.test(chars[chars.length - 1 - trailLen]!) &&
+    chars[chars.length - 1 - trailLen] ===
+      readingChars[readingChars.length - 1 - trailLen]
+  ) {
+    trailLen++;
+  }
+  const leading = chars.slice(0, leadLen).join("");
+  const trailing = chars.slice(chars.length - trailLen).join("");
+  const middleBase = chars.slice(leadLen, chars.length - trailLen).join("");
+  const middleReading = readingChars
+    .slice(leadLen, readingChars.length - trailLen)
+    .join("");
+  if (!middleBase || !middleReading || middleBase === middleReading)
+    return surface;
+  // Nothing to gloss if the middle has no kanji — bail to plain text.
+  if (![...middleBase].some((ch) => KANJI_REGEX.test(ch))) return surface;
+  return (
+    <>
+      {leading}
+      <ruby>
+        {middleBase}
+        <rt>{middleReading}</rt>
+      </ruby>
+      {trailing}
+    </>
+  );
+}
+
 function renderSnippet(
   text: string,
   annotations: FuriganaAnnotation[],
@@ -736,12 +792,21 @@ export default function WordPopover({
 
   const activeCard = cards[cardIndex] ?? null;
 
-  // Sticky kanji chips show the kanji of the headword (identical across
-  // cards). Falls back to the surface kanji when there's no JMdict match.
+  // Kanji chips show the union of kanji the user has actually encountered
+  // for this entry across their reading — so a "usually kana" word like
+  // うち shows no chips until they hit a kanji form, while 中 / 内 / 家
+  // accumulate as they're seen. The chip set covers the entire carousel
+  // (current tap + every prior occurrence), so it's still stable across
+  // card swipes — only the big surface above reflows per card.
   const stickyKanjiChars = useMemo(() => {
-    const source = headword?.headword ?? hit?.surface ?? "";
-    return [...source].filter((ch) => KANJI_REGEX.test(ch));
-  }, [headword, hit]);
+    const set = new Set<string>();
+    for (const card of cards) {
+      for (const ch of card.surface) {
+        if (KANJI_REGEX.test(ch)) set.add(ch);
+      }
+    }
+    return [...set];
+  }, [cards]);
 
   const goToCard = useCallback(
     (next: number) => {
@@ -943,14 +1008,48 @@ export default function WordPopover({
 
   if (!open) return null;
 
-  // Prefer the most-frequent orthography variant from JPDB (e.g. お供え rather
-  // than the canonical k[0] 御供え) so the displayed form matches what the
-  // user is most likely to encounter in the wild — and what we score the
-  // headword against. Falls back to the JMdict-canonical headword while the
-  // frequency lookup is still in flight or no candidate resolved.
-  const stickyHeadword =
-    frequency?.headword ?? headword?.headword ?? hit?.surface ?? "";
-  const stickyReading = headword?.reading ?? null;
+  // Per-card display surface — keeps the literal surface when it's already
+  // one of the entry's k/r forms (うち stays うち, 中 stays 中), but rewrites
+  // a conjugated surface to the entry's lemma (大切にして → 大切にする,
+  // 食べた → 食べる) so the header shows a dictionary form instead of a tense
+  // the user has to mentally undo. Falls back to JPDB's display variant, then
+  // the JMdict canonical, then the raw tap surface when no card is active.
+  const entry = hit?.results?.[0];
+  const entryForms = (() => {
+    const set = new Set<string>();
+    if (entry?.k) for (const k of entry.k) set.add(k.ent);
+    if (entry?.r) for (const r of entry.r) set.add(r.ent);
+    return set;
+  })();
+  const surfaceText = activeCard?.surface ?? "";
+  const surfaceHasKanji = [...surfaceText].some((ch) => KANJI_REGEX.test(ch));
+  // When the surface is a conjugation, prefer a lemma that matches the
+  // surface's script: a kana-only conjugated form (もっていって) takes the
+  // reading lemma (もっていく), while a kanji-bearing conjugation (大切にして)
+  // takes the kanji lemma (大切にする).
+  const lemmaForm = surfaceHasKanji
+    ? frequency?.headword ?? headword?.headword ?? headword?.reading ?? ""
+    : headword?.reading ?? frequency?.headword ?? headword?.headword ?? "";
+  const cardSurface = !surfaceText
+    ? lemmaForm || hit?.surface || ""
+    : entryForms.has(surfaceText)
+      ? surfaceText
+      : lemmaForm || surfaceText;
+  const cardReading = headword?.reading ?? null;
+  // Other non-sK kanji forms this entry has, with JPDB's display variant
+  // hoisted first when known. Powers the "Also written" subtitle so the
+  // reader still sees that うち's entry can also be written 中 · 内 even
+  // when the active card's surface is kana.
+  const otherDictForms = (() => {
+    if (!entry?.k) return [] as string[];
+    const all = entry.k.filter((k) => !k.i?.includes("sK")).map((k) => k.ent);
+    const preferred = frequency?.headword;
+    const ordered =
+      preferred && all.includes(preferred)
+        ? [preferred, ...all.filter((k) => k !== preferred)]
+        : all;
+    return ordered.filter((k) => k !== cardSurface);
+  })();
 
   const showCarouselNav = cards.length > 1;
 
@@ -977,14 +1076,9 @@ export default function WordPopover({
           <>
             <div className="word-popover__sticky">
               <header className="word-popover__header">
-                {stickyReading && stickyHeadword !== stickyReading ? (
-                  <ruby className="word-popover__surface">
-                    {stickyHeadword}
-                    <rt>{stickyReading}</rt>
-                  </ruby>
-                ) : (
-                  <span className="word-popover__surface">{stickyHeadword}</span>
-                )}
+                <span className="word-popover__surface">
+                  {renderSurfaceRuby(cardSurface, cardReading)}
+                </span>
                 {lookupIsName ? (
                   <span
                     className="word-popover__name-badge"
@@ -1019,6 +1113,11 @@ export default function WordPopover({
                   </span>
                 )}
               </header>
+              {!lookupIsName && otherDictForms.length > 0 && (
+                <div className="word-popover__alt-forms">
+                  Also written: {otherDictForms.join(" · ")}
+                </div>
+              )}
               <section className="word-popover__senses">
                 {lookupIsName ? (
                   <div className="word-popover__name-note">
