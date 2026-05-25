@@ -453,11 +453,11 @@
       "start": 113,
       "end": 117,
       "surface": "ゲンドウ",
-      "headword": "言動",
-      "reading": "げんどう",
-      "entryId": 1264520,
+      "headword": "ゲンドウ",
+      "reading": "ゲンドウ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 117,
@@ -473,11 +473,11 @@
       "start": 118,
       "end": 121,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 121,
@@ -713,11 +713,11 @@
       "start": 184,
       "end": 187,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 187,
@@ -741,13 +741,13 @@
     },
     {
       "start": 192,
-      "end": 193,
-      "surface": "エ",
-      "headword": "え",
-      "reading": "え",
-      "entryId": 2122310,
+      "end": 195,
+      "surface": "エヴァ",
+      "headword": "エヴァ",
+      "reading": "エヴァ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 195,
@@ -1043,11 +1043,11 @@
       "start": 260,
       "end": 263,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 263,
@@ -1153,11 +1153,11 @@
       "start": 283,
       "end": 286,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 286,
@@ -1233,11 +1233,11 @@
       "start": 307,
       "end": 310,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 310,
@@ -1573,11 +1573,11 @@
       "start": 382,
       "end": 386,
       "surface": "ゲンドウ",
-      "headword": "言動",
-      "reading": "げんどう",
-      "entryId": 1264520,
+      "headword": "ゲンドウ",
+      "reading": "ゲンドウ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 386,
@@ -1603,11 +1603,11 @@
       "start": 393,
       "end": 396,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 396,
@@ -2093,11 +2093,11 @@
       "start": 504,
       "end": 507,
       "surface": "シンジ",
-      "headword": "神事",
-      "reading": "しんじ",
-      "entryId": 2816620,
+      "headword": "シンジ",
+      "reading": "シンジ",
+      "entryId": null,
       "manual": false,
-      "isName": false
+      "isName": true
     },
     {
       "start": 507,

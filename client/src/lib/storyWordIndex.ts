@@ -247,8 +247,24 @@ export interface WordOccurrence {
  *       still deinflects to に依る (rank 200) over the exp に因り (rank 22986
  *       ≈ 115×). Mirrors `exactIsUnrankedExpression` (an unranked phrase
  *       loses to deinflection entirely, e.g. 見られる → 見る).
+ *  26 — two fixes for stamps the curator missed in earlier fixtures.
+ *       (a) `lookupAtBoundary` hoists a verb-POS entry to `results[0]` when
+ *       kuromoji tags the span 動詞 but jpdict-idb's intrinsic sort floated a
+ *       non-verb homophone ahead of the verb (`hoistVerbToFrontWhen`). 「入って
+ *       くる」 stamps 来る instead of 佝僂 (rank 25 verb vs unranked medical
+ *       noun); narrow to 動詞 because a parallel noun-side preempt regresses
+ *       curator-blessed picks (達 over 質 for たち).
+ *       (b) `detectKatakanaNames` drops the previous "at least one 固有名詞
+ *       token in the run" requirement and trusts `isAllKanjiCanonicalNonUk`
+ *       alone. Kuromoji's IPADIC tags シンジ 固有名詞 only sometimes and
+ *       skips ゲンドウ entirely, so the gated rule let 神事 / 言動 stamp on
+ *       most occurrences. The bucket check on its own captures the real
+ *       signal — the LLM picking katakana over the available kanji form
+ *       means it's not the kanji homophone — at the cost of stylistic-
+ *       katakana false positives (バンザイ for 万歳) that the user can
+ *       override.
  */
-export const WORD_INDEX_VERSION = 25;
+export const WORD_INDEX_VERSION = 26;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -478,9 +494,23 @@ export function isAllKanjiCanonicalNonUk(results: WordResult[]): boolean {
 /**
  * Replace any per-token / per-char occurrence inside a katakana-name run with
  * one name span. A "katakana-name run" is a maximal contiguous sequence of
- * katakana kuromoji tokens that contains at least one `固有名詞` token, where
- * the run's surface JMdict lookup is either empty or only matches kanji-
- * canonical, non-`uk` entries (see {@link isAllKanjiCanonicalNonUk}).
+ * katakana kuromoji tokens whose surface JMdict lookup is either empty or
+ * only matches kanji-canonical, non-`uk` entries (see
+ * {@link isAllKanjiCanonicalNonUk}).
+ *
+ * Earlier versions also required at least one token in the run to be tagged
+ * 固有名詞 by kuromoji. That was too conservative: kuromoji's IPADIC tags a
+ * katakana name like シンジ as 固有名詞 only on some occurrences and 一般 on
+ * others (Viterbi context-dependent), and skips ゲンドウ entirely — both then
+ * leak their kanji homophones (神事, 言動) into the index. The bucket check
+ * alone is the real signal: a katakana run with only-kanji-canonical-non-uk
+ * JMdict matches means the LLM chose katakana over the kanji form on
+ * purpose, which is almost always because the surface is a name. A
+ * kana-canonical loanword (ロボット, k=[]) fails the bucket check and stays a
+ * JMdict match; a `uk` kanji entry (ドイツ → 独逸) also fails. The remaining
+ * false-positive class is kanji words written in katakana for stylistic
+ * emphasis (バンザイ for 万歳) — uncommon in this corpus, and the user has
+ * the manual override.
  *
  * Returns a new array; input is not mutated. Occurrences that don't intersect
  * any qualifying run are passed through unchanged. Pure logic plus one
@@ -508,12 +538,6 @@ async function detectKatakanaNames(
       isKatakanaToken(tokens[j + 1]!)
     ) {
       j++;
-    }
-    const runTokens = tokens.slice(i, j + 1);
-    const hasProper = runTokens.some(isProperNoun);
-    if (!hasProper) {
-      i = j + 1;
-      continue;
     }
     const start = head.start;
     const end = tokens[j]!.end;

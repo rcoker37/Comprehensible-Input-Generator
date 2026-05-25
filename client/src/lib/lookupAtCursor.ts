@@ -195,7 +195,7 @@ export async function lookupAtBoundary(
   if (start < 0 || end <= start || end > text.length) return null;
   const prefix = text.slice(start, end);
 
-  const exact = await lookupWord(prefix);
+  const exact = await hoistVerbToFrontWhen(await lookupWord(prefix), posHint);
 
   if (
     (posHint === "動詞" && !hasVerbPos(exact)) ||
@@ -823,6 +823,63 @@ export function hasAdjPos(results: WordResult[]): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Reorder a kuromoji-動詞-hinted exact match so a verb entry sits at
+ * `results[0]` (the slot the indexer stamps). jpdict-idb's own sort uses
+ * JMdict priority tags (`news`/`spec`/`ichi`/`gai`) and headword-type
+ * heuristics, which sometimes float a rare-but-tagged noun above the verb
+ * the reader is actually looking at — `lookupWord("くる")` puts 佝僂 (くる,
+ * rare medical term) ahead of 来る, so a 動詞-hinted span in 「入ってくる」
+ * stamps 佝僂.
+ *
+ * The existing 動詞 preempt at the top of {@link lookupAtBoundary} fires
+ * only when *no* verb is in `exact`; this is the parallel guard for a mix
+ * of verb + non-verb at the same span. When the leading entry is non-verb
+ * but a verb exists deeper, the verb with the best (lowest) JPDB rank is
+ * hoisted to position 0 — for くる that's 来る (rank 25) over 繰る (rank
+ * 8000+) over 佝僂 (unranked). Doesn't touch order otherwise, so cases the
+ * library's sort already gets right (e.g. のせる → 乗せる first, 来る for
+ * くる when jpdict-idb already places it first) are unaffected.
+ *
+ * Restricted to 動詞 deliberately: a parallel noun/adverb generalisation
+ * would override the library on cases like の (particle, posHint 名詞 in
+ * nominalizer position) and the curator-chosen たち (達 vs 質), which both
+ * pass the within-POS rank-sort but produce semantically worse stamps.
+ */
+async function hoistVerbToFrontWhen(
+  results: WordResult[],
+  posHint: string | undefined
+): Promise<WordResult[]> {
+  if (posHint !== "動詞" || results.length <= 1) return results;
+  if (hasVerbPos([results[0]!])) return results;
+  if (!hasVerbPos(results)) return results;
+  try {
+    await loadFrequencyIndex();
+  } catch {
+    // Frequency index missing — degrade to "no rank info"; rankOf returns
+    // POSITIVE_INFINITY for every entry so the first verb wins on insertion
+    // order, which is still better than leaving the non-verb at position 0.
+  }
+  const rankOf = (wr: WordResult): number =>
+    lookupFrequencyByEntrySync(wr.id)?.rank ?? Number.POSITIVE_INFINITY;
+  let bestIdx = -1;
+  let bestRank = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < results.length; i++) {
+    if (!hasVerbPos([results[i]!])) continue;
+    const r = rankOf(results[i]!);
+    if (bestIdx === -1 || r < bestRank) {
+      bestIdx = i;
+      bestRank = r;
+    }
+  }
+  if (bestIdx === -1) return results;
+  return [
+    results[bestIdx]!,
+    ...results.slice(0, bestIdx),
+    ...results.slice(bestIdx + 1),
+  ];
 }
 
 export function isPureKana(s: string): boolean {
