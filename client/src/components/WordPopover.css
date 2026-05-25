@@ -300,6 +300,13 @@
   font-style: italic;
 }
 
+.word-popover__alt-forms {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.35;
+  margin-top: -0.25rem;
+}
+
 .word-popover__inflection {
   font-size: 0.78rem;
   color: var(--text-dim);
