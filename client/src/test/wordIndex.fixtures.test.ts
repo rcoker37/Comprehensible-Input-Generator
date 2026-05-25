@@ -111,9 +111,11 @@ describe("word-index fixtures", () => {
   for (const file of fixtureFiles) {
     const slug = file.replace(/\.json$/, "");
 
-    // 60s per fixture: the longer texts hit several hundred per-span JMdict
+    // 90s per fixture: the longer texts hit several hundred per-span JMdict
     // lookups serially, and the default 30s timeout is right on the edge for
-    // the heaviest fixtures (真しんの世界線せかいせん lands ~30s on a warm cache).
+    // the heaviest fixtures (真しんの世界線せかいせん runs ~60s on a warm cache
+    // — close enough to a hard 60s limit that any code path adding a per-call
+    // microtask flips it red).
     it(
       slug,
       async () => {
@@ -194,7 +196,7 @@ describe("word-index fixtures", () => {
           ).toBe(0);
         }
       },
-      60_000
+      90_000
     );
   }
 });

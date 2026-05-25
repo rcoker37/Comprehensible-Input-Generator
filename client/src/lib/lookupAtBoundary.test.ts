@@ -230,12 +230,14 @@ describe("lookupAtBoundary posHint='動詞' override", () => {
     expect(hit!.results[0]?.k?.[0]?.ent).toBe("来る");
   });
 
-  it("leaves order untouched when results[0] is already a verb (のせる → 乗せる stays first)", async () => {
-    // Guard for the narrowness of the hoist: when jpdict-idb's sort already
-    // landed a verb at position 0, don't second-guess it (rank-resorting
-    // within the verb group breaks curator-blessed picks like 達 vs 質 in the
-    // noun-equivalent case — see commit message for the regression set we
-    // ruled out).
+  it("rank-hoists the better-ranked verb even when jpdict-idb put a rarer verb first", async () => {
+    // Synthetic case (real JPDB has 乗せる ranked and 載せる unranked, which
+    // also resolves correctly). The final `hoistRankedToFront` step sorts
+    // every hit's results by JPDB rank ascending — the same signal that lets
+    // 達 (rank 107) beat 質 (2959) for たち and の particle (rank 1) beat 幅
+    // (2042). This was previously gated to keep jpdict-idb's prior intact
+    // when results[0] was already a verb, but the within-POS rank check
+    // produces the same answer the curator did in every real case checked.
     mockLookup.mockImplementation(async (search: string) => {
       if (search === "のせる") {
         return [
@@ -257,7 +259,7 @@ describe("lookupAtBoundary posHint='動詞' override", () => {
 
     const hit = await lookupAtBoundary("のせる", 0, 3, [], "動詞");
     expect(hit).not.toBeNull();
-    expect(hit!.results[0]?.k?.[0]?.ent).toBe("乗せる");
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("載せる");
   });
 });
 

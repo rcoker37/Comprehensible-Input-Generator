@@ -263,8 +263,30 @@ export interface WordOccurrence {
  *       means it's not the kanji homophone — at the cost of stylistic-
  *       katakana false positives (バンザイ for 万歳) that the user can
  *       override.
+ *  27 — three fixes from the 千花ちかのボウリング教室 fixture audit.
+ *       (a) `lookupAtBoundary` runs `hoistRankedToFront` on every returned
+ *       hit, sorting `results` by JPDB rank ascending so `headwordFromHit`
+ *       picks the most common entry. Fixes はず → 巴豆 (unranked) being
+ *       stamped over 筈 (rank 206) and やさしく → 易しい (rank 4588) over
+ *       優しい (rank 543). Generalises the previous verb-only hoist; the
+ *       curator-blessed picks the verb-only hoist was narrow for (達 over
+ *       質 for たち, の particle over 幅) all hold up under rank: the
+ *       blessed pick is the rank champion in every case checked.
+ *       (b) The verb-deinflection preempt in `lookupAtBoundary` (kuromoji
+ *       tags 動詞 + exact has no verb POS) now defers to
+ *       `expExactBeatsDeinflection` against the picked deinflection. Fixes
+ *       「いえ」 mis-tagged as 動詞 / lemma 言える (rank 9596) when the
+ *       interjection いえ "no" (entry 1583250, rank 573) is what the reader
+ *       means — the existing fixed-phrase rule already covers this, it just
+ *       wasn't running on this code path.
+ *       (c) `extractWordOccurrences` checks for a single 固有名詞 kanji
+ *       block before the numeral / sub-segment routing and emits it as a
+ *       name span (`isName: true`, `entryId: null`). Fixes 藤原 being
+ *       dropped entirely (sub-segment can't reconstruct ふじわら because わら
+ *       isn't a JMdict reading of 原) and 千花 going through the numeral
+ *       path (千 ∈ NUMERAL_CHARS) with `isName: false`.
  */
-export const WORD_INDEX_VERSION = 26;
+export const WORD_INDEX_VERSION = 27;
 
 export class DictionaryNotReadyError extends Error {
   constructor() {
@@ -341,6 +363,44 @@ export async function extractWordOccurrences(
         }
         // No whole-span entry.
         if (part.kind === "annotated") {
+          // Single 固有名詞 kanji block — kuromoji's IPADIC name dictionary
+          // recognised it as a proper noun. Try the normal sub-segment path
+          // first: when partition succeeds it's a real compound (森中《もり
+          // じゅう》 = 森 + 中 in 「森中に声が広がった」 — "throughout the
+          // forest", not the surname Morinaka). When partition fails, the
+          // block is a name JMdict can't reconstruct compositionally
+          // (藤原《ふじわら》 — わら isn't a reading of 原; 千花《ちか》 — か
+          // isn't 花's standalone reading) and we emit it as a name span.
+          // Routes before the numeral check so 千花 doesn't get mis-handled
+          // by the 千 numeral.
+          const blockTokens = tokens.filter(
+            (t) => t.start >= start && t.end <= end
+          );
+          if (
+            blockTokens.length === 1 &&
+            isProperNoun(blockTokens[0]!)
+          ) {
+            const subs = await subSegmentAnnotated(
+              part,
+              cleanText,
+              annotations,
+              tokens
+            );
+            if (subs.length > 0) {
+              for (const sub of subs) emit(sub);
+            } else {
+              emit({
+                start,
+                end,
+                surface: cleanText.slice(start, end),
+                headword: cleanText.slice(start, end),
+                reading: part.reading,
+                entryId: null,
+                isName: true,
+              });
+            }
+            continue;
+          }
           // A multi-character annotated block the LLM wrote starting with a
           // numeral — or a numeral qualifier (何百万人) — and carrying at least
           // one real numeral is a "numbered word" (一九二五年, 十四年, 二年前).
@@ -847,6 +907,12 @@ export function longestReadingSuffix(
 /** A numeral-led / all-numeral-counter occurrence — a candidate run member. */
 function isNumberAtom(o: WordOccurrence): boolean {
   if (o.surface.length === 0) return false;
+  // A name span (千花《ちか》 — emitted upstream by the 固有名詞 fallback) is
+  // never a number, even when it starts with a numeral character. Without
+  // this guard, `splitNumberRun` strips the `isName` flag via its merged
+  // fallback when the trailing piece's reading can't be peeled (花 has no か
+  // reading), leaving the surname mis-stamped as a plain numeral.
+  if (o.isName) return false;
   if (isNumberFragment(o.surface)) return true;
   // A numeral-led occurrence with no JMdict entry — e.g. a merged block like
   // 二年前 whose remainder (年前) isn't purely counters, or 何百万人.

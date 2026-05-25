@@ -223,7 +223,28 @@ export async function lookupAtBoundary(
       annotations,
       baseHint
     );
-    if (picked) return picked;
+    if (picked) {
+      // Even when kuromoji forces a verb deinflection, a JPDB-ranked
+      // fixed-phrase exact match (int / conj / exp) within an order of
+      // magnitude can still preempt it — fixes 「いえ」 mis-tagged as
+      // 動詞 / lemma 言える (rank 9596) when the int いえ "no" (entry
+      // 1583250, rank 573) is what the reader means. Hoist the fixed-phrase
+      // entry specifically (not by absolute rank — 「いえ」 also exact-matches
+      // 家 "house" at rank 136, which is more common but the wrong sense
+      // here).
+      if (await expExactBeatsDeinflection(exact, picked.results)) {
+        return applyAnnotatedReading(
+          await hoistFixedPhraseToFront({
+            start,
+            end,
+            surface: prefix,
+            results: exact,
+          }),
+          annotations
+        );
+      }
+      return await hoistRankedToFront(picked);
+    }
   }
 
   // い-adjective continuative (連用形): 「古くなった」's 古く is the 連用形 of 古い,
@@ -256,7 +277,7 @@ export async function lookupAtBoundary(
       annotations,
       baseHint
     );
-    if (picked) return picked;
+    if (picked) return await hoistRankedToFront(picked);
   }
 
   // A non-kana exact match (kanji or mixed-script) is the word — return it.
@@ -267,7 +288,7 @@ export async function lookupAtBoundary(
   // out-ranks any deinflection and is kept.
   if (exact.length > 0 && !isPureKana(prefix)) {
     return applyAnnotatedReading(
-      { start, end, surface: prefix, results: exact },
+      await hoistRankedToFront({ start, end, surface: prefix, results: exact }),
       annotations
     );
   }
@@ -287,7 +308,7 @@ export async function lookupAtBoundary(
     exactMatchesNonVerbContentPos(exact, posHint)
   ) {
     return applyAnnotatedReading(
-      { start, end, surface: prefix, results: exact },
+      await hoistRankedToFront({ start, end, surface: prefix, results: exact }),
       annotations
     );
   }
@@ -320,6 +341,11 @@ export async function lookupAtBoundary(
     exact.length > 0 &&
     (await expExactBeatsDeinflection(exact, deinflected?.results ?? null))
   ) {
+    // No fixed-phrase hoist here, only at the verb-branch site upstream: the
+    // existing kana-arbitration path lands on surfaces where the prt /
+    // particle entry at position 0 is the right tap target (「は」 stays the
+    // topic particle 2028920, not the interjection はあ 2069620 that the
+    // IDB's reading-folded index also surfaces).
     return applyAnnotatedReading(
       { start, end, surface: prefix, results: exact },
       annotations
@@ -335,24 +361,24 @@ export async function lookupAtBoundary(
     (!deinflected || (await exactOutranksDeinflection(exact, deinflected.results)))
   ) {
     return applyAnnotatedReading(
-      { start, end, surface: prefix, results: exact },
+      await hoistRankedToFront({ start, end, surface: prefix, results: exact }),
       annotations
     );
   }
 
   if (deinflected) {
-    return {
+    return await hoistRankedToFront({
       start,
       end,
       surface: prefix,
       base: deinflected.base,
       derivations: deinflected.derivations,
       results: deinflected.results,
-    };
+    });
   }
 
   const naAdj = await naAdjPrenominalHit(prefix, start, end);
-  if (naAdj) return naAdj;
+  if (naAdj) return await hoistRankedToFront(naAdj);
 
   return null;
 }
@@ -539,6 +565,163 @@ function primarySenseText(wr: WordResult): string {
 
 function primarySensePos(wr: WordResult): string[] {
   return wr.s?.[0]?.pos ?? [];
+}
+
+/**
+ * JMdict misc tags that mark an entry as off-register for our adult-text
+ * indexer. Treated as unranked by {@link hoistRankedToFront} so they can't
+ * win on raw JPDB frequency — JPDB ranks 飯 (まんま, "food", `chn` children's
+ * language) at 158, which would otherwise capture 「まま」 away from the much
+ * more common 儘 (rank 3074, "as is, remaining"). Includes archaic / obsolete
+ * because those readings persist in JPDB's source corpora (older novels)
+ * but rarely match what the LLM produced.
+ */
+const SUSPECT_MISC = new Set(["chn", "arch", "obs"]);
+
+/**
+ * Minimum (worse-rank / better-rank) ratio for {@link hoistRankedToFront} to
+ * reorder. A 2× threshold keeps near-tied scenarios — レーン #1144490 "lane"
+ * (rank 32536) vs #2850586 "rain" (27563), ratio 1.18× — under jpdict-idb's
+ * intrinsic ordering, which the script-preference partition already steered
+ * to the contextually-correct entry. Clear hoist wins (8.4× for 優しい vs
+ * 易しい; ∞ for unranked-vs-ranked like はず → 筈) sail through.
+ */
+const RANK_HOIST_MIN_RATIO = 2;
+
+function rankForHoist(wr: WordResult): number {
+  // Check the primary sense only (what the popover surfaces). 飯 's first
+  // sense is `chn` ("children's", glossed "food"), its second is `dated` —
+  // the every-sense rule kept it from being demoted because the second sense
+  // is off-register but not in SUSPECT_MISC.
+  const primary = wr.s?.[0]?.misc ?? [];
+  if (primary.some((m) => SUSPECT_MISC.has(m))) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return lookupFrequencyByEntrySync(wr.id)?.rank ?? Number.POSITIVE_INFINITY;
+}
+
+/**
+ * Stable-sort `hit.results` so the lowest-JPDB-rank entry sits at position 0.
+ * jpdict-idb's intrinsic sort uses JMdict priority tags + headword type and
+ * sometimes floats a rare entry above a much-more-common homophone — 巴豆
+ * (unranked) above 筈 (rank 206) for はず; 易しい (4588) above 優しい (543)
+ * inside the やさしい deinflection's result list. `headwordFromHit` stamps
+ * `results[0]`, so without this re-order the indexer picks the wrong entry.
+ *
+ * Three guards keep this from regressing curator picks:
+ *
+ *   - The hoist runs only *within the script-exact partition* (entries whose
+ *     literal k or r equals the deinflection base / the surface), preserving
+ *     {@link preferExactScriptMatch}'s reorder. レイ (the loanword "Rei")
+ *     stays above 例 (kanji-canonical, reading れい folded onto レイ by the
+ *     IDB's case-folded index): both are noun, 例 has a much better rank, but
+ *     the literal match is the right tap target.
+ *   - Entries flagged with {@link SUSPECT_MISC} (`chn` / `arch` / `obs`) are
+ *     treated as unranked, so 飯 (`chn`) can't capture 「まま」 away from 儘.
+ *   - The would-be hoist must be at least {@link RANK_HOIST_MIN_RATIO}× more
+ *     common than what's at position 0, so near-ties (レーン "lane" vs "rain"
+ *     at 1.18×) don't get reshuffled.
+ *
+ * The ruby hoist in {@link applyAnnotatedReading} runs after and can still
+ * override when the LLM furigana name a specific reading variant.
+ *
+ * Degrades gracefully when the frequency index can't load.
+ */
+export function hoistRankedToFront(hit: LookupHit): LookupHit {
+  if (hit.results.length < 2) return hit;
+  // Compare against the deinflection base for deinflected hits (every entry's
+  // reading matches the base — やさしい for 易しい/優しい — so all are
+  // "literal" and the rank hoist actually runs). For exact hits, the surface
+  // is what `preferExactScriptMatch` partitioned on.
+  const compareKey = hit.base ?? hit.surface;
+  const isLiteral = (wr: WordResult): boolean =>
+    (wr.k?.some((k) => k.ent === compareKey) ?? false) ||
+    (wr.r?.some((r) => r.ent === compareKey) ?? false);
+
+  let bestLiteralIdx = -1;
+  let bestLiteralRank = Number.POSITIVE_INFINITY;
+  let headLiteralRank: number | null = null;
+  try {
+    for (let i = 0; i < hit.results.length; i++) {
+      if (!isLiteral(hit.results[i]!)) continue;
+      const rank = rankForHoist(hit.results[i]!);
+      if (headLiteralRank === null) headLiteralRank = rank;
+      if (bestLiteralIdx === -1 || rank < bestLiteralRank) {
+        bestLiteralIdx = i;
+        bestLiteralRank = rank;
+      }
+    }
+  } catch {
+    // Frequency index not loaded — skip hoist.
+    return hit;
+  }
+  // No literal entries, only one literal entry, or the head literal is
+  // already the best — nothing to do.
+  if (bestLiteralIdx <= 0) return hit;
+  if (!Number.isFinite(bestLiteralRank)) return hit;
+  if (headLiteralRank === null) return hit;
+  if (
+    Number.isFinite(headLiteralRank) &&
+    headLiteralRank <= bestLiteralRank * RANK_HOIST_MIN_RATIO
+  ) {
+    // Near-tie — defer to jpdict-idb's intrinsic order.
+    return hit;
+  }
+  return {
+    ...hit,
+    results: [
+      hit.results[bestLiteralIdx]!,
+      ...hit.results.slice(0, bestLiteralIdx),
+      ...hit.results.slice(bestLiteralIdx + 1),
+    ],
+  };
+}
+
+/**
+ * Variant of {@link hoistRankedToFront} specifically for the
+ * {@link expExactBeatsDeinflection}-fires path: hoist the *fixed-phrase* entry
+ * (`int` / `conj` / `exp`) with the best JPDB rank to position 0, not the
+ * absolute rank champion across all results.
+ *
+ * Why the distinction matters: 「いえ」 exact-matches both 1583250 (int "no",
+ * rank 573) and 1191730 (家 "house", rank 136). Generic rank hoist would
+ * surface 家 — but kuromoji wrongly tagged 「いえ」 動詞, so we ended up here
+ * via the verb-deinflection branch, and we know from context (the
+ * fixed-phrase rule firing) that the int entry is what the reader means. The
+ * common noun 家 just happens to share the surface.
+ */
+function hoistFixedPhraseToFront(hit: LookupHit): LookupHit {
+  if (hit.results.length < 2) return hit;
+  let bestIdx = -1;
+  let bestRank = Number.POSITIVE_INFINITY;
+  try {
+    for (let i = 0; i < hit.results.length; i++) {
+      const wr = hit.results[i]!;
+      const isFp = (wr.s ?? []).some((sense) => {
+        const pos = sense.pos ?? [];
+        if (pos.includes("prt")) return false;
+        return pos.some((tag) => FIXED_PHRASE_POS.has(tag));
+      });
+      if (!isFp) continue;
+      const r =
+        lookupFrequencyByEntrySync(wr.id)?.rank ?? Number.POSITIVE_INFINITY;
+      if (bestIdx === -1 || r < bestRank) {
+        bestIdx = i;
+        bestRank = r;
+      }
+    }
+  } catch {
+    return hit;
+  }
+  if (bestIdx <= 0) return hit;
+  return {
+    ...hit,
+    results: [
+      hit.results[bestIdx]!,
+      ...hit.results.slice(0, bestIdx),
+      ...hit.results.slice(bestIdx + 1),
+    ],
+  };
 }
 
 /**
@@ -1154,10 +1337,18 @@ async function expExactBeatsDeinflection(
   deinflection: WordResult[] | null
 ): Promise<boolean> {
   if (exact.length === 0) return false;
+  // A sense that *also* carries `prt` (particle) doesn't count, even when it
+  // additionally has `conj` — the dual-tag entries (し with `[prt, conj]`,
+  // entry 2086640) function as conjunctive particles whose meaning is
+  // context-dependent, not as standalone fixed phrases. Without this poison
+  // the rule fires for 「し」 in 「〜にしながらも」 and steals the verb stem
+  // away from the (correct) deinflection to する.
   const isFixedPhrase = exact.some((wr) =>
-    (wr.s ?? []).some((sense) =>
-      sense.pos?.some((tag) => FIXED_PHRASE_POS.has(tag))
-    )
+    (wr.s ?? []).some((sense) => {
+      const pos = sense.pos ?? [];
+      if (pos.includes("prt")) return false;
+      return pos.some((tag) => FIXED_PHRASE_POS.has(tag));
+    })
   );
   if (!isFixedPhrase) return false;
   const exactRank = await bestRank(exact);
