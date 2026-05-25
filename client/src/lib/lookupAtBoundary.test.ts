@@ -194,6 +194,71 @@ describe("lookupAtBoundary posHint='動詞' override", () => {
     expect(hit).not.toBeNull();
     expect(hit!.base).toBeUndefined();
   });
+
+  it("hoists the best-ranked verb to results[0] when a non-verb homophone sorts ahead (くる → 来る, not 佝僂)", async () => {
+    // jpdict-idb's sort floats 佝僂 to position 0 for the surface くる
+    // (intrinsic JMdict priority + headword-type heuristics — see
+    // word-result-sorting.ts in @birchill/jpdict-idb). Without the verb hoist
+    // the indexer stamps the rare medical term on every 「入ってくる」, even
+    // though kuromoji tagged the span 動詞 and 来る sits in the result list.
+    // The hoist must skip past 繰る (also a verb but a much rarer godan one,
+    // rank ~8000) and land on 来る (rank 25).
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "くる") {
+        return [
+          wr({ k: ["佝僂"], r: ["くる"], pos: ["n"], id: 1585500 }),
+          wr({ k: ["繰る"], r: ["くる"], pos: ["v5r", "vt"], id: 1226720 }),
+          wr({ k: ["来る"], r: ["くる"], pos: ["vk", "vi"], id: 1547720 }),
+        ];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 1547720) {
+        return { rank: 25, tier: "very-common", headword: "来る", reading: "くる" };
+      }
+      if (id === 1226720) {
+        return { rank: 8000, tier: "rare", headword: "繰る", reading: "くる" };
+      }
+      return null;
+    });
+
+    const hit = await lookupAtBoundary("入ってくる", 3, 5, [], "動詞");
+
+    expect(hit).not.toBeNull();
+    expect(hit!.base).toBeUndefined();
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("来る");
+  });
+
+  it("leaves order untouched when results[0] is already a verb (のせる → 乗せる stays first)", async () => {
+    // Guard for the narrowness of the hoist: when jpdict-idb's sort already
+    // landed a verb at position 0, don't second-guess it (rank-resorting
+    // within the verb group breaks curator-blessed picks like 達 vs 質 in the
+    // noun-equivalent case — see commit message for the regression set we
+    // ruled out).
+    mockLookup.mockImplementation(async (search: string) => {
+      if (search === "のせる") {
+        return [
+          wr({ k: ["乗せる"], r: ["のせる"], pos: ["v1", "vt"], id: 100 }),
+          wr({ k: ["載せる"], r: ["のせる"], pos: ["v1", "vt"], id: 101 }),
+        ];
+      }
+      return [];
+    });
+    mockRank.mockImplementation((id) => {
+      if (id === 100) {
+        return { rank: 4200, tier: "common", headword: "乗せる", reading: "のせる" };
+      }
+      if (id === 101) {
+        return { rank: 100, tier: "very-common", headword: "載せる", reading: "のせる" };
+      }
+      return null;
+    });
+
+    const hit = await lookupAtBoundary("のせる", 0, 3, [], "動詞");
+    expect(hit).not.toBeNull();
+    expect(hit!.results[0]?.k?.[0]?.ent).toBe("乗せる");
+  });
 });
 
 describe("lookupAtBoundary frequency-gated kana-canonical match", () => {
