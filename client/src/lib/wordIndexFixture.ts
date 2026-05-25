@@ -65,6 +65,15 @@ export interface WordIndexFixtureMeta {
   /** JMdict data version the curation was done against, e.g. "2.0.474". */
   jmdictVersion: string | null;
   fixtureFormatVersion: number;
+  /**
+   * True when the operator has reviewed `expected[]` and hand-fixed any
+   * algorithm stamps that look wrong (typically via the override editor in
+   * the app). False / absent means `expected[]` is the raw algorithm output
+   * at export time — useful as input to a review workflow but not yet
+   * meaningful as a regression check. The test runner warns when running
+   * a fixture flagged `curated: false`.
+   */
+  curated?: boolean;
 }
 
 /** A curated fixture: the algorithm input plus the index the user wants. */

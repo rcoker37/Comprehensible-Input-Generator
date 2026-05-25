@@ -907,12 +907,6 @@ export function longestReadingSuffix(
 /** A numeral-led / all-numeral-counter occurrence — a candidate run member. */
 function isNumberAtom(o: WordOccurrence): boolean {
   if (o.surface.length === 0) return false;
-  // A name span (千花《ちか》 — emitted upstream by the 固有名詞 fallback) is
-  // never a number, even when it starts with a numeral character. Without
-  // this guard, `splitNumberRun` strips the `isName` flag via its merged
-  // fallback when the trailing piece's reading can't be peeled (花 has no か
-  // reading), leaving the surname mis-stamped as a plain numeral.
-  if (o.isName) return false;
   if (isNumberFragment(o.surface)) return true;
   // A numeral-led occurrence with no JMdict entry — e.g. a merged block like
   // 二年前 whose remainder (年前) isn't purely counters, or 何百万人.
@@ -934,13 +928,20 @@ function isNumberRunMember(o: WordOccurrence): boolean {
  * peeled off the run's ruby right-to-left (にねんまえ → 前 まえ → 年 ねん),
  * leaving the prefix as the numeral run's reading. Falls back to a single
  * merged span if the peel can't be reconciled with the ruby.
+ *
+ * `isName` propagates onto the merged-fallback span. The number routing can
+ * end up holding a 固有名詞 block (千花《ちか》 is numeral-led because 千 is a
+ * NUMERAL_CHAR, and 花 has no か reading so the peel fails), and the merged
+ * fallback would otherwise hard-code `isName: false` and silently strip the
+ * surname flag the upstream emit set.
  */
 async function splitNumberRun(
   runStart: number,
   runEnd: number,
   surface: string,
   reading: string,
-  cleanText: string
+  cleanText: string,
+  isName: boolean
 ): Promise<WordOccurrence[]> {
   const merged: WordOccurrence = {
     start: runStart,
@@ -949,7 +950,7 @@ async function splitNumberRun(
     headword: surface,
     reading,
     entryId: null,
-    isName: false,
+    isName,
   };
   // Leading maximal numeral run.
   let ns = runStart;
@@ -1053,6 +1054,11 @@ async function regroupNumberSpans(
       .sort((a, b) => a.start - b.start)
       .map((a) => a.reading)
       .join("");
+    // Preserve `isName` from the run's first member onto the merged span — a
+    // 固有名詞 block like 千花 routes through this path because 千 is a
+    // numeral char, and the merged emit hard-coding `false` would silently
+    // strip the name flag (see {@link splitNumberRun}).
+    const runIsName = sorted[i]!.isName;
     const ranked =
       freqReady && lookupFrequencySync(surface, null).rank !== null;
     if (ranked) {
@@ -1063,7 +1069,7 @@ async function regroupNumberSpans(
         headword: surface,
         reading,
         entryId: null,
-        isName: false,
+        isName: runIsName,
       });
     } else {
       for (const occ of await splitNumberRun(
@@ -1071,7 +1077,8 @@ async function regroupNumberSpans(
         runEnd,
         surface,
         reading,
-        cleanText
+        cleanText,
+        runIsName
       )) {
         out.push(occ);
       }
