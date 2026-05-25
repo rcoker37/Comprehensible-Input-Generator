@@ -329,6 +329,18 @@ export async function extractWordOccurrences(
     if (seen.has(key)) return;
     seen.add(key);
     occurrences.push(occ);
+    // TEMP DEBUG: log every emit for 千花/藤原 spans
+    if (occ.surface === "千花" || occ.surface === "藤原") {
+      // eslint-disable-next-line no-console
+      console.log("[indexer] emit", {
+        span: `[${occ.start},${occ.end}]`,
+        surface: occ.surface,
+        headword: occ.headword,
+        reading: occ.reading,
+        entryId: occ.entryId,
+        isName: occ.isName,
+      });
+    }
   };
 
   for (const para of regrouped) {
@@ -357,6 +369,21 @@ export async function extractWordOccurrences(
           end,
           annotations
         );
+        // TEMP DEBUG: log lookupSpanOccurrence outcome for 千花/藤原 spans
+        const _surfaceDbg = cleanText.slice(start, end);
+        if (_surfaceDbg === "千花" || _surfaceDbg === "藤原") {
+          // eslint-disable-next-line no-console
+          console.log("[indexer] lookupSpanOccurrence", {
+            span: `[${start},${end}]`,
+            surface: _surfaceDbg,
+            partKind: part.kind,
+            occ: occ ? {
+              headword: occ.headword,
+              reading: occ.reading,
+              entryId: occ.entryId,
+            } : null,
+          });
+        }
         if (occ) {
           emit(occ);
           continue;
