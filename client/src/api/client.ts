@@ -578,10 +578,11 @@ export interface WordOverride {
    */
   entryId: number | null;
   /**
-   * True when the user chose "match as name" in the override editor —
-   * the span is a proper noun (person, place, etc.) that JMdict would
-   * not match. The popover renders a Name header instead of running a
-   * dictionary lookup that would only produce false matches.
+   * True when the span is flagged as a proper noun (person, place, etc.)
+   * that JMdict would not match. Set either by the indexer's auto-detection
+   * of a 固有名詞 ruby block or by a "match as name" manual override. The
+   * popover renders a Name header instead of running a dictionary lookup
+   * that would only produce false matches.
    */
   isName: boolean;
 }

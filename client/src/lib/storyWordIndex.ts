@@ -376,6 +376,26 @@ export async function extractWordOccurrences(
           const blockTokens = tokens.filter(
             (t) => t.start >= start && t.end <= end
           );
+          // TEMP DEBUG: log whenever a multi-kanji ruby block fails the surname
+          // check, to surface bundled-tokenizer mismatches. Remove after.
+          if (
+            end - start >= 2 &&
+            !(blockTokens.length === 1 && isProperNoun(blockTokens[0]!))
+          ) {
+            // eslint-disable-next-line no-console
+            console.log("[indexer] surname-check miss", {
+              span: `[${start},${end}]`,
+              surface: cleanText.slice(start, end),
+              blockTokens: blockTokens.map(
+                (t) => `${t.surface}/${t.pos}-${t.posDetail1}@${t.start}-${t.end}`
+              ),
+              totalTokens: tokens.length,
+              firstTokens: tokens
+                .slice(0, 3)
+                .map((t) => `${t.surface}/${t.pos}-${t.posDetail1}@${t.start}`),
+              cleanTextHead: cleanText.slice(0, 20),
+            });
+          }
           if (
             blockTokens.length === 1 &&
             isProperNoun(blockTokens[0]!)

@@ -83,17 +83,19 @@ export type WordPopoverMode =
        */
       lookupEntryId?: number | null;
       /**
-       * Optional — when true, the tapped occurrence is a manual "match as
-       * name" row. The popover skips the JMdict lookup entirely (no senses,
-       * no frequency) and renders a Name header with `lookupReading` as the
-       * furigana. Other usages of the same surface still load via the
-       * carousel — encounter counts and the usages list both key off
-       * `lookupHeadword` (which equals the surface for name rows).
+       * Optional — when true, the tapped occurrence is flagged as a proper
+       * noun (either auto-detected by the indexer for a 固有名詞 span or set
+       * via a "match as name" manual override). The popover skips the JMdict
+       * lookup entirely (no senses, no frequency) and renders a Name header
+       * with `lookupReading` as the furigana. Other usages of the same surface
+       * still load via the carousel — encounter counts and the usages list
+       * both key off `lookupHeadword` (which equals the surface for names).
        */
       lookupIsName?: boolean;
       /**
-       * Optional — the user-supplied reading saved with a name row. Drives
-       * the ruby on the sticky header when `lookupIsName` is true.
+       * Optional — the reading saved with a name row (auto-detected from the
+       * LLM ruby, or user-supplied for a manual override). Drives the ruby on
+       * the sticky header when `lookupIsName` is true.
        */
       lookupReading?: string | null;
       translations: StoryTranslations;
@@ -986,7 +988,7 @@ export default function WordPopover({
                 {lookupIsName ? (
                   <span
                     className="word-popover__name-badge"
-                    title="Manually marked as a name (proper noun)"
+                    title="Proper noun"
                   >
                     Name
                   </span>
