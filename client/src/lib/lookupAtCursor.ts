@@ -255,6 +255,13 @@ export async function lookupAtBoundary(
   // (多く in 多くなる) and 副詞 — kuromoji's IPADIC lexicalises some 連用形 as
   // standalone adverbs (古く tags 副詞). Excluding the 名詞 hint is what keeps
   // the noun 多く of 多くの人 from being deinflected to 多い.
+  //
+  // The preempt is gated by JPDB rank against the deinflection lemma: when
+  // the standalone adverb is well-ranked enough to beat the adj-i base
+  // (`exactOutranksDeinflection`), it's a genuinely-lexicalised adverb in
+  // its own right, not a conjugation in disguise — 良く (adv, rank 143) beats
+  // 良い (adj-i, rank 515) in 「よく分からない」, while 古く (adv, unranked) loses
+  // to 古い (adj-i, rank 1192) and the preempt fires as before.
   if ((posHint === "形容詞" || posHint === "副詞") && !hasAdjPos(exact)) {
     const candidates: LookupHit[] = [];
     for (const c of deinflect(prefix)) {
@@ -277,7 +284,9 @@ export async function lookupAtBoundary(
       annotations,
       baseHint
     );
-    if (picked) return await hoistRankedToFront(picked);
+    if (picked && !(await exactOutranksDeinflection(exact, picked.results))) {
+      return await hoistRankedToFront(picked);
+    }
   }
 
   // A non-kana exact match (kanji or mixed-script) is the word — return it.
