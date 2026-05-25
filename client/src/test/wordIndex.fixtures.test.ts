@@ -44,7 +44,8 @@ const fixtureFiles = existsSync(FIXTURE_DIR)
 
 function decision(o: IndexedSpan | null): string {
   if (!o) return "—";
-  return `${o.headword}${o.reading ? `《${o.reading}》` : ""} #${o.entryId ?? "—"}`;
+  const name = o.isName ? " [NAME]" : "";
+  return `${o.headword}${o.reading ? `《${o.reading}》` : ""} #${o.entryId ?? "—"}${name}`;
 }
 
 function changeLine(content: string, c: SpanChange): string {
@@ -123,9 +124,11 @@ describe("word-index fixtures", () => {
           readFileSync(path.join(FIXTURE_DIR, file), "utf8")
         ) as WordIndexFixture;
 
+        const t0 = Date.now();
         const actual = await extractWordOccurrences({
           content: fixture.content,
         });
+        const elapsedMs = Date.now() - t0;
 
         const baselinePath = path.join(FIXTURE_DIR, `${slug}.baseline.json`);
         const baseline: IndexedSpan[] | null = existsSync(baselinePath)
@@ -145,6 +148,19 @@ describe("word-index fixtures", () => {
         };
 
         const log: string[] = [summaryLine(slug, diff)];
+
+        // Flag uncurated fixtures so the operator knows `expected[]` is the
+        // raw algorithm output (not human-blessed), and "regression" against
+        // it means "algorithm output drifted from a previous algorithm run",
+        // not "broke a curator-blessed pick". Run `npm run debug:span` to
+        // investigate a span; once you're happy, set meta.curated=true.
+        if (fixture.meta?.curated === false) {
+          log.push(
+            `  ⚠ uncurated — expected[] is the raw algorithm output, not ` +
+              `human-blessed. Review with debug:span before treating ` +
+              `"regression" output as algorithm bugs.`
+          );
+        }
 
         if (!diff.hasBaseline) {
           writeBaseline();
@@ -169,6 +185,15 @@ describe("word-index fixtures", () => {
         if (diff.regressions > 0) {
           log.push(`  ${diff.regressions} regression(s):`);
           log.push(regressionLines(fixture.content, diff));
+        }
+        // Perf budget alarm: warn at 80% of the 90s per-fixture timeout so
+        // creep is visible before it breaks. The heavy fixtures sit ~60s
+        // already; another ~12s of new overhead and we're red.
+        const PERF_WARN_MS = 90_000 * 0.8;
+        if (elapsedMs > PERF_WARN_MS) {
+          log.push(
+            `  ⚠ perf: ${elapsedMs}ms (>${PERF_WARN_MS}ms — 80% of timeout)`
+          );
         }
         console.log(log.join("\n"));
 

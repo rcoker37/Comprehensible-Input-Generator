@@ -62,6 +62,12 @@ npm run test:watch --workspace=client # watch mode
 npm run test:index
 npm run test:index:accept             # bless reviewed detection changes into baselines
 
+# Word-index debugging helpers (see docs/word-index-debugging.md for the
+# full guide; docs/word-index-jmdict-traps.md for known homophone footguns)
+npm run debug:span -- "<text|@fixture-slug>" <start> [<end>]
+npm run test:index:suspects -- <fixture-substring>      # flag low-confidence stamps
+npm run test:index:regenerate -- <fixture-substring>    # bless algorithm output into expected[]
+
 # Force-refresh the JMdict snapshot in client/src/test/jpdict/ (a gitignored
 # build artifact; the word-index suite auto-records it on first run otherwise)
 npm run record-test-dictionary
@@ -94,7 +100,7 @@ Talks directly to Supabase (DB via SDK, Edge Functions via `functions.invoke`). 
 
 Locks in word-detection behaviour (`regroupWords` / `extractWordOccurrences`) and tracks accuracy as the algorithm improves. The detection pipeline depends on JMdict (`@birchill/jpdict-idb`, IndexedDB-backed), kuromoji, and the JPDB frequency JSON — all browser-shaped. `client/src/test/headlessDictionary.ts` boots the *genuine* stack in Node: `fake-indexeddb` + a `self` shim run jpdict-idb headless against a JMdict snapshot in `client/src/test/jpdict/` — a **gitignored build artifact** the harness auto-records from the CDN on first run (`record-test-dictionary.mjs`; also runnable directly). jpdict-idb's `update()` has no public `baseUrl`, so the snapshot is replayed through a `fetch` stub that also serves the frequency JSON; kuromoji reads its dict via `VITE_KUROMOJI_DICT_PATH`. `npm run test:index` therefore exercises the real algorithm offline and reproducibly.
 
-Workflow: curate a story's index in the app with the override editor, click **Export test fixture** on its detail page, drop the `<slug>.json` into `client/src/test/fixtures/word-index/`. `wordIndex.fixtures.test.ts` runs the real `extractWordOccurrences` on each fixture's `content`, and `diffWordIndex` (`lib/wordIndexFixture.ts`) compares it three ways: against the curated `expected` index (each span flagged `manual` — true = a hand-fix, i.e. a known algorithm gap) and against the machine-managed `<slug>.baseline.json`. A run fails when the algorithm breaks a non-`manual` span (a `regression`) or when anything changed since the baseline; `npm run test:index:accept` blesses reviewed changes into the baselines (it cannot mask a regression — that's checked against `expected`, not the baseline). Manual spans the algorithm catches up on surface as `improvement`s. See `client/src/test/fixtures/word-index/README.md`.
+Workflow: curate a story's index in the app with the override editor, click **Export test fixture** on its detail page, drop the `<slug>.json` into `client/src/test/fixtures/word-index/`. `wordIndex.fixtures.test.ts` runs the real `extractWordOccurrences` on each fixture's `content`, and `diffWordIndex` (`lib/wordIndexFixture.ts`) compares it three ways: against the curated `expected` index (each span flagged `manual` — true = a hand-fix, i.e. a known algorithm gap) and against the machine-managed `<slug>.baseline.json`. A run fails when the algorithm breaks a non-`manual` span (a `regression`) or when anything changed since the baseline; `npm run test:index:accept` blesses reviewed changes into the baselines (it cannot mask a regression — that's checked against `expected`, not the baseline). Manual spans the algorithm catches up on surface as `improvement`s. `meta.curated: false` (or absent) marks a fixture whose `expected[]` is the raw algorithm output — useful for review workflows; the test runner prints a `⚠ uncurated` warning so drift isn't mistaken for a curator-blessed regression. See `client/src/test/fixtures/word-index/README.md` for the full fixture workflow, **`docs/word-index-debugging.md`** for the indexer debugging guide (`debug:span` CLI, `lookupAtBoundary` decision tree, common surprises), and **`docs/word-index-jmdict-traps.md`** for the catalog of known JMdict/JPDB stamping footguns. The `review-fixture` skill (`.claude/skills/review-fixture/`) walks the reviewer through the suspects → debug → fix → regenerate loop.
 
 ### Supabase (`supabase/`)
 

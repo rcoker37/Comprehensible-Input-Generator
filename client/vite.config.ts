@@ -7,6 +7,17 @@ import react from '@vitejs/plugin-react'
 // (`npm run test:index`), never on the fast `npm test`.
 const HEAVY = ['src/test/wordIndex.fixtures.test.ts']
 
+// One-shot debug / regenerate helpers driven by env vars (see
+// scripts/debug-span.mjs and scripts/regenerate-fixture.mjs). They share
+// `headlessDictionary` with the word-index suite but live in their own
+// project so the regression suite stays a clean fixture-only run and
+// `npm test` excludes them from the unit pool.
+const TOOLS = [
+  'src/test/debug-span.test.ts',
+  'src/test/regenerate-fixture.test.ts',
+  'src/test/suspect-matches.test.ts',
+]
+
 export default defineConfig({
   plugins: [react()],
   // Read .env.local from the monorepo root so all dev env vars live in a
@@ -23,7 +34,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'unit',
-          exclude: [...configDefaults.exclude, ...HEAVY],
+          exclude: [...configDefaults.exclude, ...HEAVY, ...TOOLS],
         },
       },
       {
@@ -31,6 +42,13 @@ export default defineConfig({
         test: {
           name: 'word-index',
           include: HEAVY,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'tools',
+          include: TOOLS,
         },
       },
     ],
