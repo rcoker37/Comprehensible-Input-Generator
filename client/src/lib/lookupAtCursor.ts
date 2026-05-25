@@ -232,7 +232,7 @@ export async function lookupAtBoundary(
       // entry specifically (not by absolute rank — 「いえ」 also exact-matches
       // 家 "house" at rank 136, which is more common but the wrong sense
       // here).
-      if (await expExactBeatsDeinflection(exact, picked.results)) {
+      if (await expExactBeatsDeinflection(exact, picked.results, prefix)) {
         return applyAnnotatedReading(
           await hoistFixedPhraseToFront({
             start,
@@ -348,7 +348,11 @@ export async function lookupAtBoundary(
   // どうする → exp.
   if (
     exact.length > 0 &&
-    (await expExactBeatsDeinflection(exact, deinflected?.results ?? null))
+    (await expExactBeatsDeinflection(
+      exact,
+      deinflected?.results ?? null,
+      prefix
+    ))
   ) {
     // No fixed-phrase hoist here, only at the verb-branch site upstream: the
     // existing kana-arbitration path lands on surfaces where the prt /
@@ -926,14 +930,22 @@ export function isKanjiCanonicalKanaMatch(
 }
 
 /**
- * True iff any sense's POS tags include an inflecting-verb class (v1/v5/vs/vk/
- * vz and their subtype tags). Excludes `vi`/`vt` which are valence markers, not
- * conjugation classes. Also skips senses tagged `arch` (archaic) or `obs`
+ * True iff any sense's POS tags include a *modern* inflecting-verb class (v1/v5/
+ * vs/vk/vz and their subtype tags). Excludes `vi`/`vt` (valence markers, not
+ * conjugation classes) and classical-only verb POS — `vr` (irregular ru verb,
+ * the literary form of ある), `vn` (irregular nu verb), and the `v2*`/`v4*`
+ * nidan/yodan classes. Also skips senses tagged `arch` (archaic) or `obs`
  * (obsolete) — classical entries like 也 (なり, the literary copula tagged
  * `aux-v`/`vr`/`cop`) would otherwise satisfy this check and block modern
- * deinflection of 「赤くなり、」 → なる. Used by the kuromoji-POS-hinted
- * deinflection path: if an exact match already contains a modern verb sense,
- * kuromoji's 動詞 hint is already satisfied — no need to override.
+ * deinflection of 「赤くなり、」 → なる. The POS-side exclusion catches the same
+ * pattern when the misc tag is `form` (literary/formal) instead of `arch`:
+ * 在り (entry 2150170) has a `[vr, vi]` "to be (literary)" sense marked
+ * `["uk", "form"]`, and without skipping `vr` it satisfied the verb gate and
+ * blocked 「あり」 from deinflecting to ある.
+ *
+ * Used by the kuromoji-POS-hinted deinflection path: if an exact match already
+ * contains a modern verb sense, kuromoji's 動詞 hint is already satisfied — no
+ * need to override.
  */
 export function hasVerbPos(results: WordResult[]): boolean {
   for (const wr of results) {
@@ -941,6 +953,8 @@ export function hasVerbPos(results: WordResult[]): boolean {
       if (sense.misc?.some((m) => m === "arch" || m === "obs")) continue;
       for (const tag of sense.pos ?? []) {
         if (tag === "vi" || tag === "vt") continue;
+        if (tag === "vr" || tag === "vn") continue;
+        if (tag.startsWith("v2") || tag.startsWith("v4")) continue;
         if (tag[0] === "v") return true;
       }
     }
@@ -1322,11 +1336,59 @@ const FIXED_PHRASE_RANK_RATIO_LIMIT = 10;
 const FIXED_PHRASE_POS = new Set(["exp", "conj", "int"]);
 
 /**
+ * Number of leading reading variants the surface is allowed to match against
+ * when {@link isFixedPhraseEntryForSurface} probes a fixed-phrase entry's
+ * readings. JMdict orders readings roughly by canonicity, so r[0] is the
+ * primary form and r[1] is typically a close synonym/short-form variant
+ * (1583250's r=["いいえ", "いえ"]). Beyond r[1] the readings are increasingly
+ * noisy cross-listings — 2847612's r=["あれ", "あれっ", "あれえ", "あれー", "あり"]
+ * tacks あり onto あれ "huh?" as the 5th variant, which has nothing to do with
+ * the int's meaning — so a deeper match doesn't justify preempting a
+ * deinflection.
+ */
+const FIXED_PHRASE_READING_DEPTH = 2;
+
+/**
+ * True iff `wr` carries a fixed-phrase sense (`exp` / `conj` / `int`, with no
+ * `prt`-tagged sense to poison the match — see {@link expExactBeatsDeinflection})
+ * AND `surface` matches one of the entry's primary display forms: any non-`sK`
+ * kanji entry, or one of the first {@link FIXED_PHRASE_READING_DEPTH} readings.
+ *
+ * The surface guard stops 「あり」 from being captured by the int entry あれ
+ * (2847612, rank 137) "huh?" — JMdict lists あり as the 5th reading of あれ
+ * (あれ / あれっ / あれえ / あれー / あり), well past the depth threshold —
+ * while keeping the existing 「いえ」 → int 1583250 preempt working (1583250's
+ * readings are いいえ / いえ, so surface いえ matches r[1]).
+ */
+function isFixedPhraseEntryForSurface(
+  wr: WordResult,
+  surface: string
+): boolean {
+  const hasFixedPhraseSense = (wr.s ?? []).some((sense) => {
+    const pos = sense.pos ?? [];
+    if (pos.includes("prt")) return false;
+    return pos.some((tag) => FIXED_PHRASE_POS.has(tag));
+  });
+  if (!hasFixedPhraseSense) return false;
+  for (const k of wr.k ?? []) {
+    if (k.i?.includes("sK")) continue;
+    if (k.ent === surface) return true;
+  }
+  const readings = wr.r ?? [];
+  for (let i = 0; i < Math.min(readings.length, FIXED_PHRASE_READING_DEPTH); i++) {
+    if (readings[i]?.ent === surface) return true;
+  }
+  return false;
+}
+
+/**
  * True when an exact JMdict match is a JPDB-ranked fixed phrase that should
  * beat the competing deinflection. The phrase entry wins when:
  *
- *   - some sense of some result carries a {@link FIXED_PHRASE_POS} tag,
- *   - that result (or some sibling) is JPDB-ranked, AND
+ *   - some sense of some result carries a {@link FIXED_PHRASE_POS} tag AND
+ *     the entry's primary form equals the surface
+ *     ({@link isFixedPhraseEntryForSurface}),
+ *   - that result is JPDB-ranked, AND
  *   - either the deinflection is unranked, or the phrase's rank is within
  *     {@link FIXED_PHRASE_RANK_RATIO_LIMIT}× of the deinflection's rank.
  *
@@ -1343,7 +1405,8 @@ const FIXED_PHRASE_POS = new Set(["exp", "conj", "int"]);
  */
 async function expExactBeatsDeinflection(
   exact: WordResult[],
-  deinflection: WordResult[] | null
+  deinflection: WordResult[] | null,
+  surface: string
 ): Promise<boolean> {
   if (exact.length === 0) return false;
   // A sense that *also* carries `prt` (particle) doesn't count, even when it
@@ -1352,15 +1415,11 @@ async function expExactBeatsDeinflection(
   // context-dependent, not as standalone fixed phrases. Without this poison
   // the rule fires for 「し」 in 「〜にしながらも」 and steals the verb stem
   // away from the (correct) deinflection to する.
-  const isFixedPhrase = exact.some((wr) =>
-    (wr.s ?? []).some((sense) => {
-      const pos = sense.pos ?? [];
-      if (pos.includes("prt")) return false;
-      return pos.some((tag) => FIXED_PHRASE_POS.has(tag));
-    })
+  const fixedPhraseEntries = exact.filter((wr) =>
+    isFixedPhraseEntryForSurface(wr, surface)
   );
-  if (!isFixedPhrase) return false;
-  const exactRank = await bestRank(exact);
+  if (fixedPhraseEntries.length === 0) return false;
+  const exactRank = await bestRank(fixedPhraseEntries);
   if (exactRank === null) return false;
   if (!deinflection) return true;
   const deinflectionRank = await bestRank(deinflection);

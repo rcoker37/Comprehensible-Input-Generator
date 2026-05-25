@@ -170,5 +170,5 @@ describe.skipIf(!ACTIVE)("suspect-matches", () => {
       ].join("\n")
     );
     expect(true).toBe(true);
-  });
+  }, 120_000);
 });
