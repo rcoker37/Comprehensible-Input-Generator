@@ -12,7 +12,9 @@ import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
+import { useChats } from "../contexts/ChatsContext";
 import {
+  getChatMessage,
   getChatMessageOccurrences,
   getChatMessageWordEncounters,
   markChatMessageRead,
@@ -101,8 +103,49 @@ export default function ChatAssistantMessage({
   } = useWordIndexBackfill();
   const { prepareKanjiRefresh } = useSeenKanji();
   const { prepareVocabRefresh } = useVocab();
+  const { applyMessageUpdate } = useChats();
   const [readPending, setReadPending] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
+
+  // After the backfill finishes processing this message, refetch it so the
+  // cached `word_index_at` updates locally. Without this the popover stays
+  // disabled and the glassy overlay never clears until a page reload — the
+  // server stamps word_index_at, but nothing in the client knows to refetch.
+  // Mirrors StoryDetail's refetchStory effect.
+  const prevCurrentRef = useRef<number | null>(currentChatMessageId);
+  useEffect(() => {
+    const prev = prevCurrentRef.current;
+    prevCurrentRef.current = currentChatMessageId;
+    if (prev === message.id && currentChatMessageId !== message.id) {
+      getChatMessage(message.id)
+        .then((fresh) =>
+          applyMessageUpdate(message.id, {
+            word_index_at: fresh.word_index_at,
+          })
+        )
+        .catch((err) =>
+          console.warn("Refetch after backfill failed:", err)
+        );
+    }
+  }, [currentChatMessageId, message.id, applyMessageUpdate]);
+
+  // Track whether this message has EVER been seen with word_index_at !== null.
+  // Distinguishes "first-time indexing" (hide the body, show typing dots
+  // until the indexer catches up) from "re-indexing an already-shown message"
+  // (e.g., the user hit Reset — keep showing the body under the glassy
+  // overlay so the text doesn't disappear).
+  const [hasBeenIndexed, setHasBeenIndexed] = useState(
+    message.word_index_at !== null
+  );
+  useEffect(() => {
+    if (message.word_index_at !== null && !hasBeenIndexed) {
+      setHasBeenIndexed(true);
+    }
+  }, [message.word_index_at, hasBeenIndexed]);
+  const firstIndexPending =
+    message.status === "complete" &&
+    message.word_index_at === null &&
+    !hasBeenIndexed;
 
   const { cleanContent, rubyAnnotations } = useMemo(() => {
     const raw = stripBold(message.content);
@@ -280,10 +323,15 @@ export default function ChatAssistantMessage({
     message.word_index_at === null ||
     backfillProcessing ||
     backfillRemaining > 0;
+  // Glassy overlay is for "re-indexing an existing message" only — when the
+  // message was previously indexed but the index is currently rebuilding.
+  // First-time indexing hides the body entirely (firstIndexPending branch
+  // below), so no overlay is needed there.
   const showLoadingOverlay =
-    paragraphs === null ||
-    popoverDisabled ||
-    currentChatMessageId === message.id;
+    hasBeenIndexed &&
+    (paragraphs === null ||
+      popoverDisabled ||
+      currentChatMessageId === message.id);
 
   const showForMode = (mode: DisplayMode, start: number, end: number) => {
     switch (mode) {
@@ -466,7 +514,10 @@ export default function ChatAssistantMessage({
 
   // Status-conditional rendering. All hooks above run regardless so the
   // hook order stays stable across status transitions.
-  if (message.status === "pending") {
+  // `firstIndexPending` lumps "LLM generation done but indexing hasn't run
+  // yet" into the same typing-dots placeholder so newly-generated text
+  // never flashes in before its tap targets are ready.
+  if (message.status === "pending" || firstIndexPending) {
     return (
       <div className="chat-msg chat-msg--assistant chat-msg--pending">
         <div className="chat-msg-bubble">
