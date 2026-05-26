@@ -10,6 +10,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
+import { useVocab } from "../contexts/VocabContext";
 import {
   getChatMessageOccurrences,
   getChatMessageWordEncounters,
@@ -97,6 +99,8 @@ export default function ChatAssistantMessage({
     processing: backfillProcessing,
     currentChatMessageId,
   } = useWordIndexBackfill();
+  const { prepareKanjiRefresh } = useSeenKanji();
+  const { prepareVocabRefresh } = useVocab();
   const [readPending, setReadPending] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
 
@@ -445,6 +449,12 @@ export default function ChatAssistantMessage({
         await undoChatMessageRead(message.id);
       }
       onReadChange(message.id, flipped);
+      const [commitKanji, commitVocab] = await Promise.all([
+        prepareKanjiRefresh(),
+        prepareVocabRefresh(),
+      ]);
+      commitKanji();
+      commitVocab();
     } catch (err) {
       setReadError(err instanceof Error ? err.message : "Read toggle failed");
     } finally {
