@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
@@ -50,7 +50,16 @@ function NavTotalScore() {
 }
 
 export default function AppLayout() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+
+  // Mirror the reader font preference onto <html data-font> so every
+  // Japanese-rendering surface (chat composer, user bubbles, list titles,
+  // popover headword) picks up the sans/serif choice via `var(--jp-font)`
+  // without prop-drilling through every page.
+  const fontPref = profile?.preferences?.reader?.font ?? "sans";
+  useEffect(() => {
+    document.documentElement.dataset.font = fontPref;
+  }, [fontPref]);
 
   return (
     <DictionaryProvider>

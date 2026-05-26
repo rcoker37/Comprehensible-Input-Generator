@@ -25,6 +25,7 @@
   border-radius: 14px 14px 3px 14px;
   color: var(--text);
   padding: 9px 13px;
+  font-family: var(--jp-font);
   font-size: 0.95rem;
   line-height: 1.45;
 }
