@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
+import { ChatsProvider } from "../contexts/ChatsContext";
+import { ChatGenerationProvider } from "../contexts/ChatGenerationContext";
 import { KanjiProvider, useSeenKanji } from "../contexts/KanjiContext";
 import { VocabProvider, useVocab } from "../contexts/VocabContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
@@ -56,28 +58,33 @@ export default function AppLayout() {
         <VocabProvider>
           <WordIndexBackfillProvider>
             <StoriesProvider>
-              <div className="app">
-                <nav className="nav">
-                  <div className="nav-brand">読む練習</div>
-                  <div className="nav-links">
-                    <NavLink to="/stories">Compositions</NavLink>
-                    <NavLink to="/stats">Stats</NavLink>
-                    <NavLink to="/settings">Settings</NavLink>
+              <ChatsProvider>
+                <ChatGenerationProvider>
+                  <div className="app">
+                    <nav className="nav">
+                      <div className="nav-brand">読む練習</div>
+                      <div className="nav-links">
+                        <NavLink to="/stories">Compositions</NavLink>
+                        <NavLink to="/chats">Chats</NavLink>
+                        <NavLink to="/stats">Stats</NavLink>
+                        <NavLink to="/settings">Settings</NavLink>
+                      </div>
+                      {user && (
+                        <span className="nav-user">
+                          <DictionaryStatusChip />
+                          <NavTotalScore />
+                          <span>{user.email}</span>
+                        </span>
+                      )}
+                    </nav>
+                    <main className="main">
+                      <GenerationProvider>
+                        <Outlet />
+                      </GenerationProvider>
+                    </main>
                   </div>
-                  {user && (
-                    <span className="nav-user">
-                      <DictionaryStatusChip />
-                      <NavTotalScore />
-                      <span>{user.email}</span>
-                    </span>
-                  )}
-                </nav>
-                <main className="main">
-                  <GenerationProvider>
-                    <Outlet />
-                  </GenerationProvider>
-                </main>
-              </div>
+                </ChatGenerationProvider>
+              </ChatsProvider>
             </StoriesProvider>
           </WordIndexBackfillProvider>
         </VocabProvider>

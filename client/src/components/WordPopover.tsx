@@ -44,15 +44,24 @@ import type {
 import "./WordPopover.css";
 
 /**
- * The popover can be opened either from a tap inside a story (carousel
- * starts with the tapped span as card 0) or from outside any story — e.g.
- * the Stats page — where there is no current tap and every card in the
- * carousel is just a usage from the user's history.
+ * Where a tap originated. Tap mode opens against either a story or a chat
+ * message; the popover stays generic by routing source-specific writes
+ * (recordWordLookup, translateSentence) through this discriminator.
+ */
+export type WordPopoverSource =
+  | { kind: "story"; storyId: number }
+  | { kind: "chat"; chatMessageId: number };
+
+/**
+ * The popover can be opened either from a tap inside a story or chat
+ * message (carousel starts with the tapped span as card 0) or from outside
+ * any source — e.g. the Stats page — where there is no current tap and
+ * every card in the carousel is just a usage from the user's history.
  */
 export type WordPopoverMode =
   | {
       kind: "tap";
-      storyId: number;
+      source: WordPopoverSource;
       cleanText: string;
       annotations: FuriganaAnnotation[];
       /**
@@ -139,6 +148,16 @@ const EMPTY_ANNOTATIONS: FuriganaAnnotation[] = [];
 const EMPTY_TRANSLATIONS: StoryTranslations = {};
 
 /**
+ * Source ref for a single card. The current card knows its own source kind
+ * (story or chat); other cards inherit theirs from `getWordUsages`. The
+ * chat variant additionally carries `chatId` so the carousel's "go to
+ * source" link can route to `/chats/:chatId`.
+ */
+type CardSource =
+  | { kind: "story"; storyId: number }
+  | { kind: "chat"; chatId: number; chatMessageId: number };
+
+/**
  * One slot in the carousel — either the current tap (`current`) or a prior
  * lookup of the same headword from anywhere in the user's history (`other`).
  * Card 0 is always `current`. Other cards come from `getWordUsages` filtered
@@ -146,9 +165,9 @@ const EMPTY_TRANSLATIONS: StoryTranslations = {};
  */
 type CurrentCard = {
   kind: "current";
-  storyId: number;
-  storyTitle: null;
-  storyCreatedAt: null;
+  source: CardSource;
+  sourceTitle: null;
+  sourceCreatedAt: null;
   startOffset: number;
   endOffset: number;
   surface: string;
@@ -161,9 +180,9 @@ type CurrentCard = {
 type OtherCard = {
   kind: "other";
   occurrenceId: number;
-  storyId: number;
-  storyTitle: string;
-  storyCreatedAt: string;
+  source: CardSource;
+  sourceTitle: string;
+  sourceCreatedAt: string;
   startOffset: number;
   endOffset: number;
   surface: string;
@@ -174,6 +193,28 @@ type OtherCard = {
 };
 
 type Card = CurrentCard | OtherCard;
+
+function sourceKey(source: CardSource): string {
+  return source.kind === "story"
+    ? `story-${source.storyId}`
+    : `chat-${source.chatMessageId}`;
+}
+
+function sourceLink(source: CardSource): string {
+  return source.kind === "story"
+    ? `/stories/${source.storyId}`
+    : `/chats/${source.chatId}`;
+}
+
+function sourcesEqual(a: CardSource, b: CardSource): boolean {
+  if (a.kind !== b.kind) return false;
+  if (a.kind === "story") {
+    return (b as { kind: "story"; storyId: number }).storyId === a.storyId;
+  }
+  return (
+    (b as { kind: "chat"; chatMessageId: number }).chatMessageId === a.chatMessageId
+  );
+}
 
 function sentenceKey(start: number, end: number): string {
   return `${start}-${end}`;
@@ -319,7 +360,17 @@ export default function WordPopover({
   // Narrow once so downstream code can read mode-specific fields without
   // re-narrowing. Tap-only fields default to null in headword mode.
   const isTap = mode.kind === "tap";
-  const tapStoryId = mode.kind === "tap" ? mode.storyId : null;
+  const tapSource: CardSource | null =
+    mode.kind === "tap"
+      ? mode.source.kind === "story"
+        ? { kind: "story", storyId: mode.source.storyId }
+        : // We don't know chatId here — the popover only needs `chatMessageId`
+          // for writes (recordWordLookup, indexed-message translate). chatId
+          // is only used for the "go to source" link, which the current card
+          // doesn't render (you're already there). Default to 0 — it's never
+          // read for the current card.
+          { kind: "chat", chatId: 0, chatMessageId: mode.source.chatMessageId }
+      : null;
   const tapStart = mode.kind === "tap" ? mode.start : null;
   const tapEnd = mode.kind === "tap" ? mode.end : null;
   const tapCleanText = mode.kind === "tap" ? mode.cleanText : "";
@@ -349,13 +400,14 @@ export default function WordPopover({
   const [usages, setUsages] = useState<WordUsage[]>([]);
   const [cardIndex, setCardIndex] = useState(0);
 
-  // Translation cache for stories other than the current one. The current
-  // story's translations are owned by the parent (props) and updates flow
+  // Translation cache for sources other than the current one. The current
+  // tap's translations are owned by the parent (props) and updates flow
   // out via onTranslationUpdated. Local cache here keeps the popover-only
-  // state for any other-story sentences that get translated during this
-  // popover's lifetime.
-  const [otherStoryTranslations, setOtherStoryTranslations] = useState<
-    Record<number, StoryTranslations>
+  // state for any other-source sentences that get translated during this
+  // popover's lifetime. Keyed by `sourceKey(source)` so stories and chats
+  // don't collide.
+  const [otherSourceTranslations, setOtherSourceTranslations] = useState<
+    Record<string, StoryTranslations>
   >({});
   const [translationPending, setTranslationPending] = useState(false);
   const [translationRegenerating, setTranslationRegenerating] = useState(false);
@@ -427,7 +479,7 @@ export default function WordPopover({
     setHit(null);
     setUsages([]);
     setCardIndex(0);
-    setOtherStoryTranslations({});
+    setOtherSourceTranslations({});
     setTranslationPending(false);
     setTranslationRegenerating(false);
     setTranslationError(null);
@@ -622,8 +674,12 @@ export default function WordPopover({
   // recording is best-effort and never blocks the carousel from rendering.
   useEffect(() => {
     if (!open || !hit) return;
-    if (effectiveIsTap && tapStoryId !== null) {
-      void recordWordLookup(tapStoryId, hit);
+    if (effectiveIsTap && tapSource !== null) {
+      const lookupSource =
+        tapSource.kind === "story"
+          ? { storyId: tapSource.storyId }
+          : { chatMessageId: tapSource.chatMessageId };
+      void recordWordLookup(lookupSource, hit);
     }
     if (!headword) return;
     let cancelled = false;
@@ -641,7 +697,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, hit, headword, effectiveIsTap, tapStoryId]);
+  }, [open, hit, headword, effectiveIsTap, tapSource]);
 
   // Resolve JPDB frequency by JMdict entry id. The by-entry index handles
   // the homophone-disambiguation problem at build time (it honours JMdict's
@@ -738,25 +794,34 @@ export default function WordPopover({
 
   const cards = useMemo<Card[]>(() => {
     if (!hit) return [];
+    const currentMatchesUsage = (u: WordUsage): boolean => {
+      if (!effectiveIsTap || tapSource === null) return false;
+      if (u.startOffset !== hit.start || u.endOffset !== hit.end) return false;
+      if (tapSource.kind === "story") {
+        return u.sourceType === "story" && u.storyId === tapSource.storyId;
+      }
+      return (
+        u.sourceType === "chat" && u.chatMessageId === tapSource.chatMessageId
+      );
+    };
     const others: OtherCard[] = usages
-      .filter(
-        (u) =>
-          !(
-            effectiveIsTap &&
-            tapStoryId !== null &&
-            u.storyId === tapStoryId &&
-            u.startOffset === hit.start &&
-            u.endOffset === hit.end
-          )
-      )
+      .filter((u) => !currentMatchesUsage(u))
       .map((u) => {
-        const parsed = parseAnnotatedText(u.storyContent);
+        const parsed = parseAnnotatedText(u.sourceContent);
+        const source: CardSource =
+          u.sourceType === "story"
+            ? { kind: "story", storyId: u.storyId! }
+            : {
+                kind: "chat",
+                chatId: u.chatId!,
+                chatMessageId: u.chatMessageId!,
+              };
         return {
           kind: "other",
           occurrenceId: u.occurrenceId,
-          storyId: u.storyId,
-          storyTitle: u.storyTitle,
-          storyCreatedAt: u.storyCreatedAt,
+          source,
+          sourceTitle: u.sourceTitle,
+          sourceCreatedAt: u.sourceCreatedAt,
           startOffset: u.startOffset,
           endOffset: u.endOffset,
           surface: u.surface,
@@ -764,12 +829,12 @@ export default function WordPopover({
           annotations: parsed.annotations,
         };
       });
-    if (!effectiveIsTap || tapStoryId === null) return others;
+    if (!effectiveIsTap || tapSource === null) return others;
     const current: CurrentCard = {
       kind: "current",
-      storyId: tapStoryId,
-      storyTitle: null,
-      storyCreatedAt: null,
+      source: tapSource,
+      sourceTitle: null,
+      sourceCreatedAt: null,
       startOffset: hit.start,
       endOffset: hit.end,
       surface: hit.surface,
@@ -779,7 +844,7 @@ export default function WordPopover({
       annotations: tapAnnotations,
     };
     return [current, ...others];
-  }, [hit, usages, effectiveIsTap, tapStoryId, tapCleanText, tapAnnotations]);
+  }, [hit, usages, effectiveIsTap, tapSource, tapCleanText, tapAnnotations]);
 
   // Clamp cardIndex if usages shrink (e.g., refetch returns fewer rows).
   useEffect(() => {
@@ -894,37 +959,38 @@ export default function WordPopover({
   );
 
   // Resolve a cached translation for the active card's sentence: parent's
-  // translations for the current story (tap mode only), popover-local cache
-  // for everything else. In headword mode tapStoryId is null so the equality
-  // check always falls through to otherStoryTranslations.
+  // translations for the current tap (tap mode only), popover-local cache
+  // for everything else. In headword mode tapSource is null so the equality
+  // check always falls through to otherSourceTranslations.
   const cachedTranslation: SentenceTranslation | null = useMemo(() => {
     if (!activeCard || !snippet) return null;
     const key = sentenceKey(snippet.sentenceStart, snippet.sentenceEnd);
-    if (isTap && activeCard.storyId === tapStoryId) {
+    if (isTap && tapSource && sourcesEqual(activeCard.source, tapSource)) {
       return tapTranslations[key] ?? null;
     }
-    return otherStoryTranslations[activeCard.storyId]?.[key] ?? null;
-  }, [activeCard, snippet, isTap, tapStoryId, tapTranslations, otherStoryTranslations]);
+    return otherSourceTranslations[sourceKey(activeCard.source)]?.[key] ?? null;
+  }, [activeCard, snippet, isTap, tapSource, tapTranslations, otherSourceTranslations]);
 
   const storeTranslation = useCallback(
     (
-      cardStoryId: number,
+      cardSource: CardSource,
       key: string,
       translation: SentenceTranslation
     ) => {
-      if (isTap && cardStoryId === tapStoryId && onTranslationUpdated) {
+      if (isTap && tapSource && sourcesEqual(cardSource, tapSource) && onTranslationUpdated) {
         onTranslationUpdated(key, translation);
       } else {
-        setOtherStoryTranslations((prev) => ({
+        const sk = sourceKey(cardSource);
+        setOtherSourceTranslations((prev) => ({
           ...prev,
-          [cardStoryId]: {
-            ...(prev[cardStoryId] ?? {}),
+          [sk]: {
+            ...(prev[sk] ?? {}),
             [key]: translation,
           },
         }));
       }
     },
-    [isTap, tapStoryId, onTranslationUpdated]
+    [isTap, tapSource, onTranslationUpdated]
   );
 
   // Lazy-fetch the translation only after the user explicitly requests it
@@ -937,16 +1003,20 @@ export default function WordPopover({
     if (cachedTranslation) return;
     if (!translationRequested) return;
     let cancelled = false;
-    const cardStoryId = activeCard.storyId;
+    const cardSource = activeCard.source;
+    const translateSource =
+      cardSource.kind === "story"
+        ? { storyId: cardSource.storyId }
+        : { chatMessageId: cardSource.chatMessageId };
     const start = snippet.sentenceStart;
     const end = snippet.sentenceEnd;
     const key = sentenceKey(start, end);
     setTranslationPending(true);
     setTranslationError(null);
-    void translateSentence(cardStoryId, start, end)
+    void translateSentence(translateSource, start, end)
       .then((t) => {
         if (cancelled) return;
-        storeTranslation(cardStoryId, key, t);
+        storeTranslation(cardSource, key, t);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -976,16 +1046,20 @@ export default function WordPopover({
 
   const handleRegenerate = useCallback(() => {
     if (!activeCard || !snippet || translationPending) return;
-    const cardStoryId = activeCard.storyId;
+    const cardSource = activeCard.source;
+    const translateSource =
+      cardSource.kind === "story"
+        ? { storyId: cardSource.storyId }
+        : { chatMessageId: cardSource.chatMessageId };
     const start = snippet.sentenceStart;
     const end = snippet.sentenceEnd;
     const key = sentenceKey(start, end);
     setTranslationRegenerating(true);
     setTranslationPending(true);
     setTranslationError(null);
-    void translateSentence(cardStoryId, start, end, true)
+    void translateSentence(translateSource, start, end, true)
       .then((t) => {
-        storeTranslation(cardStoryId, key, t);
+        storeTranslation(cardSource, key, t);
       })
       .catch((err: unknown) => {
         setTranslationError(
@@ -1166,20 +1240,22 @@ export default function WordPopover({
                   </svg>
                 </button>
                 <div className="word-popover__nav-meta">
-                  {activeCard.storyId === tapStoryId ? (
-                    <span className="word-popover__nav-title">This story</span>
+                  {tapSource && sourcesEqual(activeCard.source, tapSource) ? (
+                    <span className="word-popover__nav-title">
+                      {tapSource.kind === "story" ? "This story" : "This chat"}
+                    </span>
                   ) : (
                     <>
                       <Link
-                        to={`/stories/${activeCard.storyId}`}
+                        to={sourceLink(activeCard.source)}
                         className="word-popover__nav-title word-popover__nav-title--link"
                         onClick={() => onOpenChange(false)}
                       >
-                        {stripAnnotations(stripBold(activeCard.storyTitle ?? ""))}
+                        {stripAnnotations(stripBold(activeCard.sourceTitle ?? ""))}
                       </Link>
-                      {activeCard.storyCreatedAt && (
+                      {activeCard.sourceCreatedAt && (
                         <span className="word-popover__nav-date">
-                          {formatStoryDate(activeCard.storyCreatedAt)}
+                          {formatStoryDate(activeCard.sourceCreatedAt)}
                         </span>
                       )}
                     </>

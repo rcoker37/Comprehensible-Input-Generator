@@ -1,0 +1,64 @@
+/* The shared reader-controls chip row — furigana / highlight / font.
+ * Class names are the historical `furigana-*` names (originally only the
+ * furigana toggle existed); kept as-is to match the established markup
+ * convention that StoryDisplay's CSS expected. */
+
+.story-display-controls {
+  margin-left: auto;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 1rem;
+}
+
+.furigana-control {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.furigana-control::before {
+  content: none;
+}
+
+.furigana-label {
+  font-size: inherit;
+  color: var(--text-dim);
+  letter-spacing: 0.03em;
+}
+
+.furigana-toggle {
+  width: 5.5rem;
+  text-align: center;
+  white-space: nowrap;
+  background: none;
+  border: 1px solid currentColor;
+  border-radius: var(--radius);
+  padding: 0.1rem 0;
+  font: inherit;
+  font-size: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+/* On narrow viewports the three controls don't fit horizontally and wrap
+ * unevenly — two on top, font stranded on its own row. Stack each control
+ * on its own line instead, with the label on the left and the toggle on
+ * the right so the three rows line up. */
+@media (max-width: 640px) {
+  .story-display-controls {
+    margin-left: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.4rem;
+  }
+
+  .furigana-control {
+    justify-content: space-between;
+  }
+}

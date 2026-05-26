@@ -1,0 +1,90 @@
+.chats-page-header {
+  margin-bottom: 1.25rem;
+}
+
+.chats-page-header h1 {
+  margin: 0;
+}
+
+.chats-page-sub {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  margin-top: 0.25rem;
+  letter-spacing: 0.04em;
+}
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.chat-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0;
+}
+
+.chat-card-link {
+  display: block;
+  padding: 1rem 1.25rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.chat-card-link:hover {
+  background: var(--surface-2);
+}
+
+.chat-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chat-card-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-card-link:hover .chat-card-title {
+  color: var(--accent);
+}
+
+.chat-card-date {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.chat-card-actions {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+}
+
+.chats-page .delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chats-page .delete-btn:hover {
+  color: var(--error-fg);
+  background: var(--bg);
+}

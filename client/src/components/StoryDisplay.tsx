@@ -38,8 +38,10 @@ import {
 } from "../lib/frequency";
 import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
+import ReaderControls from "./ReaderControls";
 import type {
   DisplayMode,
+  FontMode,
   HighlightMode,
   SentenceTranslation,
   Story,
@@ -47,30 +49,19 @@ import type {
 } from "../types";
 import "./StoryDisplay.css";
 
-// Toggle-cycle order for the furigana control. Tapping advances to the
-// next mode and wraps around. (DisplayMode lives in ../types so it can
-// be persisted in `profiles.preferences.reader`.)
+// Toggle-cycle orders for the reader controls. Tapping advances to the
+// next mode and wraps around. (DisplayMode/HighlightMode/FontMode live in
+// ../types so they can be persisted in `profiles.preferences.reader`.)
 const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
-
-const DISPLAY_LABEL: Record<DisplayMode, string> = {
-  off: "off",
-  unseen: "unseen",
-  all: "all",
-};
+const HIGHLIGHT_ORDER: HighlightMode[] = ["off", "frequency", "encounters"];
+const FONT_ORDER: FontMode[] = ["sans", "serif"];
 
 const nextMode = (m: DisplayMode): DisplayMode =>
   DISPLAY_ORDER[(DISPLAY_ORDER.indexOf(m) + 1) % DISPLAY_ORDER.length]!;
-
-const HIGHLIGHT_ORDER: HighlightMode[] = ["off", "frequency", "encounters"];
-
-const HIGHLIGHT_LABEL: Record<HighlightMode, string> = {
-  off: "off",
-  frequency: "frequency",
-  encounters: "encounters",
-};
-
 const nextHighlight = (m: HighlightMode): HighlightMode =>
   HIGHLIGHT_ORDER[(HIGHLIGHT_ORDER.indexOf(m) + 1) % HIGHLIGHT_ORDER.length]!;
+const nextFont = (m: FontMode): FontMode =>
+  FONT_ORDER[(FONT_ORDER.indexOf(m) + 1) % FONT_ORDER.length]!;
 
 // Map an encounter count to the same 5-tier colour ramp the frequency
 // view uses. 0 reads = the dark-red "very-rare" tier; 1–9 reads spread
@@ -145,8 +136,9 @@ export default function StoryDisplay({
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [highlightMode, setHighlightMode] =
     useState<HighlightMode>("encounters");
+  const [font, setFont] = useState<FontMode>("sans");
 
-  // Hydrate the furigana / highlight controls from the persisted
+  // Hydrate the furigana / highlight / font controls from the persisted
   // `reader` preferences section exactly once, the way GenerationModal
   // hydrates the generator form from `preferences.generator`.
   const readerSyncedRef = useRef(false);
@@ -159,30 +151,40 @@ export default function StoryDisplay({
     if (reader?.furigana) setFuriganaMode(reader.furigana);
     const migrated = coerceHighlightMode(reader?.highlight);
     if (migrated) setHighlightMode(migrated);
+    if (reader?.font === "serif" || reader?.font === "sans") setFont(reader.font);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [profile]);
 
-  // Advance a control and persist both modes. `update_preferences` does a
-  // shallow merge, so the `reader` section must be sent in full.
+  // Advance a control and persist the full `reader` section.
+  // `update_preferences` does a shallow merge, so the section must be sent
+  // in full.
+  const persistReader = (next: {
+    furigana: DisplayMode;
+    highlight: HighlightMode;
+    font: FontMode;
+  }) => {
+    updatePreferences({ reader: next }).catch((err) =>
+      console.warn("Failed to save reader preferences:", err)
+    );
+  };
   const cycleFurigana = () => {
     setFuriganaMode((prev) => {
       const next = nextMode(prev);
-      updatePreferences({
-        reader: { furigana: next, highlight: highlightMode },
-      }).catch((err) =>
-        console.warn("Failed to save reader preferences:", err)
-      );
+      persistReader({ furigana: next, highlight: highlightMode, font });
       return next;
     });
   };
   const cycleHighlight = () => {
     setHighlightMode((prev) => {
       const next = nextHighlight(prev);
-      updatePreferences({
-        reader: { furigana: furiganaMode, highlight: next },
-      }).catch((err) =>
-        console.warn("Failed to save reader preferences:", err)
-      );
+      persistReader({ furigana: furiganaMode, highlight: next, font });
+      return next;
+    });
+  };
+  const cycleFont = () => {
+    setFont((prev) => {
+      const next = nextFont(prev);
+      persistReader({ furigana: furiganaMode, highlight: highlightMode, font: next });
       return next;
     });
   };
@@ -742,31 +744,17 @@ export default function StoryDisplay({
         </h2>
       </div>
       <div className="story-meta">
-        <div className="story-display-controls">
-          <div className="furigana-control">
-            <span className="furigana-label">furigana: </span>
-            <button
-              type="button"
-              className="furigana-toggle"
-              onClick={cycleFurigana}
-            >
-              {DISPLAY_LABEL[furiganaMode]}
-            </button>
-          </div>
-          <div className="furigana-control">
-            <span className="furigana-label">highlight: </span>
-            <button
-              type="button"
-              className="furigana-toggle"
-              onClick={cycleHighlight}
-            >
-              {HIGHLIGHT_LABEL[highlightMode]}
-            </button>
-          </div>
-        </div>
+        <ReaderControls
+          furigana={furiganaMode}
+          highlight={highlightMode}
+          font={font}
+          onFuriganaCycle={cycleFurigana}
+          onHighlightCycle={cycleHighlight}
+          onFontCycle={cycleFont}
+        />
       </div>
       <div
-        className={`story-content${popoverDisabled ? " story-content--popover-disabled" : ""}`}
+        className={`story-content story-content--font-${font}${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
         <div className="story-paragraphs">
           {displayParagraphs.map((para, pIdx) => (
@@ -796,7 +784,7 @@ export default function StoryDisplay({
       <WordPopover
         mode={{
           kind: "tap",
-          storyId: story.id,
+          source: { kind: "story", storyId: story.id },
           cleanText: cleanContent,
           annotations: rubyAnnotations,
           start: activeTap?.start ?? 0,

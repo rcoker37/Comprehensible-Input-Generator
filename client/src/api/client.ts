@@ -10,6 +10,9 @@ import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import type {
+  Chat,
+  ChatMessage,
+  ChatMessageReadState,
   ContentType,
   Formality,
   Kanji,
@@ -18,6 +21,7 @@ import type {
   Story,
   StoryReadState,
   WordUsage,
+  WordUsageSource,
 } from "../types";
 
 // Kanji
@@ -250,14 +254,15 @@ export async function deleteStory(id: number): Promise<void> {
 // Stories — sentence translations
 
 /**
- * Translate a single sentence within a story to natural English. The
- * translation is cached server-side on `stories.translations` keyed by the
- * sentence's character offsets, so other taps within the same sentence
- * (and reopens) return instantly. Pass `regenerate=true` to overwrite the
- * cached translation with a fresh model call.
+ * Translate a single sentence within a story or a chat message to natural
+ * English. The translation is cached server-side on the source row's
+ * `translations` JSONB keyed by the sentence's character offsets, so other
+ * taps within the same sentence (and reopens) return instantly. Pass
+ * `regenerate=true` to overwrite the cached translation with a fresh
+ * model call.
  */
 export async function translateSentence(
-  storyId: number,
+  source: { storyId: number } | { chatMessageId: number },
   sentenceStart: number,
   sentenceEnd: number,
   regenerate = false
@@ -274,7 +279,8 @@ export async function translateSentence(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      story_id: storyId,
+      ...("storyId" in source ? { story_id: source.storyId } : {}),
+      ...("chatMessageId" in source ? { chat_message_id: source.chatMessageId } : {}),
       sentence_start: sentenceStart,
       sentence_end: sentenceEnd,
       ...(regenerate && { regenerate: true }),
@@ -301,13 +307,14 @@ export async function translateSentence(
  * failure here never blocks the popover render.
  */
 export async function recordWordLookup(
-  storyId: number,
+  source: { storyId: number } | { chatMessageId: number },
   hit: LookupHit
 ): Promise<void> {
   const headword = headwordFromHit(hit);
   if (!headword) return;
   const { error } = await supabase.rpc("record_word_lookup", {
-    p_story_id: storyId,
+    p_story_id: "storyId" in source ? source.storyId : null,
+    p_chat_message_id: "chatMessageId" in source ? source.chatMessageId : null,
     p_start: hit.start,
     p_end: hit.end,
     p_surface: hit.surface,
@@ -322,16 +329,20 @@ export async function recordWordLookup(
 
 /**
  * Returns every occurrence of the given headword across the user's tokenized
- * stories (newest stories first, in-text order within each story).
- * `lookedUpAt` / `lookupCount` are populated when the user has previously
- * tapped the span (LEFT JOIN over `word_lookups`) and otherwise null / 0.
+ * read sources (read stories + read assistant chat messages), newest first
+ * with in-text order within each source. `lookedUpAt` / `lookupCount` are
+ * populated when the user has previously tapped the span (LEFT JOIN over
+ * `word_lookups`) and otherwise null / 0.
  */
 interface WordUsageRow {
   occurrence_id: number;
-  story_id: number;
-  story_title: string;
-  story_content: string;
-  story_created_at: string;
+  source_type: WordUsageSource;
+  story_id: number | null;
+  chat_id: number | null;
+  chat_message_id: number | null;
+  source_title: string;
+  source_content: string;
+  source_created_at: string;
   start_offset: number;
   end_offset: number;
   surface: string;
@@ -348,10 +359,13 @@ export async function getWordUsages(headword: string): Promise<WordUsage[]> {
   const rows = (data as WordUsageRow[] | null) ?? [];
   return rows.map((r) => ({
     occurrenceId: r.occurrence_id,
+    sourceType: r.source_type,
     storyId: r.story_id,
-    storyTitle: r.story_title,
-    storyContent: r.story_content,
-    storyCreatedAt: r.story_created_at,
+    chatId: r.chat_id,
+    chatMessageId: r.chat_message_id,
+    sourceTitle: r.source_title,
+    sourceContent: r.source_content,
+    sourceCreatedAt: r.source_created_at,
     startOffset: r.start_offset,
     endOffset: r.end_offset,
     surface: r.surface,
@@ -736,4 +750,289 @@ export async function getKanjiWords(char: string): Promise<KanjiWordResult[]> {
     }
   }
   return [...seen.values()];
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Chats
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function getChats(): Promise<Chat[]> {
+  const { data, error } = await supabase
+    .from("chats")
+    .select("id, title, created_at, last_activity_at")
+    .order("last_activity_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as Chat[]) || [];
+}
+
+export async function getChat(id: number): Promise<Chat> {
+  const { data, error } = await supabase
+    .from("chats")
+    .select("id, title, created_at, last_activity_at")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+  return data as Chat;
+}
+
+export async function getChatMessages(chatId: number): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select(
+      "id, chat_id, role, content, status, error_message, is_read, read_at, word_index_at, translations, created_at"
+    )
+    .eq("chat_id", chatId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as ChatMessage[]) || [];
+}
+
+export async function getChatMessage(id: number): Promise<ChatMessage> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select(
+      "id, chat_id, role, content, status, error_message, is_read, read_at, word_index_at, translations, created_at"
+    )
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ChatMessage;
+}
+
+export interface SendChatMessageResult {
+  chatId: number;
+  userMessageId: number;
+  assistantMessageId: number;
+  chatCreated: boolean;
+}
+
+/**
+ * Calls the `chat-message` Edge Function. Synchronously creates the chat
+ * (if needed), the user message, and the assistant placeholder; returns
+ * their IDs. The assistant body fills in asynchronously — poll
+ * `getChatMessage(assistantMessageId)` until `status` flips off `pending`.
+ */
+export async function sendChatMessage(params: {
+  chatId: number | null;
+  userText: string;
+  seenKanji: Set<string>;
+  formality: Formality;
+}): Promise<SendChatMessageResult> {
+  const n5 = await getJlptN5Kanji();
+  const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
+  const allowedKanji = [...allowedSet].join("");
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/chat-message`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      chat_id: params.chatId,
+      user_text: params.userText,
+      allowed_kanji: allowedKanji,
+      formality: params.formality,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({ error: "Chat send failed" }));
+    throw new Error(body.error || `HTTP ${response.status}`);
+  }
+
+  const raw = (await response.json()) as {
+    chat_id: number;
+    user_message_id: number;
+    assistant_message_id: number;
+    chat_created: boolean;
+  };
+  return {
+    chatId: raw.chat_id,
+    userMessageId: raw.user_message_id,
+    assistantMessageId: raw.assistant_message_id,
+    chatCreated: raw.chat_created,
+  };
+}
+
+export async function markChatMessageRead(messageId: number): Promise<ChatMessageReadState> {
+  const { data, error } = await supabase.rpc("mark_chat_message_read", {
+    p_message_id: messageId,
+  });
+  if (error) throw new Error(error.message);
+  const row = (data as ChatMessageReadState[] | null)?.[0];
+  if (!row) throw new Error("Chat message not found");
+  return row;
+}
+
+export async function undoChatMessageRead(messageId: number): Promise<ChatMessageReadState> {
+  const { data, error } = await supabase.rpc("undo_chat_message_read", {
+    p_message_id: messageId,
+  });
+  if (error) throw new Error(error.message);
+  const row = (data as ChatMessageReadState[] | null)?.[0];
+  if (!row) throw new Error("Chat message not found");
+  return row;
+}
+
+export async function deleteChat(id: number): Promise<void> {
+  const { error } = await supabase.rpc("delete_chat", { p_chat_id: id });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Nulls `word_index_at` on every assistant message in the chat so the
+ * backfill re-indexes them on its next pass. Analog of StoryDetail's
+ * "reset overrides" ↻ button (chats have no per-region overrides, so this
+ * is the only word-index affordance).
+ */
+export async function resetChatWordIndex(chatId: number): Promise<void> {
+  const { error } = await supabase.rpc("reset_chat_word_index", {
+    p_chat_id: chatId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Bulk-replace the assistant message's word-occurrence index. Analog of
+ * `indexStoryWords`. Server stamps `chat_messages.word_index_at` +
+ * `word_index_version` on success.
+ */
+export async function indexChatMessageWords(
+  messageId: number,
+  occurrences: {
+    start: number;
+    end: number;
+    surface: string;
+    headword: string;
+    reading: string;
+    entryId: number | null;
+    isName: boolean;
+  }[]
+): Promise<string> {
+  const { data, error } = await supabase.rpc("index_chat_message_words", {
+    p_message_id: messageId,
+    p_occurrences: occurrences,
+    p_version: WORD_INDEX_VERSION,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+/**
+ * Per-occurrence rows in `story_word_occurrences` for one chat message —
+ * used by ChatAssistantMessage to render tap targets directly from the index
+ * (parallels `getStoryOccurrences`). Manual rows aren't possible for chats
+ * in v1; `manual` will always be FALSE here.
+ */
+export async function getChatMessageOccurrences(
+  messageId: number
+): Promise<
+  {
+    start: number;
+    end: number;
+    surface: string;
+    headword: string;
+    reading: string | null;
+    entryId: number | null;
+    isName: boolean;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("story_word_occurrences")
+    .select(
+      "start_offset, end_offset, surface, headword, reading, entry_id, is_name"
+    )
+    .eq("chat_message_id", messageId)
+    .order("start_offset", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    start: r.start_offset,
+    end: r.end_offset,
+    surface: r.surface,
+    headword: r.headword,
+    reading: r.reading,
+    entryId: r.entry_id,
+    isName: r.is_name,
+  }));
+}
+
+export async function getChatMessageWordEncounters(
+  messageId: number
+): Promise<Map<string, number>> {
+  const { data, error } = await supabase.rpc(
+    "get_chat_message_word_encounters",
+    { p_message_id: messageId }
+  );
+  if (error) throw new Error(error.message);
+  const rows =
+    (data as
+      | { start_offset: number; end_offset: number; encounters: number }[]
+      | null) ?? [];
+  const map = new Map<string, number>();
+  for (const r of rows) {
+    map.set(`${r.start_offset}-${r.end_offset}`, Number(r.encounters));
+  }
+  return map;
+}
+
+/**
+ * Assistant messages that need (re)indexing. Same criteria as
+ * `getStoriesNeedingIndex` but on the chat_messages side. Filters to
+ * status='complete' so pending placeholders are skipped.
+ */
+export async function getChatMessagesNeedingIndex(): Promise<
+  { id: number; content: string }[]
+> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("id, content")
+    .eq("role", "assistant")
+    .eq("status", "complete")
+    .or(
+      `word_index_at.is.null,word_index_version.is.null,word_index_version.lt.${WORD_INDEX_VERSION}`
+    )
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as { id: number; content: string }[]) || [];
+}
+
+/**
+ * Any in-flight (`pending`) assistant messages owned by the caller. Used by
+ * ChatGenerationContext on mount to resume polling for messages whose
+ * generation was kicked off in a previous tab.
+ */
+export async function getPendingChatAssistantMessages(): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select(
+      "id, chat_id, role, content, status, error_message, is_read, read_at, word_index_at, translations, created_at"
+    )
+    .eq("role", "assistant")
+    .eq("status", "pending")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as ChatMessage[]) || [];
+}
+
+/**
+ * Marks a 'pending' chat message as failed. Analog of `markStoryFailed`;
+ * called by ChatGenerationContext when an in-flight assistant message
+ * exceeds the stale threshold (the Edge Function died before flipping it).
+ */
+export async function markChatMessageFailed(
+  id: number,
+  errorMessage: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("chat_messages")
+    .update({ status: "failed", error_message: errorMessage })
+    .eq("id", id)
+    .eq("status", "pending");
+  if (error) throw new Error(error.message);
 }

@@ -2,53 +2,9 @@
   margin-bottom: 1rem;
 }
 
-.fab-generate {
-  position: fixed;
-  bottom: 27px;
-  right: 27px;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  transition: opacity 0.2s, transform 0.15s;
-  /* above page content; modals use the browser top layer so need no z-index */
-  z-index: 10;
-}
-
-.fab-generate:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: scale(1.05);
-}
-
-.fab-generate:disabled {
-  opacity: 0.85;
-  cursor: not-allowed;
-}
-
-.fab-generate svg {
-  display: block;
-}
-
-.fab-spinner {
-  display: block;
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(0, 0, 0, 0.25);
-  border-top-color: var(--bg);
-  border-radius: 50%;
-  animation: fab-spin 0.8s linear infinite;
-}
-
-@keyframes fab-spin {
-  to { transform: rotate(360deg); }
-}
+/* `.fab-generate` + `.fab-spinner` are shared between Stories and Chats —
+ * styles live in App.css so a hard-refresh on /chats picks them up
+ * without first visiting /stories. */
 
 .story-list {
   display: flex;

@@ -72,55 +72,27 @@
   letter-spacing: 0.03em;
 }
 
-.story-display-controls {
-  margin-left: auto;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.4rem 1rem;
-}
-
-.furigana-control {
-  display: flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 0.4rem;
-}
-
-.furigana-control::before {
-  content: none;
-}
-
-.furigana-label {
-  font-size: inherit;
-  color: var(--text-dim);
-  letter-spacing: 0.03em;
-}
-
-.furigana-toggle {
-  width: 5.5rem;
-  text-align: center;
-  white-space: nowrap;
-  background: none;
-  border: 1px solid currentColor;
-  border-radius: var(--radius);
-  padding: 0.1rem 0;
-  font: inherit;
-  font-size: inherit;
-  color: inherit;
-  cursor: pointer;
-  text-transform: lowercase;
-  letter-spacing: 0.03em;
-}
+/* `.story-display-controls`, `.furigana-control`, `.furigana-label`, and
+ * `.furigana-toggle` live in `ReaderControls.css` so they're bundled with
+ * the component that uses them — otherwise a hard-refresh on /chats
+ * (where StoryDisplay never mounts) would lose all the chip styling. */
 
 .story-content {
   position: relative;
-  font-family: "Zen Kaku Gothic New", "Noto Serif JP", "Hiragino Mincho ProN",
-    "Yu Mincho", "YuMincho", serif;
+  /* Default `--font-sans` uses Noto Sans JP for true gothic Japanese
+   * rendering. The local Zen Kaku Gothic New build only ships Latin
+   * subsets, so it can't render kanji — we need a Japanese-capable sans
+   * first or the browser falls through to Noto Serif JP for every kanji,
+   * making the font toggle invisible. */
+  font-family: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic", "Meiryo", "Zen Kaku Gothic New", sans-serif;
   font-size: 1.25rem;
   line-height: 2.1;
   letter-spacing: 0.02em;
+}
+
+.story-content--font-serif {
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 
 .story-content p {
@@ -136,61 +108,9 @@
   margin-bottom: 1rem;
 }
 
-.word-token {
-  display: inline;
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-}
-
-/* Zero-encounters word — never seen by the user across any read story.
- * Underlined to call it out as new; the underline colour is tinted by the
- * word's JPDB rarity tier so it matches the WordPopover frequency badge.
- * text-underline-offset keeps the underline clear of the kanji/kana
- * descenders. The accent colour is the fallback used until the frequency
- * index resolves, and for names (which the popover shows with no tier). */
-.word-token--new {
-  text-decoration: underline;
-  text-decoration-color: var(--accent);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.18em;
-  /* Tiny gap so adjacent highlighted words' underlines don't run
-   * together — makes word boundaries visible in continuous Japanese. */
-  margin-right: 2px;
-}
-
-/* Rarity-tier underline colours — the --freq-* gradient from App.css, the
- * same vars that colour the WordPopover frequency badge. */
-.word-token--new.word-token--freq-very-common {
-  text-decoration-color: var(--freq-very-common);
-}
-.word-token--new.word-token--freq-common {
-  text-decoration-color: var(--freq-common);
-}
-.word-token--new.word-token--freq-uncommon {
-  text-decoration-color: var(--freq-uncommon);
-}
-.word-token--new.word-token--freq-rare {
-  text-decoration-color: var(--freq-rare);
-}
-.word-token--new.word-token--freq-very-rare {
-  text-decoration-color: var(--freq-very-rare);
-}
-
-/* Tokens in the active override region get a soft highlight so the user
- * can see at a glance which span they're editing. */
-.word-token--in-override {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border-radius: 2px;
-}
-
-.word-token:focus {
-  outline: none;
-}
+/* `.word-token` + variants live in App.css since both StoryDisplay and
+ * ChatAssistantMessage use them. The popover-disabled override below is
+ * story-specific (chats use a different gate) so it stays here. */
 
 .story-content--popover-disabled .word-token {
   cursor: default;

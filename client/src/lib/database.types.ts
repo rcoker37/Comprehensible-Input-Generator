@@ -34,6 +34,86 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_messages: {
+        Row: {
+          chat_id: number
+          content: string
+          created_at: string
+          error_message: string | null
+          id: number
+          is_read: boolean
+          read_at: string | null
+          role: string
+          status: string
+          translations: Json
+          user_id: string
+          word_index_at: string | null
+          word_index_version: number | null
+        }
+        Insert: {
+          chat_id: number
+          content?: string
+          created_at?: string
+          error_message?: string | null
+          id?: never
+          is_read?: boolean
+          read_at?: string | null
+          role: string
+          status?: string
+          translations?: Json
+          user_id: string
+          word_index_at?: string | null
+          word_index_version?: number | null
+        }
+        Update: {
+          chat_id?: number
+          content?: string
+          created_at?: string
+          error_message?: string | null
+          id?: never
+          is_read?: boolean
+          read_at?: string | null
+          role?: string
+          status?: string
+          translations?: Json
+          user_id?: string
+          word_index_at?: string | null
+          word_index_version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chats: {
+        Row: {
+          created_at: string
+          id: number
+          last_activity_at: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: never
+          last_activity_at?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: never
+          last_activity_at?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       kanji: {
         Row: {
           character: string
@@ -156,6 +236,7 @@ export type Database = {
       }
       story_word_occurrences: {
         Row: {
+          chat_message_id: number | null
           end_offset: number
           entry_id: number | null
           headword: string
@@ -164,11 +245,12 @@ export type Database = {
           manual: boolean
           reading: string | null
           start_offset: number
-          story_id: number
+          story_id: number | null
           surface: string
           user_id: string
         }
         Insert: {
+          chat_message_id?: number | null
           end_offset: number
           entry_id?: number | null
           headword: string
@@ -177,11 +259,12 @@ export type Database = {
           manual?: boolean
           reading?: string | null
           start_offset: number
-          story_id: number
+          story_id?: number | null
           surface: string
           user_id: string
         }
         Update: {
+          chat_message_id?: number | null
           end_offset?: number
           entry_id?: number | null
           headword?: string
@@ -190,11 +273,18 @@ export type Database = {
           manual?: boolean
           reading?: string | null
           start_offset?: number
-          story_id?: number
+          story_id?: number | null
           surface?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "story_word_occurrences_chat_message_id_fkey"
+            columns: ["chat_message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "story_word_occurrences_story_id_fkey"
             columns: ["story_id"]
@@ -232,6 +322,7 @@ export type Database = {
       }
       word_lookups: {
         Row: {
+          chat_message_id: number | null
           end_offset: number
           headword: string
           id: number
@@ -239,11 +330,12 @@ export type Database = {
           lookup_count: number
           reading: string | null
           start_offset: number
-          story_id: number
+          story_id: number | null
           surface: string
           user_id: string
         }
         Insert: {
+          chat_message_id?: number | null
           end_offset: number
           headword: string
           id?: never
@@ -251,11 +343,12 @@ export type Database = {
           lookup_count?: number
           reading?: string | null
           start_offset: number
-          story_id: number
+          story_id?: number | null
           surface: string
           user_id: string
         }
         Update: {
+          chat_message_id?: number | null
           end_offset?: number
           headword?: string
           id?: never
@@ -263,11 +356,18 @@ export type Database = {
           lookup_count?: number
           reading?: string | null
           start_offset?: number
-          story_id?: number
+          story_id?: number | null
           surface?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "word_lookups_chat_message_id_fkey"
+            columns: ["chat_message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "word_lookups_story_id_fkey"
             columns: ["story_id"]
@@ -294,6 +394,15 @@ export type Database = {
           p_story_id: number
         }
         Returns: undefined
+      }
+      delete_chat: { Args: { p_chat_id: number }; Returns: undefined }
+      get_chat_message_word_encounters: {
+        Args: { p_message_id: number }
+        Returns: {
+          encounters: number
+          end_offset: number
+          start_offset: number
+        }[]
       }
       get_openrouter_api_key_for_user: {
         Args: { p_user_id: string }
@@ -327,22 +436,36 @@ export type Database = {
       get_word_usages: {
         Args: { p_headword: string }
         Returns: {
+          chat_id: number
+          chat_message_id: number
           end_offset: number
           looked_up_at: string
           lookup_count: number
           occurrence_id: number
           reading: string
+          source_content: string
+          source_created_at: string
+          source_title: string
+          source_type: string
           start_offset: number
-          story_content: string
-          story_created_at: string
           story_id: number
-          story_title: string
           surface: string
         }[]
+      }
+      index_chat_message_words: {
+        Args: { p_message_id: number; p_occurrences: Json; p_version: number }
+        Returns: string
       }
       index_story_words: {
         Args: { p_occurrences: Json; p_story_id: number; p_version: number }
         Returns: string
+      }
+      mark_chat_message_read: {
+        Args: { p_message_id: number }
+        Returns: {
+          is_read: boolean
+          read_at: string
+        }[]
       }
       mark_story_read: {
         Args: { p_story_id: number }
@@ -354,6 +477,7 @@ export type Database = {
       }
       record_word_lookup: {
         Args: {
+          p_chat_message_id?: number
           p_end: number
           p_headword: string
           p_reading: string
@@ -363,6 +487,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      reset_chat_word_index: { Args: { p_chat_id: number }; Returns: undefined }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
       set_story_word_overrides: {
         Args: {
@@ -374,6 +499,13 @@ export type Database = {
         Returns: undefined
       }
       strip_ruby: { Args: { t: string }; Returns: string }
+      undo_chat_message_read: {
+        Args: { p_message_id: number }
+        Returns: {
+          is_read: boolean
+          read_at: string
+        }[]
+      }
       undo_story_read: {
         Args: { p_story_id: number }
         Returns: {
