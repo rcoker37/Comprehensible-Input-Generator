@@ -1,0 +1,128 @@
+.chat-msg {
+  display: flex;
+  flex-direction: column;
+  max-width: 92%;
+}
+
+.chat-msg--assistant {
+  align-self: flex-start;
+}
+
+.chat-msg--user {
+  align-self: flex-end;
+}
+
+.chat-msg-bubble {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px 14px 14px 3px;
+  padding: 14px 16px 10px;
+}
+
+.chat-msg--user .chat-msg-bubble {
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 14px 14px 3px 14px;
+  color: var(--text);
+  padding: 9px 13px;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+/* Mirror .story-content from StoryDisplay.css so a chat message reads
+ * EXACTLY like a story paragraph — same font stack, size, line-height,
+ * letter-spacing. The Font toggle in the header only changes font-family;
+ * size + leading stay constant across both modes. See StoryDisplay.css for
+ * why we need a Japanese-capable sans font (Noto Sans JP) first. */
+.chat-msg-body {
+  position: relative;
+  color: var(--text);
+  font-family: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic", "Meiryo", "Zen Kaku Gothic New", sans-serif;
+  font-size: 1.25rem;
+  line-height: 2.1;
+  letter-spacing: 0.02em;
+}
+
+.chat-msg-body ruby rt {
+  color: var(--text-dim);
+  font-size: 0.5em;
+}
+
+.chat-msg-body--serif {
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+}
+
+/* Sans uses the same stack as .chat-msg-body default — no override. */
+
+.chat-msg-paragraph {
+  margin: 0 0 0.75rem 0;
+}
+
+.chat-msg-paragraph:last-child {
+  margin-bottom: 0;
+}
+
+.chat-msg-sentence {
+  display: inline;
+}
+
+.chat-msg-actions {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-msg-read {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  font-family: "Zen Kaku Gothic New", -apple-system, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.chat-msg-read:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chat-msg-read--done {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 7px 12px;
+}
+
+.chat-msg-read-error {
+  font-size: 0.75rem;
+  color: var(--error-fg);
+}
+
+.chat-msg-body__overlay {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(2px);
+  background: rgba(19, 17, 15, 0.35);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.chat-typing {
+  padding: 4px 0;
+  color: var(--text-dim);
+}
+
+.chat-msg-error {
+  color: var(--error-fg);
+  font-size: 0.9rem;
+}

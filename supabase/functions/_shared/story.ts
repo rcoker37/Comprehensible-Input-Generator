@@ -57,3 +57,27 @@ export async function loadStoryForUser(
   if (error || !data) throw new Error("Story not found");
   return data as LoadedStory;
 }
+
+export interface LoadedChatMessage {
+  id: number;
+  content: string;
+  translations: StoredTranslations | null;
+  user_id: string;
+}
+
+export async function loadChatMessageForUser(
+  authHeader: string,
+  messageId: number
+): Promise<LoadedChatMessage> {
+  const supabaseUser = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data, error } = await supabaseUser
+    .from("chat_messages")
+    .select("id, content, translations, user_id")
+    .eq("id", messageId)
+    .eq("role", "assistant")
+    .single();
+  if (error || !data) throw new Error("Chat message not found");
+  return data as LoadedChatMessage;
+}

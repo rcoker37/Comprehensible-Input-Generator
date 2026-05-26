@@ -1,13 +1,13 @@
 // Background backfill for the word-occurrence index.
 //
 // On mount (once both the dictionary is "ready" and the user is signed in),
-// fetches every read-but-unindexed story and processes them serially in the
-// background: extractWordOccurrences → indexStoryWords → throttle. Failures
-// are logged and skipped — the row stays unstamped so the next session
-// retries.
+// fetches every unindexed source — stories AND assistant chat messages —
+// and processes them serially in the background: extractWordOccurrences →
+// indexStoryWords / indexChatMessageWords → throttle. Failures are logged
+// and skipped; the row stays unstamped so the next session retries.
 //
-// Settings exposes the queue length and the currently-processing story id
-// for visibility. There's no pause control: if the dictionary is loaded and
+// Settings exposes the queue length and the currently-processing item for
+// visibility. There's no pause control: if the dictionary is loaded and
 // there's work to do, we drain.
 import {
   createContext,
@@ -23,13 +23,18 @@ import { useAuth } from "./AuthContext";
 import { useDictionary } from "./DictionaryContext";
 import {
   getStoriesNeedingIndex,
+  getChatMessagesNeedingIndex,
   indexStoryWords,
+  indexChatMessageWords,
 } from "../api/client";
 import { extractWordOccurrences } from "../lib/storyWordIndex";
 
 const STORY_GAP_MS = 200;
 
-interface QueuedStory {
+type SourceKind = "story" | "chat_message";
+
+interface QueuedItem {
+  kind: SourceKind;
   id: number;
   content: string;
 }
@@ -37,7 +42,14 @@ interface QueuedStory {
 interface WordIndexBackfillContextType {
   remaining: number;
   processing: boolean;
+  /** Id of the currently-processing source, regardless of kind. */
+  currentSourceId: number | null;
+  /** Kind of the currently-processing source, when one is in flight. */
+  currentSourceKind: SourceKind | null;
+  /** Convenience: currentSourceId when the active source is a story, else null. */
   currentStoryId: number | null;
+  /** Convenience: currentSourceId when the active source is a chat message, else null. */
+  currentChatMessageId: number | null;
   error: string | null;
   refresh: () => void;
 }
@@ -66,15 +78,32 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
 
   const [remaining, setRemaining] = useState(0);
   const [processing, setProcessing] = useState(false);
-  const [currentStoryId, setCurrentStoryId] = useState<number | null>(null);
+  const [currentSourceId, setCurrentSourceId] = useState<number | null>(null);
+  const [currentSourceKind, setCurrentSourceKind] = useState<SourceKind | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // The queue lives in a ref because the processing loop reads/writes it in
-  // a tight loop and we don't need React to re-render between stories.
-  const queueRef = useRef<QueuedStory[]>([]);
+  // a tight loop and we don't need React to re-render between items.
+  const queueRef = useRef<QueuedItem[]>([]);
   // Identity check so we can cancel a stale loop after sign-out or refresh.
   const runIdRef = useRef(0);
   const loopRunningRef = useRef(false);
+
+  const loadQueue = useCallback(async (): Promise<QueuedItem[]> => {
+    const [storyRows, chatRows] = await Promise.all([
+      getStoriesNeedingIndex(),
+      getChatMessagesNeedingIndex(),
+    ]);
+    const items: QueuedItem[] = [
+      ...storyRows.map((s) => ({ kind: "story" as const, id: s.id, content: s.content })),
+      ...chatRows.map((m) => ({
+        kind: "chat_message" as const,
+        id: m.id,
+        content: m.content,
+      })),
+    ];
+    return items;
+  }, []);
 
   // Queue hydrate — runs whenever the user changes (sign-in / sign-out) or
   // when the dictionary becomes ready. Both gates have to be satisfied
@@ -85,16 +114,17 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
       runIdRef.current += 1;
       setRemaining(0);
       setProcessing(false);
-      setCurrentStoryId(null);
+      setCurrentSourceId(null);
+      setCurrentSourceKind(null);
       return;
     }
     let cancelled = false;
     setError(null);
-    getStoriesNeedingIndex()
-      .then((rows) => {
+    loadQueue()
+      .then((items) => {
         if (cancelled) return;
-        queueRef.current = rows;
-        setRemaining(rows.length);
+        queueRef.current = items;
+        setRemaining(items.length);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -104,7 +134,7 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
     return () => {
       cancelled = true;
     };
-  }, [user, dictState]);
+  }, [user, dictState, loadQueue]);
 
   const runLoop = useCallback(async () => {
     if (loopRunningRef.current) return;
@@ -118,17 +148,24 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
         queueRef.current.length > 0 &&
         runIdRef.current === myRunId
       ) {
-        const story = queueRef.current[0]!;
-        setCurrentStoryId(story.id);
+        const item = queueRef.current[0]!;
+        setCurrentSourceId(item.id);
+        setCurrentSourceKind(item.kind);
         try {
-          const occurrences = await extractWordOccurrences(story);
+          // extractWordOccurrences only reads `.content` — same shape works
+          // for both stories and chat messages.
+          const occurrences = await extractWordOccurrences(item);
           if (runIdRef.current !== myRunId) return;
-          await indexStoryWords(story.id, occurrences);
+          if (item.kind === "story") {
+            await indexStoryWords(item.id, occurrences);
+          } else {
+            await indexChatMessageWords(item.id, occurrences);
+          }
         } catch (err) {
-          // Per-story failures get logged and the story stays at the head
+          // Per-item failures get logged and the item stays at the head
           // of the queue. We pop it anyway so we don't infinite-loop on a
           // broken row; the next session will re-pick it up.
-          console.warn("Backfill failed for story", story.id, err);
+          console.warn("Backfill failed for", item.kind, item.id, err);
         }
         if (runIdRef.current !== myRunId) return;
         queueRef.current.shift();
@@ -138,7 +175,8 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
     } finally {
       if (runIdRef.current === myRunId) {
         setProcessing(false);
-        setCurrentStoryId(null);
+        setCurrentSourceId(null);
+        setCurrentSourceKind(null);
       }
       loopRunningRef.current = false;
     }
@@ -153,25 +191,42 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
 
   const refresh = useCallback(() => {
     if (!user || dictState !== "ready") return;
-    getStoriesNeedingIndex()
-      .then((rows) => {
-        queueRef.current = rows;
-        setRemaining(rows.length);
+    loadQueue()
+      .then((items) => {
+        queueRef.current = items;
+        setRemaining(items.length);
       })
       .catch((err) => {
         console.warn("Backfill refresh failed:", err);
       });
-  }, [user, dictState]);
+  }, [user, dictState, loadQueue]);
+
+  const currentStoryId =
+    currentSourceKind === "story" ? currentSourceId : null;
+  const currentChatMessageId =
+    currentSourceKind === "chat_message" ? currentSourceId : null;
 
   const value = useMemo(
     () => ({
       remaining,
       processing,
+      currentSourceId,
+      currentSourceKind,
       currentStoryId,
+      currentChatMessageId,
       error,
       refresh,
     }),
-    [remaining, processing, currentStoryId, error, refresh]
+    [
+      remaining,
+      processing,
+      currentSourceId,
+      currentSourceKind,
+      currentStoryId,
+      currentChatMessageId,
+      error,
+      refresh,
+    ]
   );
 
   return (

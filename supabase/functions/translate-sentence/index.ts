@@ -1,8 +1,10 @@
-// AI translation of a single sentence within a story. Lazy on first tap,
-// then served from a per-sentence cache on stories.translations so other
-// taps in the same sentence are instant.
+// AI translation of a single sentence within a story OR a chat message.
+// Lazy on first tap, then served from a per-sentence cache on
+// stories.translations / chat_messages.translations so other taps in the
+// same sentence are instant.
 //
-// POST { story_id, sentence_start, sentence_end, regenerate? }
+// POST { story_id?, chat_message_id?, sentence_start, sentence_end, regenerate? }
+//   Exactly one of story_id / chat_message_id must be set.
 //   sentence_start/end — char offsets in the *cleaned* content (ruby blocks
 //     stripped). The client computes these via extractSentenceSnippet so
 //     both sides agree on sentence bounds. The server slices the same
@@ -16,6 +18,7 @@ import { cleanContent, stripBold } from "../_shared/text.ts";
 import {
   getUserFromAuthHeader,
   loadStoryForUser,
+  loadChatMessageForUser,
   supabaseAdmin,
   type SentenceTranslation,
   type StoredTranslations,
@@ -88,13 +91,17 @@ Deno.serve(async (req) => {
     if (!auth) return json(401, { error: "Unauthorized" });
 
     const body = await req.json();
-    const storyId = body?.story_id;
+    const storyId = typeof body?.story_id === "number" ? body.story_id : null;
+    const chatMessageId =
+      typeof body?.chat_message_id === "number" ? body.chat_message_id : null;
     const sentenceStart = body?.sentence_start;
     const sentenceEnd = body?.sentence_end;
     const regenerate = body?.regenerate === true;
 
-    if (typeof storyId !== "number") {
-      return json(400, { error: "Missing story_id" });
+    if ((storyId == null) === (chatMessageId == null)) {
+      return json(400, {
+        error: "Exactly one of story_id or chat_message_id must be set",
+      });
     }
     if (
       typeof sentenceStart !== "number" ||
@@ -105,8 +112,12 @@ Deno.serve(async (req) => {
       return json(400, { error: "Invalid offsets" });
     }
 
-    const story = await loadStoryForUser(auth.authHeader, storyId);
-    const content = cleanContent(story.content);
+    const source =
+      storyId != null
+        ? await loadStoryForUser(auth.authHeader, storyId)
+        : await loadChatMessageForUser(auth.authHeader, chatMessageId!);
+    const sourceLabel = storyId != null ? "story" : "chat-message";
+    const content = cleanContent(source.content);
     if (sentenceEnd > content.length) {
       return json(400, { error: "Offsets out of range" });
     }
@@ -119,7 +130,7 @@ Deno.serve(async (req) => {
     }
 
     const rangeKey = `${sentenceStart}-${sentenceEnd}`;
-    const existing = story.translations?.[rangeKey];
+    const existing = source.translations?.[rangeKey];
     if (!regenerate && existing) {
       return json(200, { translation: existing });
     }
@@ -131,7 +142,12 @@ Deno.serve(async (req) => {
       model: TRANSLATE_MODEL,
       messages,
       maxTokens: MAX_TOKENS_TRANSLATE,
-      logContext: { fn: "translate-sentence", storyId, range: rangeKey },
+      logContext: {
+        fn: "translate-sentence",
+        source: sourceLabel,
+        sourceId: source.id,
+        range: rangeKey,
+      },
     });
 
     const translation: SentenceTranslation = {
@@ -141,14 +157,15 @@ Deno.serve(async (req) => {
     };
 
     const updated: StoredTranslations = {
-      ...(story.translations ?? {}),
+      ...(source.translations ?? {}),
       [rangeKey]: translation,
     };
 
+    const table = storyId != null ? "stories" : "chat_messages";
     const { error: updateErr } = await supabaseAdmin
-      .from("stories")
+      .from(table)
       .update({ translations: updated })
-      .eq("id", storyId)
+      .eq("id", source.id)
       .eq("user_id", auth.userId);
     if (updateErr) {
       console.error("translate-sentence update failed:", updateErr);

@@ -137,6 +137,110 @@ h1 {
   margin-bottom: 1.5rem;
 }
 
+/* Floating "+ Generate" / "+ New chat" button. Shared between the Stories
+ * and Chats list pages — defined globally so a refresh on either page
+ * picks up the styling without depending on the other page's CSS chunk. */
+.fab-generate {
+  position: fixed;
+  bottom: 27px;
+  right: 27px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: opacity 0.2s, transform 0.15s;
+  /* above page content; modals use the browser top layer so need no z-index */
+  z-index: 10;
+}
+
+.fab-generate:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+.fab-generate:disabled {
+  opacity: 0.85;
+  cursor: not-allowed;
+}
+
+.fab-generate svg {
+  display: block;
+}
+
+.fab-spinner {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(0, 0, 0, 0.25);
+  border-top-color: var(--bg);
+  border-radius: 50%;
+  animation: fab-spin 0.8s linear infinite;
+}
+
+@keyframes fab-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Shared tap-target token — used by StoryDisplay and ChatAssistantMessage.
+ * The button is just a tap surface for the popover; we strip the browser's
+ * default chrome so the Japanese text reads as plain prose. New-word
+ * underline + rarity-tier colours match the WordPopover frequency badge. */
+.word-token {
+  display: inline;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.word-token--new {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.18em;
+  /* Tiny gap so adjacent highlighted words' underlines don't run
+   * together — makes word boundaries visible in continuous Japanese. */
+  margin-right: 2px;
+}
+
+.word-token--new.word-token--freq-very-common {
+  text-decoration-color: var(--freq-very-common);
+}
+.word-token--new.word-token--freq-common {
+  text-decoration-color: var(--freq-common);
+}
+.word-token--new.word-token--freq-uncommon {
+  text-decoration-color: var(--freq-uncommon);
+}
+.word-token--new.word-token--freq-rare {
+  text-decoration-color: var(--freq-rare);
+}
+.word-token--new.word-token--freq-very-rare {
+  text-decoration-color: var(--freq-very-rare);
+}
+
+/* Active override region in the StoryDisplay editor. No effect on chat
+ * (chats have no override editor), but kept here so the selector lives
+ * with the rest of the .word-token rules. */
+.word-token--in-override {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 2px;
+}
+
+.word-token:focus {
+  outline: none;
+}
+
 /* Shared components */
 .chip-group {
   display: flex;

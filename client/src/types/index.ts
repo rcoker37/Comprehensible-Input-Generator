@@ -55,24 +55,70 @@ export interface StoryReadState {
 }
 
 /**
- * One occurrence of a headword in one of the user's tokenized stories. Returned
- * by `get_word_usages` and consumed by the WordPopover carousel to render every
- * place the headword appears across the user's library. `lookedUpAt` /
- * `lookupCount` come from the optional `word_lookups` join — null/0 when the
- * user has never tapped this span.
+ * One occurrence of a headword in one of the user's tokenized sources —
+ * a read story or a read chat message. Returned by `get_word_usages` and
+ * consumed by the WordPopover carousel to render every place the headword
+ * appears across the user's library. `lookedUpAt` / `lookupCount` come from
+ * the optional `word_lookups` join — null/0 when the user has never tapped
+ * this span.
+ *
+ * `sourceType` discriminates which id columns are set:
+ *   - `'story'` → `storyId` is set, `chatId`/`chatMessageId` are null
+ *   - `'chat'`  → `chatId` + `chatMessageId` are set, `storyId` is null
  */
+export type WordUsageSource = "story" | "chat";
+
 export interface WordUsage {
   occurrenceId: number;
-  storyId: number;
-  storyTitle: string;
-  storyContent: string;
-  storyCreatedAt: string;
+  sourceType: WordUsageSource;
+  storyId: number | null;
+  chatId: number | null;
+  chatMessageId: number | null;
+  sourceTitle: string;
+  sourceContent: string;
+  sourceCreatedAt: string;
   startOffset: number;
   endOffset: number;
   surface: string;
   reading: string | null;
   lookedUpAt: string | null;
   lookupCount: number;
+}
+
+// Chat feature: LLM conversations always answering in Japanese, with
+// per-message Mark-as-Read that contributes encounters to the vocab/kanji
+// score. Each assistant message goes through the same JMdict/kuromoji
+// indexer as story content (via the polymorphic story_word_occurrences
+// table).
+export type ChatMessageRole = "user" | "assistant";
+export type ChatMessageStatus = "pending" | "complete" | "failed";
+
+export interface Chat {
+  id: number;
+  user_id?: string;
+  title: string;
+  created_at: string;
+  last_activity_at: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  chat_id: number;
+  user_id?: string;
+  role: ChatMessageRole;
+  content: string;
+  status: ChatMessageStatus;
+  error_message: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  word_index_at: string | null;
+  translations: StoryTranslations | null;
+  created_at: string;
+}
+
+export interface ChatMessageReadState {
+  is_read: boolean;
+  read_at: string | null;
 }
 
 // Stories-page filter shapes are persisted on the profile so the page
@@ -109,9 +155,14 @@ export type DisplayMode = "off" | "unseen" | "all";
 // green; 10+ unhighlighted).
 export type HighlightMode = "off" | "frequency" | "encounters";
 
+// Reading font: shared between Story reader and Chat thread. "serif" is the
+// default Noto Serif JP body; "sans" swaps to Zen Kaku Gothic New (the UI sans).
+export type FontMode = "serif" | "sans";
+
 export interface ReaderPreferences {
   furigana: DisplayMode;
   highlight: HighlightMode;
+  font: FontMode;
 }
 
 export interface Preferences {

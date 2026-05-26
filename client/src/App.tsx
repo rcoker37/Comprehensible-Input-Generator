@@ -10,6 +10,8 @@ import "./App.css";
 
 const Stories = lazy(() => import("./pages/Stories"));
 const StoryDetail = lazy(() => import("./pages/StoryDetail"));
+const Chats = lazy(() => import("./pages/Chats"));
+const ChatDetail = lazy(() => import("./pages/ChatDetail"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 
@@ -38,6 +40,26 @@ function App() {
                   <ErrorBoundary>
                     <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <StoryDetail />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/chats"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                      <Chats />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/chats/:id"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                      <ChatDetail />
                     </Suspense>
                   </ErrorBoundary>
                 }
