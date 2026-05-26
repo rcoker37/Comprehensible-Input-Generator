@@ -22,7 +22,6 @@
 // 409 if a pending assistant message already exists in the same chat (the
 // unique partial index `chat_messages_pending_unique` enforces this).
 
-import { cleanContent } from "../_shared/text.ts";
 import { supabaseAdmin, getUserFromAuthHeader } from "../_shared/story.ts";
 import { callOpenRouter, getApiKey, type OpenRouterMessage } from "../_shared/openrouter.ts";
 
@@ -115,18 +114,17 @@ async function loadHistory(chatId: number, userId: string): Promise<HistoryRow[]
 
 function selectContextWindow(history: HistoryRow[]): HistoryRow[] {
   // Newest-first under both caps, then re-sort to oldest-first for the
-  // OpenRouter call. Strip ruby from assistant messages so the model isn't
-  // re-reading its own annotations as if they were user input.
+  // OpenRouter call. Keep ruby on assistant messages so the model sees its
+  // own correctly-annotated replies — without this it pattern-matches on
+  // bare-kanji history and stops emitting ruby after a few turns.
   const newestFirst = [...history].reverse();
   const selected: HistoryRow[] = [];
   let chars = 0;
   for (const row of newestFirst) {
-    const content =
-      row.role === "assistant" ? cleanContent(row.content) : row.content;
-    const cost = content.length;
+    const cost = row.content.length;
     if (selected.length >= HISTORY_MAX_MESSAGES) break;
     if (chars + cost > HISTORY_MAX_CHARS && selected.length > 0) break;
-    selected.push({ role: row.role, content });
+    selected.push({ role: row.role, content: row.content });
     chars += cost;
   }
   return selected.reverse();
