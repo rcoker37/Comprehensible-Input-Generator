@@ -192,6 +192,7 @@
 }
 
 .word-popover__surface {
+  font-family: var(--jp-font);
   font-size: 1.6rem;
   line-height: 1.2;
 }

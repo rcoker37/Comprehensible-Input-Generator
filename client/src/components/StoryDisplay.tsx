@@ -39,6 +39,7 @@ import {
 import WordPopover from "./WordPopover";
 import StoryOverrideEditor from "./StoryOverrideEditor";
 import ReaderControls from "./ReaderControls";
+import AnimatedDots from "./AnimatedDots";
 import type {
   DisplayMode,
   FontMode,
@@ -199,6 +200,24 @@ export default function StoryDisplay({
     backfillRemaining > 0;
   const tapsBlocked = popoverDisabled || overrideSpan !== null;
 
+  // Track whether this story has EVER been seen with word_index_at !== null.
+  // Distinguishes "first-time indexing" (hide the body, show a preparing
+  // placeholder so the freshly-generated text doesn't flash in before its
+  // tap targets are ready) from "re-indexing an already-shown story" (the
+  // user edited / saved overrides / hit reset — keep showing the body
+  // under the glassy overlay so the text doesn't disappear).
+  const [hasBeenIndexed, setHasBeenIndexed] = useState(
+    story.word_index_at !== null
+  );
+  useEffect(() => {
+    if (story.word_index_at !== null && !hasBeenIndexed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- monotonic flip on first non-null word_index_at; subsequent renders short-circuit on `!hasBeenIndexed`.
+      setHasBeenIndexed(true);
+    }
+  }, [story.word_index_at, hasBeenIndexed]);
+  const firstIndexPending =
+    story.word_index_at === null && !hasBeenIndexed;
+
   useEffect(() => {
     // Sync the server-owned translation map into local state whenever the
     // story prop changes; local edits bubble back up via onTranslationUpdated.
@@ -351,12 +370,15 @@ export default function StoryDisplay({
   // completes; the overlay hides the reflow when merged spans swap in.
   const displayParagraphs = paragraphs ?? baseParagraphs;
 
-  // Show the loading overlay whenever popover taps would not work usefully:
-  // the regroup pass hasn't produced word-shaped tap targets, the parent
+  // Show the loading overlay only for "re-indexing an existing story" — the
+  // regroup pass hasn't produced word-shaped tap targets, the parent
   // signalled a re-index is in flight, or the story hasn't been indexed /
-  // the backfill queue isn't drained.
+  // the backfill queue isn't drained. First-time indexing hides the body
+  // entirely (see firstIndexPending below), so the glassy overlay only
+  // appears on top of text the user has already seen.
   const showLoadingOverlay =
-    paragraphs === null || regenerating || popoverDisabled;
+    hasBeenIndexed &&
+    (paragraphs === null || regenerating || popoverDisabled);
 
   // Lookup map for tap-target headwords: when the tapped span has an
   // occurrence row, pass the row's headword to the popover so its JMdict
@@ -756,19 +778,30 @@ export default function StoryDisplay({
       <div
         className={`story-content story-content--font-${font}${popoverDisabled ? " story-content--popover-disabled" : ""}`}
       >
-        <div className="story-paragraphs">
-          {displayParagraphs.map((para, pIdx) => (
-            <p key={pIdx} className="story-paragraph">
-              {para.sentences.map((sent) => (
-                <span key={sent.start} className="story-sentence">
-                  {sent.parts.map((part, i) => renderPart(part, i))}
-                </span>
+        {firstIndexPending ? (
+          <div className="story-content__preparing">
+            Preparing<AnimatedDots />
+          </div>
+        ) : (
+          <>
+            <div className="story-paragraphs">
+              {displayParagraphs.map((para, pIdx) => (
+                <p key={pIdx} className="story-paragraph">
+                  {para.sentences.map((sent) => (
+                    <span key={sent.start} className="story-sentence">
+                      {sent.parts.map((part, i) => renderPart(part, i))}
+                    </span>
+                  ))}
+                </p>
               ))}
-            </p>
-          ))}
-        </div>
-        {showLoadingOverlay && (
-          <div className="story-content__loading-overlay" aria-hidden="true" />
+            </div>
+            {showLoadingOverlay && (
+              <div
+                className="story-content__loading-overlay"
+                aria-hidden="true"
+              />
+            )}
+          </>
         )}
       </div>
       <WordPopover

@@ -32,6 +32,19 @@
   --freq-very-rare: #e07a64;
   --radius: 8px;
   color-scheme: dark;
+  /* Japanese reading font: switches between sans/serif based on the user's
+   * reader preference. AppLayout mirrors `profile.preferences.reader.font`
+   * onto `:root[data-font]` so every Japanese-rendering surface (chat
+   * composer, user bubbles, list-page titles, popover header) tracks the
+   * pill toggle in StoryDisplay/ChatDetail without prop drilling. The
+   * existing per-element classes (.chat-msg-body--serif, .story-content--font-serif)
+   * still work — they're more specific and unchanged. */
+  --jp-font: "Noto Sans JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic", "Meiryo", "Zen Kaku Gothic New", sans-serif;
+}
+
+:root[data-font="serif"] {
+  --jp-font: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
 }
 
 body {
@@ -345,7 +358,7 @@ select {
   color: var(--text);
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius);
-  font-size: 0.95rem;
+  font-size: 16px;
   width: 100%;
 }
 
@@ -370,16 +383,6 @@ input[type="password"]:focus,
 select:focus {
   outline: none;
   border-color: var(--accent);
-}
-
-@media (max-width: 768px) {
-  input[type="text"],
-  input[type="number"],
-  input[type="email"],
-  input[type="password"],
-  select {
-    font-size: 16px;
-  }
 }
 
 button {

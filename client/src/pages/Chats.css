@@ -47,6 +47,7 @@
 }
 
 .chat-card-title {
+  font-family: var(--jp-font);
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--text);
