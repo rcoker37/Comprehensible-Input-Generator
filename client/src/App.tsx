@@ -23,7 +23,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<Navigate to="/stories" replace />} />
+              <Route path="/" element={<Navigate to="/chats" replace />} />
               <Route
                 path="/stories"
                 element={
