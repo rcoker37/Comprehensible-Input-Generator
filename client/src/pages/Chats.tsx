@@ -50,7 +50,7 @@ export default function Chats() {
     <div className="chats-page">
       <div className="chats-page-header">
         <div>
-          <h1>チャット</h1>
+          <h1>Chat</h1>
           <div className="chats-page-sub">
             {chats.length} {chats.length === 1 ? "conversation" : "conversations"}
           </div>
@@ -67,50 +67,44 @@ export default function Chats() {
         <div className="chat-list">
           {chats.map((chat) => (
             <div key={chat.id} className="chat-card">
-              <Link
-                to={`/chats/${chat.id}`}
-                className="chat-card-link"
-                aria-label={`Open chat: ${chat.title}`}
-              >
-                <div className="chat-card-header">
-                  <div className="chat-card-title">
-                    {stripAnnotations(stripBold(chat.title))}
-                  </div>
-                  <div className="chat-card-date">
-                    {formatRelativeDate(chat.last_activity_at)}
-                  </div>
-                </div>
-                {chat.min_assistant_read_count != null &&
-                  chat.min_assistant_read_count > 0 && (
-                    <div className="chat-card-meta">
+              <div className="chat-card-header">
+                <Link to={`/chats/${chat.id}`} className="chat-card-title">
+                  {stripAnnotations(stripBold(chat.title))}
+                </Link>
+                <div className="chat-card-header-actions">
+                  {chat.min_assistant_read_count != null &&
+                    chat.min_assistant_read_count > 0 && (
                       <span className="read-tag">
                         {chat.min_assistant_read_count > 1
                           ? `✓ Read ${chat.min_assistant_read_count}×`
                           : "✓ Read"}
                       </span>
-                    </div>
-                  )}
-              </Link>
-              <div className="chat-card-actions">
-                <button
-                  className="delete-btn"
-                  onClick={() => handleDelete(chat.id)}
-                  title="Delete chat"
-                  aria-label="Delete chat"
-                >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
+                    )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDelete(chat.id)}
+                    title="Delete chat"
+                    aria-label="Delete chat"
                   >
-                    <line x1="3" y1="3" x2="11" y2="11" />
-                    <line x1="11" y1="3" x2="3" y2="11" />
-                  </svg>
-                </button>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    >
+                      <line x1="3" y1="3" x2="11" y2="11" />
+                      <line x1="11" y1="3" x2="3" y2="11" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="chat-card-meta">
+                <span className="date">
+                  {formatRelativeDate(chat.last_activity_at)}
+                </span>
               </div>
             </div>
           ))}

@@ -53,13 +53,6 @@
   margin-top: 0.5rem;
 }
 
-.read-tag {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.75rem;
-  color: var(--success);
-}
-
 .stories-page .filter-row {
   display: flex;
   align-items: center;

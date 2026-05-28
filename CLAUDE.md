@@ -74,8 +74,8 @@ npm run test:index:regenerate -- <fixture-substring>    # bless algorithm output
 # build artifact; the word-index suite auto-records it on first run otherwise)
 npm run record-test-dictionary
 
-# Serve Edge Functions locally
-npx supabase functions serve --env-file .env.local
+# Serve Edge Functions locally (loads .env.local)
+npm run functions:serve
 
 # Deploy Edge Functions
 npx supabase functions deploy generate-story
@@ -166,7 +166,7 @@ RLS policies: `kanji` readable by authenticated users; `user_kanji`/`stories`/`p
 - Story generation runs as a **background task** in the Edge Function (via `EdgeRuntime.waitUntil`). The client `POST`s once, gets back `{ story_id }`, and polls `getStory(id)` every 3s until `status` flips. After 5 minutes without flipping, the client calls `markStoryFailed` to recover from a silently-killed worker. There is no streaming, no thinking-content display, and no validation — whatever text the model returns is saved.
 - Edge Functions read the OpenRouter API key from **Supabase Vault** via a service-role RPC (not from a plaintext profile column).
 - OpenRouter API is OpenAI-compatible (`/v1/chat/completions`). Story generation enforces an `ALLOWED_MODELS` allow-list (see `generate-story/index.ts:9` for the current pin); translate-sentence pins its own model with a per-request token cap (see `translate-sentence/index.ts`).
-- All local-dev env vars live in a single project-root `.env.local` (gitignored — see `.env.local.example`). Vite reads it via `envDir` set in `client/vite.config.ts`; `supabase functions serve --env-file .env.local` loads it for Edge Functions. Only `VITE_*` vars are exposed to the browser bundle. Vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (client → Supabase). Edge Functions also see `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from the Deno env automatically.
+- All local-dev env vars live in a single project-root `.env.local` (gitignored — see `.env.local.example`). Vite reads it via `envDir` set in `client/vite.config.ts`; `npm run functions:serve` loads it for Edge Functions. Only `VITE_*` vars are exposed to the browser bundle. Vars: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (client → Supabase). Edge Functions also see `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from the Deno env automatically.
 - Local dev user: `supabase start` and `db reset` apply both `supabase/seed.sql` (kanji reference data) and `supabase/seed_dev.sql` (test account `dev@local.test` / `devpassword`, grade 1–3 kanji marked known, sample stories). The OpenRouter key is not seeded — log in and paste it in Settings (it goes through the existing `set_openrouter_api_key()` RPC into Vault).
 
 ## Conventions

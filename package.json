@@ -11,6 +11,7 @@
     "generate-frequency": "npx tsx scripts/generate-jpdb-frequency.ts",
     "generate-frequency-by-entry": "npx tsx scripts/generate-jpdb-frequency-by-entry.ts",
     "sync-prod": "bash scripts/sync-prod-to-local.sh",
+    "functions:serve": "npx supabase functions serve --env-file .env.local",
     "record-test-dictionary": "node scripts/record-test-dictionary.mjs",
     "import-story-local": "node scripts/import-story-local.mjs",
     "test": "npm run test --workspace=client",
