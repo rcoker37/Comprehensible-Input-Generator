@@ -84,6 +84,11 @@ export default function ChatDetail() {
   const [error, setError] = useState<string | null>(null);
   const [resetPending, setResetPending] = useState(false);
   const [activeTap, setActiveTap] = useState<ActiveTap | null>(null);
+  // Locally-held text of a message the user just submitted but whose
+  // sendChatMessage round-trip hasn't returned yet — rendered as a
+  // ChatUserBubble appended to the stream so the bubble appears the moment
+  // the user hits send rather than after the Edge Function responds.
+  const [sendingText, setSendingText] = useState<string | null>(null);
 
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [highlightMode, setHighlightMode] = useState<HighlightMode>("encounters");
@@ -190,6 +195,7 @@ export default function ChatDetail() {
   const isPending = chatId != null && pendingByChat.has(chatId);
 
   const handleSend = async (text: string) => {
+    setSendingText(text);
     try {
       const formality: Formality =
         profile?.preferences?.generator?.formality ?? "polite";
@@ -198,11 +204,13 @@ export default function ChatDetail() {
         userText: text,
         formality,
       });
+      setSendingText(null);
       if (chatId == null) {
         // Replace URL with the new chat id so a refresh resumes here.
         navigate(`/chats/${res.chatId}`, { replace: true });
       }
     } catch (err) {
+      setSendingText(null);
       setError(err instanceof Error ? err.message : "Failed to send message");
     }
   };
@@ -287,7 +295,7 @@ export default function ChatDetail() {
     // small lag rather than building a finer signal here.
   };
 
-  if (loadingMessages) {
+  if (loadingMessages && messages.length === 0) {
     return (
       <div className="loading">
         Loading chat
@@ -402,7 +410,7 @@ export default function ChatDetail() {
       )}
 
       <div className="chat-detail-stream">
-        {messages.length === 0 && isNew && (
+        {messages.length === 0 && isNew && sendingText == null && (
           <div className="empty chat-detail-empty">
             Ask anything in English or Japanese — replies always come back in
             Japanese.
@@ -434,10 +442,11 @@ export default function ChatDetail() {
             />
           )
         )}
+        {sendingText != null && <ChatUserBubble text={sendingText} />}
       </div>
 
       <ChatComposer
-        disabled={isPending}
+        disabled={isPending || sendingText != null}
         onSend={handleSend}
       />
 
