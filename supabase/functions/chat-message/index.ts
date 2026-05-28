@@ -77,6 +77,8 @@ function buildSystemPrompt(allowedKanji: string, formality: string): string {
     "",
     "Reply naturally and conversationally. Keep responses concise — typically 1–3 short paragraphs. If the user asks a grammar or vocabulary question, explain it in Japanese with examples (the user is learning by reading your replies).",
     "",
+    "When (and ONLY when) the user's most recent message is written entirely in Japanese, end your reply with a corrections section. Format: leave a blank line, then the header 「訂正《ていせい》：」 on its own line, then each issue on its own line as 「<user's phrase>」→「<natural version>」（<short Japanese reason>）. Cover particles, conjugation, word choice, register, and naturalness — anything you would flag as a Japanese teacher. If the user's Japanese was entirely natural and grammatical, write 「特《とく》に問題《もんだい》ありません。」 as the only line under the header. If the user's message contains any English, romaji, or other non-Japanese language, OMIT this section entirely — no header, no placeholder, no encouragement to switch languages. The section, when present, must follow all the kanji and ruby rules above.",
+    "",
     "Output ONLY the Japanese reply. No preamble, no quotes, no English, no markdown (no #, **, _, -, >, backticks).",
   ].join("\n");
 }
