@@ -41,6 +41,19 @@ const ALLOWED_MODELS = new Set([CHAT_MODEL]);
 const MAX_TOKENS_CHAT = 4000;
 const OPENROUTER_TIMEOUT_MS = 180_000;
 
+// Dev fake mode: skip the OpenRouter call and write a canned Aozora-ruby
+// reply after a short delay. Lets developers exercise the full chat flow
+// (pending → complete polling, word indexing, read tracking, corrections
+// rendering) without configuring an OpenRouter key. Enable by setting
+// OPENROUTER_FAKE_MODE=1 in .env.local before `supabase functions serve`.
+const FAKE_MODE = (Deno.env.get("OPENROUTER_FAKE_MODE") || "") === "1";
+const FAKE_REPLY_DELAY_MS = 1500;
+const FAKE_REPLIES = [
+  "そうですね。良《よ》い質問《しつもん》です。今日《きょう》は天気《てんき》が良《よ》いので、少《すこ》し散歩《さんぽ》しませんか。",
+  "なるほど、興味深《きょうみぶか》い話題《わだい》ですね。もう少《すこ》し詳《くわ》しく教《おし》えてください。一緒《いっしょ》に考《かんが》えましょう。",
+  "面白《おもしろ》いですね。日本語《にほんご》の勉強《べんきょう》、頑張《がんば》ってください。毎日《まいにち》少《すこ》しずつ続《つづ》けることが大切《たいせつ》です。",
+];
+
 // History budget: send up to N most-recent complete turns, capped by total
 // character count so a single long turn doesn't blow the window.
 const HISTORY_MAX_MESSAGES = 10;
@@ -132,6 +145,67 @@ function selectContextWindow(history: HistoryRow[]): HistoryRow[] {
   return selected.reverse();
 }
 
+function isAllJapanese(s: string): boolean {
+  const trimmed = s.replace(/\s+/g, "");
+  if (!trimmed) return false;
+  // Hiragana, katakana, CJK ideographs, JP punctuation/fullwidth ranges.
+  return /^[　-〿぀-ゟ゠-ヿ一-鿿＀-￯]+$/.test(
+    trimmed,
+  );
+}
+
+function buildFakeReply(userText: string, seed: number): string {
+  const reply = FAKE_REPLIES[seed % FAKE_REPLIES.length];
+  if (!isAllJapanese(userText)) return reply;
+  // Alternate between the "no issues" placeholder and a sample correction
+  // so both rendering paths are exercised in dev.
+  const correction =
+    seed % 2 === 0
+      ? "特《とく》に問題《もんだい》ありません。"
+      : "「日本語《にほんご》上手《じょうず》」→「日本語《にほんご》がお上手《じょうず》です」（が抜《ぬ》けていました）";
+  return `${reply}\n\n訂正《ていせい》：\n${correction}`;
+}
+
+async function runFakeGeneration(args: {
+  chatId: number;
+  assistantMessageId: number;
+  userText: string;
+}) {
+  const { chatId, assistantMessageId, userText } = args;
+  console.log("chat-message: fake-mode reply for", assistantMessageId);
+  try {
+    await new Promise((resolve) => setTimeout(resolve, FAKE_REPLY_DELAY_MS));
+    const content = buildFakeReply(userText, assistantMessageId);
+    const { error } = await supabaseAdmin
+      .from("chat_messages")
+      .update({ content, status: "complete" })
+      .eq("id", assistantMessageId);
+    if (error) {
+      console.error(
+        "chat-message (fake): complete update failed",
+        assistantMessageId,
+        error,
+      );
+      return;
+    }
+    await supabaseAdmin
+      .from("chats")
+      .update({ last_activity_at: new Date().toISOString() })
+      .eq("id", chatId);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Fake generation failed";
+    console.error(
+      "chat-message (fake): generation failed",
+      assistantMessageId,
+      message,
+    );
+    await supabaseAdmin
+      .from("chat_messages")
+      .update({ status: "failed", error_message: message })
+      .eq("id", assistantMessageId);
+  }
+}
+
 async function runGeneration(args: {
   chatId: number;
   assistantMessageId: number;
@@ -214,9 +288,13 @@ Deno.serve(async (req) => {
     if (!ALLOWED_MODELS.has(model)) return json(400, { error: "Unsupported model" });
     if (!allowedKanji) return json(400, { error: "Missing allowed_kanji" });
 
-    const apiKey = await getApiKey(auth.userId).catch(() => null);
-    if (!apiKey) {
-      return json(400, { error: "Please configure your OpenRouter API key in Settings." });
+    let apiKey = "";
+    if (!FAKE_MODE) {
+      const key = await getApiKey(auth.userId).catch(() => null);
+      if (!key) {
+        return json(400, { error: "Please configure your OpenRouter API key in Settings." });
+      }
+      apiKey = key;
     }
 
     // Resolve or create the chat.
@@ -295,14 +373,20 @@ Deno.serve(async (req) => {
       .eq("id", resolvedChatId);
 
     EdgeRuntime.waitUntil(
-      runGeneration({
-        chatId: resolvedChatId,
-        assistantMessageId: assistantMsg.id,
-        userId: auth.userId,
-        apiKey,
-        allowedKanji,
-        formality,
-      })
+      FAKE_MODE
+        ? runFakeGeneration({
+            chatId: resolvedChatId,
+            assistantMessageId: assistantMsg.id,
+            userText,
+          })
+        : runGeneration({
+            chatId: resolvedChatId,
+            assistantMessageId: assistantMsg.id,
+            userId: auth.userId,
+            apiKey,
+            allowedKanji,
+            formality,
+          })
     );
 
     return json(202, {
