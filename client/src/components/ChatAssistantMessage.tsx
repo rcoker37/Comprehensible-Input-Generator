@@ -42,6 +42,7 @@ import {
 import AnimatedDots from "./AnimatedDots";
 import type {
   ChatMessage,
+  ChatMessageReadState,
   DisplayMode,
   FontMode,
   HighlightMode,
@@ -75,8 +76,10 @@ interface Props {
     translation: StoryTranslations[string]
   ) => void;
   onWordTap: (args: TapArgs) => void;
-  onReadChange: (messageId: number, isRead: boolean) => void;
+  onReadChange: (messageId: number, state: ChatMessageReadState) => void;
 }
+
+const MAX_READ_COUNT = 5;
 
 const encountersToTier = (n: number): FrequencyTier | null => {
   if (n <= 0) return "very-rare";
@@ -106,6 +109,11 @@ export default function ChatAssistantMessage({
   const { applyMessageUpdate } = useChats();
   const [readPending, setReadPending] = useState(false);
   const [readError, setReadError] = useState<string | null>(null);
+  // One mark per visit (per-message). Matches StoryReadButton's per-session
+  // lock — the primary button disables after one click, and the undo button
+  // only appears for that same-session mark. Navigating away from the chat
+  // unmounts this component, so the next visit starts a fresh session.
+  const [markedThisSession, setMarkedThisSession] = useState(false);
 
   // After the backfill finishes processing this message, refetch it so the
   // cached `word_index_at` updates locally. Without this the popover stays
@@ -262,7 +270,7 @@ export default function ChatAssistantMessage({
     return () => {
       cancelled = true;
     };
-  }, [message.id, message.word_index_at, message.is_read, backfillProcessing]);
+  }, [message.id, message.word_index_at, message.read_count, backfillProcessing]);
 
   // JPDB frequency index — load once for the rarity-tinted underlines.
   const [freqLoaded, setFreqLoaded] = useState(false);
@@ -478,33 +486,42 @@ export default function ChatAssistantMessage({
     );
   };
 
-  // Track latest message read state in a ref so the click handler reads it
-  // without rebuilding on every parent re-render.
-  const isReadRef = useRef(message.is_read);
-  useEffect(() => {
-    isReadRef.current = message.is_read;
-  }, [message.is_read]);
+  const refreshScore = async () => {
+    const [commitKanji, commitVocab] = await Promise.all([
+      prepareKanjiRefresh(),
+      prepareVocabRefresh(),
+    ]);
+    commitKanji();
+    commitVocab();
+  };
 
-  const handleReadToggle = async () => {
+  const handleMark = async () => {
+    if (readPending || markedThisSession) return;
+    setReadPending(true);
+    setReadError(null);
+    try {
+      const state = await markChatMessageRead(message.id);
+      onReadChange(message.id, state);
+      setMarkedThisSession(true);
+      refreshScore();
+    } catch (err) {
+      setReadError(err instanceof Error ? err.message : "Failed to mark as read");
+    } finally {
+      setReadPending(false);
+    }
+  };
+
+  const handleUndo = async () => {
     if (readPending) return;
     setReadPending(true);
     setReadError(null);
     try {
-      const flipped = !isReadRef.current;
-      if (flipped) {
-        await markChatMessageRead(message.id);
-      } else {
-        await undoChatMessageRead(message.id);
-      }
-      onReadChange(message.id, flipped);
-      const [commitKanji, commitVocab] = await Promise.all([
-        prepareKanjiRefresh(),
-        prepareVocabRefresh(),
-      ]);
-      commitKanji();
-      commitVocab();
+      const state = await undoChatMessageRead(message.id);
+      onReadChange(message.id, state);
+      setMarkedThisSession(false);
+      refreshScore();
     } catch (err) {
-      setReadError(err instanceof Error ? err.message : "Read toggle failed");
+      setReadError(err instanceof Error ? err.message : "Failed to undo");
     } finally {
       setReadPending(false);
     }
@@ -558,46 +575,73 @@ export default function ChatAssistantMessage({
           )}
         </div>
         <div className="chat-msg-actions">
-          {message.is_read ? (
-            <button
-              type="button"
-              className="chat-msg-read chat-msg-read--done"
-              onClick={handleReadToggle}
-              disabled={readPending}
-              title="Undo mark as read"
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M3 8.5L6.5 12 13 4.5" />
-              </svg>
-              Read
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="chat-msg-read"
-              onClick={handleReadToggle}
-              disabled={readPending}
-            >
-              {readPending ? (
-                <>
-                  Marking
-                  <AnimatedDots />
-                </>
-              ) : (
-                "Mark as Read"
-              )}
-            </button>
-          )}
+          {(() => {
+            const count = message.read_count;
+            const isRead = count > 0;
+            const atCap = count >= MAX_READ_COUNT;
+            const lockedAtCap = atCap && !markedThisSession;
+            const buttonLabel = !isRead
+              ? "Mark as Read"
+              : count > 1
+                ? `✓ Read ${count}×`
+                : "✓ Read";
+            const buttonTitle = markedThisSession
+              ? "Already marked as read this visit"
+              : lockedAtCap
+                ? `Already read ${MAX_READ_COUNT}× — the maximum`
+                : isRead && message.last_read_at
+                  ? `Last read ${new Date(message.last_read_at).toLocaleString()} — click to mark again`
+                  : undefined;
+            return (
+              <>
+                <button
+                  type="button"
+                  className={`chat-msg-read ${isRead ? "chat-msg-read--done" : ""}`}
+                  onClick={handleMark}
+                  disabled={readPending || markedThisSession || lockedAtCap}
+                  title={buttonTitle}
+                >
+                  {readPending && !markedThisSession ? (
+                    <>
+                      Marking
+                      <AnimatedDots />
+                    </>
+                  ) : isRead ? (
+                    <>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M3 8.5L6.5 12 13 4.5" />
+                      </svg>
+                      {count > 1 ? `Read ${count}×` : "Read"}
+                    </>
+                  ) : (
+                    buttonLabel
+                  )}
+                </button>
+                {markedThisSession && (
+                  <button
+                    type="button"
+                    className="chat-msg-read-undo"
+                    onClick={handleUndo}
+                    disabled={readPending}
+                    title="Undo this visit's mark"
+                    aria-label="Undo this visit's mark as read"
+                  >
+                    undo
+                  </button>
+                )}
+              </>
+            );
+          })()}
           {readError && <span className="chat-msg-read-error">{readError}</span>}
         </div>
       </div>

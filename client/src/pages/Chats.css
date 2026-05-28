@@ -73,6 +73,14 @@
   right: 0.6rem;
 }
 
+.chat-card-meta {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .chats-page .delete-btn {
   background: transparent;
   border: none;

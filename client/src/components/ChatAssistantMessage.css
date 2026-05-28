@@ -104,6 +104,28 @@
   padding: 7px 12px;
 }
 
+.chat-msg-read-undo {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 99px;
+  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.chat-msg-read-undo:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chat-msg-read-undo:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
 .chat-msg-read-error {
   font-size: 0.75rem;
   color: var(--error-fg);

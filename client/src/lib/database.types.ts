@@ -40,9 +40,10 @@ export type Database = {
           content: string
           created_at: string
           error_message: string | null
+          first_read_at: string | null
           id: number
-          is_read: boolean
-          read_at: string | null
+          last_read_at: string | null
+          read_count: number
           role: string
           status: string
           translations: Json
@@ -55,9 +56,10 @@ export type Database = {
           content?: string
           created_at?: string
           error_message?: string | null
+          first_read_at?: string | null
           id?: never
-          is_read?: boolean
-          read_at?: string | null
+          last_read_at?: string | null
+          read_count?: number
           role: string
           status?: string
           translations?: Json
@@ -70,9 +72,10 @@ export type Database = {
           content?: string
           created_at?: string
           error_message?: string | null
+          first_read_at?: string | null
           id?: never
-          is_read?: boolean
-          read_at?: string | null
+          last_read_at?: string | null
+          read_count?: number
           role?: string
           status?: string
           translations?: Json
@@ -404,6 +407,16 @@ export type Database = {
           start_offset: number
         }[]
       }
+      get_chats_with_read_stats: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: number
+          last_activity_at: string
+          min_assistant_read_count: number | null
+          title: string
+        }[]
+      }
       get_openrouter_api_key_for_user: {
         Args: { p_user_id: string }
         Returns: string
@@ -463,8 +476,9 @@ export type Database = {
       mark_chat_message_read: {
         Args: { p_message_id: number }
         Returns: {
-          is_read: boolean
-          read_at: string
+          first_read_at: string
+          last_read_at: string
+          read_count: number
         }[]
       }
       mark_story_read: {
@@ -502,8 +516,9 @@ export type Database = {
       undo_chat_message_read: {
         Args: { p_message_id: number }
         Returns: {
-          is_read: boolean
-          read_at: string
+          first_read_at: string
+          last_read_at: string
+          read_count: number
         }[]
       }
       undo_story_read: {

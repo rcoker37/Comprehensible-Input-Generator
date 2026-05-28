@@ -14,6 +14,12 @@ interface Props {
 // affordance is therefore only ever wired to a same-session increment, so
 // past-session reads can't be cleared from the UI — only deleting the story
 // removes those. Server-side undo is a safety net (decrements with a floor of 0).
+//
+// Read count is capped at 5 server-side (mark_story_read uses LEAST(... ,
+// GREATEST(read_count, 5))). The mark button locks visually once count >= 5
+// so the cap is discoverable.
+const MAX_READ_COUNT = 5;
+
 export default function StoryReadButton({ story, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +29,8 @@ export default function StoryReadButton({ story, onChange }: Props) {
 
   const count = story.read_count;
   const isRead = count > 0;
+  const atCap = count >= MAX_READ_COUNT;
+  const lockedAtCap = atCap && !markedThisSession;
 
   // Refresh the header score after a read-state change. Both halves (kanji +
   // vocab) are fetched in parallel, then committed together in one tick so the
@@ -37,7 +45,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
   };
 
   const handleMark = async () => {
-    if (markedThisSession) return;
+    if (markedThisSession || lockedAtCap) return;
     setBusy(true);
     setError(null);
     try {
@@ -71,6 +79,8 @@ export default function StoryReadButton({ story, onChange }: Props) {
 
   const title = markedThisSession
     ? "Already marked as read this session"
+    : lockedAtCap
+    ? `Already read ${MAX_READ_COUNT}× — the maximum`
     : isRead && story.last_read_at
     ? `Last read ${new Date(story.last_read_at).toLocaleString()} — click to mark as read again`
     : undefined;
@@ -82,7 +92,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
           type="button"
           className={`story-read-btn ${isRead ? "is-read" : ""}`}
           onClick={handleMark}
-          disabled={busy || markedThisSession}
+          disabled={busy || markedThisSession || lockedAtCap}
           title={title}
         >
           {label}
