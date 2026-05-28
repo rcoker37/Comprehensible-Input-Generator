@@ -80,6 +80,16 @@ export default function Chats() {
                     {formatRelativeDate(chat.last_activity_at)}
                   </div>
                 </div>
+                {chat.min_assistant_read_count != null &&
+                  chat.min_assistant_read_count > 0 && (
+                    <div className="chat-card-meta">
+                      <span className="read-tag">
+                        {chat.min_assistant_read_count > 1
+                          ? `✓ Read ${chat.min_assistant_read_count}×`
+                          : "✓ Read"}
+                      </span>
+                    </div>
+                  )}
               </Link>
               <div className="chat-card-actions">
                 <button

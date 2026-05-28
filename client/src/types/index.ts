@@ -99,6 +99,12 @@ export interface Chat {
   title: string;
   created_at: string;
   last_activity_at: string;
+  /**
+   * MIN(read_count) across the chat's complete assistant messages. NULL when
+   * the chat has no complete assistant messages yet. The Chats list shows
+   * "✓ Read N×" exactly when this is > 0.
+   */
+  min_assistant_read_count: number | null;
 }
 
 export interface ChatMessage {
@@ -109,16 +115,18 @@ export interface ChatMessage {
   content: string;
   status: ChatMessageStatus;
   error_message: string | null;
-  is_read: boolean;
-  read_at: string | null;
+  read_count: number;
+  first_read_at: string | null;
+  last_read_at: string | null;
   word_index_at: string | null;
   translations: StoryTranslations | null;
   created_at: string;
 }
 
 export interface ChatMessageReadState {
-  is_read: boolean;
-  read_at: string | null;
+  read_count: number;
+  first_read_at: string | null;
+  last_read_at: string | null;
 }
 
 // Stories-page filter shapes are persisted on the profile so the page

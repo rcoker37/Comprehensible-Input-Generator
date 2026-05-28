@@ -27,6 +27,7 @@ import ReaderControls from "../components/ReaderControls";
 import WordPopover from "../components/WordPopover";
 import type {
   ChatMessage,
+  ChatMessageReadState,
   DisplayMode,
   Formality,
   FontMode,
@@ -72,6 +73,7 @@ export default function ChatDetail() {
     loadChatMessages,
     removeChat,
     applyMessageUpdate,
+    applyChatUpdate,
   } = useChats();
   const { sendMessage, pendingByChat, errorByMessage, dismissError } =
     useChatGeneration();
@@ -284,11 +286,36 @@ export default function ChatDetail() {
     });
   };
 
-  const handleReadChange = (mid: number, isRead: boolean) => {
+  const handleReadChange = (mid: number, state: ChatMessageReadState) => {
     applyMessageUpdate(mid, {
-      is_read: isRead,
-      read_at: isRead ? new Date().toISOString() : null,
+      read_count: state.read_count,
+      first_read_at: state.first_read_at,
+      last_read_at: state.last_read_at,
     });
+    // Recompute this chat's MIN(read_count) locally so the chats-list card
+    // updates without refetching. The cached message we just patched is the
+    // canonical source; substitute its new count when scanning.
+    if (chatId != null) {
+      const updatedMessages = messages.map((m) =>
+        m.id === mid ? { ...m, read_count: state.read_count } : m
+      );
+      const completeAssistant = updatedMessages.filter(
+        (m) => m.role === "assistant" && m.status === "complete"
+      );
+      const minCount =
+        completeAssistant.length === 0
+          ? null
+          : completeAssistant.reduce(
+              (acc, m) => Math.min(acc, m.read_count),
+              Number.POSITIVE_INFINITY
+            );
+      applyChatUpdate(chatId, {
+        min_assistant_read_count:
+          minCount === null || minCount === Number.POSITIVE_INFINITY
+            ? null
+            : minCount,
+      });
+    }
     // Marking changes encounters; backfill doesn't need to re-run, but the
     // header score & "unseen" highlight maps need a refresh. The score
     // contexts will refresh on next route change; for in-page we accept a

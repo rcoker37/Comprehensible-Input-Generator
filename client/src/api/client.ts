@@ -757,10 +757,7 @@ export async function getKanjiWords(char: string): Promise<KanjiWordResult[]> {
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function getChats(): Promise<Chat[]> {
-  const { data, error } = await supabase
-    .from("chats")
-    .select("id, title, created_at, last_activity_at")
-    .order("last_activity_at", { ascending: false });
+  const { data, error } = await supabase.rpc("get_chats_with_read_stats");
   if (error) throw new Error(error.message);
   return (data as Chat[]) || [];
 }
@@ -772,14 +769,14 @@ export async function getChat(id: number): Promise<Chat> {
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
-  return data as Chat;
+  return { ...(data as Omit<Chat, "min_assistant_read_count">), min_assistant_read_count: null };
 }
 
 export async function getChatMessages(chatId: number): Promise<ChatMessage[]> {
   const { data, error } = await supabase
     .from("chat_messages")
     .select(
-      "id, chat_id, role, content, status, error_message, is_read, read_at, word_index_at, translations, created_at"
+      "id, chat_id, role, content, status, error_message, read_count, first_read_at, last_read_at, word_index_at, translations, created_at"
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true });
@@ -791,7 +788,7 @@ export async function getChatMessage(id: number): Promise<ChatMessage> {
   const { data, error } = await supabase
     .from("chat_messages")
     .select(
-      "id, chat_id, role, content, status, error_message, is_read, read_at, word_index_at, translations, created_at"
+      "id, chat_id, role, content, status, error_message, read_count, first_read_at, last_read_at, word_index_at, translations, created_at"
     )
     .eq("id", id)
     .single();
@@ -865,7 +862,7 @@ export async function markChatMessageRead(messageId: number): Promise<ChatMessag
     p_message_id: messageId,
   });
   if (error) throw new Error(error.message);
-  const row = (data as ChatMessageReadState[] | null)?.[0];
+  const row = (data as { read_count: number; first_read_at: string | null; last_read_at: string | null }[] | null)?.[0];
   if (!row) throw new Error("Chat message not found");
   return row;
 }
@@ -875,7 +872,7 @@ export async function undoChatMessageRead(messageId: number): Promise<ChatMessag
     p_message_id: messageId,
   });
   if (error) throw new Error(error.message);
-  const row = (data as ChatMessageReadState[] | null)?.[0];
+  const row = (data as { read_count: number; first_read_at: string | null; last_read_at: string | null }[] | null)?.[0];
   if (!row) throw new Error("Chat message not found");
   return row;
 }
@@ -1011,7 +1008,7 @@ export async function getPendingChatAssistantMessages(): Promise<ChatMessage[]> 
   const { data, error } = await supabase
     .from("chat_messages")
     .select(
-      "id, chat_id, role, content, status, error_message, is_read, read_at, word_index_at, translations, created_at"
+      "id, chat_id, role, content, status, error_message, read_count, first_read_at, last_read_at, word_index_at, translations, created_at"
     )
     .eq("role", "assistant")
     .eq("status", "pending")
