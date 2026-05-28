@@ -234,7 +234,7 @@ export default function StoryDetail() {
           className="story-detail-back"
           onClick={() => navigate("/stories")}
         >
-          &larr; Compositions
+          &larr; Read
         </button>
         <div className="story-detail-actions-right">
           {!editing && (

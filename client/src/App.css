@@ -255,6 +255,13 @@ h1 {
 }
 
 /* Shared components */
+.read-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: var(--success);
+}
+
 .chip-group {
   display: flex;
   flex-wrap: wrap;

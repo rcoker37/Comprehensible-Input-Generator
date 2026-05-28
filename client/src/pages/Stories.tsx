@@ -160,7 +160,7 @@ export default function Stories() {
   return (
     <div className="stories-page">
       <div className="stories-page-header">
-        <h1>Composition History</h1>
+        <h1>Read</h1>
       </div>
       <GenerationModal open={modalOpen} onClose={() => setModalOpen(false)} />
       {error && <div className="error">{error}</div>}
