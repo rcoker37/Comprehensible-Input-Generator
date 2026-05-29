@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { updatePreferences as updatePreferencesRpc } from "../api/client";
 import type { Preferences, Profile } from "../types";
 
 interface AuthContextType {
@@ -21,6 +22,13 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /**
+   * Optimistic preferences write — merges `patch` into the in-memory profile
+   * synchronously, then fires the RPC in the background. Subscribers that
+   * react to `profile.preferences` (AppLayout's data-font sync, etc.) see
+   * the new value on the next render instead of waiting for a refresh.
+   */
+  updatePreferences: (patch: Preferences) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -149,6 +157,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) await fetchProfile(user.id);
   }, [user, fetchProfile]);
 
+  // Mirror the server-side shallow merge in update_preferences (preferences
+  // || p_patch overwrites top-level sections). Callers already pass each
+  // section in full so this stays consistent with what the RPC writes.
+  const updatePreferences = useCallback(
+    async (patch: Preferences) => {
+      setProfile((prev) =>
+        prev
+          ? { ...prev, preferences: { ...(prev.preferences ?? {}), ...patch } }
+          : prev
+      );
+      await updatePreferencesRpc(patch);
+    },
+    []
+  );
+
   const value = useMemo(
     () => ({
       session,
@@ -160,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       refreshProfile,
+      updatePreferences,
     }),
     [
       session,
@@ -171,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signInWithGoogle,
       signOut,
       refreshProfile,
+      updatePreferences,
     ]
   );
 

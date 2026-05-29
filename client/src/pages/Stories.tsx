@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { deleteStory, updatePreferences } from "../api/client";
+import { deleteStory } from "../api/client";
 import GenerationModal from "../components/GenerationModal";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useAuth } from "../contexts/AuthContext";
@@ -39,7 +39,7 @@ export default function Stories() {
     error: contextError,
     removeStory,
   } = useStories();
-  const { profile } = useAuth();
+  const { profile, updatePreferences } = useAuth();
   const { loading: generating } = useGeneration();
   const saved = profile?.preferences?.stories;
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,7 +61,7 @@ export default function Stories() {
     updatePreferences({
       stories: { readFilter, sortMode, sortDir },
     }).catch((err) => console.warn("Failed to save filter preferences:", err));
-  }, [readFilter, sortMode, sortDir]);
+  }, [readFilter, sortMode, sortDir, updatePreferences]);
 
   // Selecting a directional sort that's already active flips its direction;
   // any other selection activates the sort fresh at desc. Mirrors the Stats

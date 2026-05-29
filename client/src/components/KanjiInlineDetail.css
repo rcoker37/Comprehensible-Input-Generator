@@ -18,6 +18,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--jp-font);
   font-size: 2.25rem;
   line-height: 1;
   background: var(--bg-dim);
@@ -64,6 +65,7 @@
 }
 
 .kanji-inline__readings {
+  font-family: var(--jp-font);
   font-size: 0.8rem;
   color: var(--text-dim);
 }
@@ -91,6 +93,9 @@
 }
 
 .kanji-inline__words-heading {
+  /* "WORDS USING X" — the X is a kanji glyph, so the heading needs a
+   * Japanese-capable family or it falls through to the body fallback. */
+  font-family: var(--jp-font);
   font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -141,6 +146,7 @@
 }
 
 .kanji-inline__word-headword {
+  font-family: var(--jp-font);
   font-size: 1.2rem;
   color: var(--text);
   ruby-align: start;

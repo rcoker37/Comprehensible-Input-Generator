@@ -13,7 +13,6 @@ import {
   getStoryOccurrences,
   getStoryWordEncounters,
   setStoryWordOverrides,
-  updatePreferences,
   type StoryOccurrence,
   type WordOverride,
 } from "../api/client";
@@ -108,7 +107,7 @@ export default function StoryDisplay({
   onRegenerationStart,
 }: Props) {
   const { state: dictState } = useDictionary();
-  const { profile } = useAuth();
+  const { profile, updatePreferences } = useAuth();
   const {
     remaining: backfillRemaining,
     processing: backfillProcessing,
