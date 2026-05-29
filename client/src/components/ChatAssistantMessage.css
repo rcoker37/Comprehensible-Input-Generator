@@ -24,10 +24,13 @@
   border: 1px solid var(--accent-border);
   border-radius: 14px 14px 3px 14px;
   color: var(--text);
-  padding: 9px 13px;
+  padding: 10px 14px;
   font-family: var(--jp-font);
-  font-size: 0.95rem;
-  line-height: 1.45;
+  /* Match .chat-msg-body so user-typed messages read at the same size as
+   * the assistant's replies — anything smaller makes the user's side feel
+   * shrunk relative to the bot's. */
+  font-size: 1.25rem;
+  line-height: 1.5;
 }
 
 /* Mirror .story-content from StoryDisplay.css so a chat message reads

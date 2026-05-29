@@ -33,6 +33,7 @@
 }
 
 .chat-detail-title {
+  font-family: var(--jp-font);
   font-size: 1.05rem;
   font-weight: 700;
   color: var(--text);

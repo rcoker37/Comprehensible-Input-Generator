@@ -10,7 +10,6 @@ import {
   deleteChat,
   getChat,
   resetChatWordIndex,
-  updatePreferences,
 } from "../api/client";
 import { useAuth } from "../contexts/AuthContext";
 import { useChats } from "../contexts/ChatsContext";
@@ -66,7 +65,7 @@ interface ActiveTap {
 export default function ChatDetail() {
   const { id: rawId } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, updatePreferences } = useAuth();
   const {
     chats,
     messagesByChat,
@@ -122,7 +121,7 @@ export default function ChatDetail() {
         console.warn("Failed to save reader preferences:", err)
       );
     },
-    []
+    [updatePreferences]
   );
 
   const cycleFurigana = () => {

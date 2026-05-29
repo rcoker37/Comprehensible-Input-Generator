@@ -48,7 +48,13 @@
 }
 
 body {
-  font-family: "Zen Kaku Gothic New", "Noto Serif JP", "Segoe UI", system-ui,
+  /* Only "Noto Sans JP" and "Noto Serif JP" are loaded as webfonts (see
+   * index.html). "Zen Kaku Gothic New" isn't shipped, so Japanese chars
+   * fall through to the next family — keep a Japanese-capable sans before
+   * any serif option, otherwise titles / popovers that inherit body
+   * render as Mincho even when the user hasn't asked for serif. */
+  font-family: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic",
+    "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Segoe UI", system-ui,
     -apple-system, sans-serif;
   background: var(--bg);
   color: var(--text);

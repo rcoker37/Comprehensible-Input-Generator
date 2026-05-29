@@ -4,7 +4,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
-import { updatePreferences } from "../api/client";
 import type { UnseenWordTarget } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
@@ -26,7 +25,7 @@ interface Props {
 }
 
 export default function GenerationModal({ open, onClose }: Props) {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, updatePreferences } = useAuth();
   const { loading, generate } = useGeneration();
   const { seenKanji } = useSeenKanji();
   const { vocabEncounters } = useVocab();
@@ -70,9 +69,7 @@ export default function GenerationModal({ open, onClose }: Props) {
         formality,
         unseenWordTarget,
       },
-    })
-      .then(() => refreshProfile())
-      .catch((err) => console.warn("Failed to save preferences:", err));
+    }).catch((err) => console.warn("Failed to save preferences:", err));
     onClose();
   };
 
