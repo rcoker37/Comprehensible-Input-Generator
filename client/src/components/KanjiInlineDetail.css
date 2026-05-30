@@ -92,6 +92,14 @@
   flex-direction: column;
 }
 
+.kanji-inline__words-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0.4rem;
+}
+
 .kanji-inline__words-heading {
   /* "WORDS USING X" — the X is a kanji glyph, so the heading needs a
    * Japanese-capable family or it falls through to the body fallback. */
@@ -100,7 +108,15 @@
   font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--text-dim);
-  padding: 0.6rem 1rem 0.4rem;
+}
+
+.kanji-inline__words-chips {
+  gap: 0.3rem;
+}
+
+.kanji-inline__words-chips .chip {
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
 }
 
 .kanji-inline__word-list {
@@ -111,6 +127,16 @@
 
 .kanji-inline__word-row {
   border-top: 1px solid var(--border);
+}
+
+/* Dim unseen rows so seen words pop in the "All" view. */
+.kanji-inline__word-row.is-unseen .kanji-inline__word-headword {
+  color: color-mix(in srgb, var(--text) 55%, var(--text-dim));
+}
+
+.kanji-inline__word-row.is-unseen .kanji-inline__word-rank,
+.kanji-inline__word-row.is-unseen .kanji-inline__word-enc {
+  color: var(--text-dim);
 }
 
 .kanji-inline__word-btn {
@@ -203,4 +229,23 @@
   padding: 0.5rem 1rem;
   font-size: 0.85rem;
   color: var(--error-fg);
+}
+
+.kanji-inline__show-more {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .kanji-inline__show-more:hover {
+    background: var(--bg-dim);
+  }
 }

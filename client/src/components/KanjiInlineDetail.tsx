@@ -1,12 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
-import { getKanjiWords } from "../api/client";
 import { lookupWord } from "../lib/dictionary";
 import {
-  lookupFrequencyByEntrySync,
-  lookupFrequencyByCanonicalSync,
+  getVocabBrowseEntriesSync,
+  type VocabBrowseEntry,
 } from "../lib/frequency";
 import AnimatedDots from "./AnimatedDots";
 import "./KanjiInlineDetail.css";
@@ -20,13 +19,23 @@ export interface KanjiRow {
   readings_kun: string;
 }
 
-interface WordRow {
-  headword: string;
-  reading: string | null;
+type Filter = "all" | "seen";
+
+interface WordExtras {
   meaning: string;
-  rank: number | null;
-  entryId: number | null;
-  hasKanji: boolean;
+  reading: string | null;
+}
+
+// Matches BrowseSection's vocab cap so the popover's "All" universe lines up
+// with what the Stats page Browse vocab section shows.
+const VOCAB_MAX_RANK = 50000;
+const PAGE_SIZE = 50;
+
+function entryCount(
+  e: VocabBrowseEntry,
+  counts: Map<string, number>
+): number {
+  return e.canonicals.reduce((sum, c) => sum + (counts.get(c) ?? 0), 0);
 }
 
 export default function KanjiInlineDetail({
@@ -47,8 +56,11 @@ export default function KanjiInlineDetail({
     !(initialRow && initialRow.character === char)
   );
   const [error, setError] = useState<string | null>(null);
-  const [words, setWords] = useState<WordRow[]>([]);
-  const [wordsLoading, setWordsLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [pageCount, setPageCount] = useState(1);
+  const [extras, setExtras] = useState<Map<string, WordExtras>>(
+    () => new Map()
+  );
 
   const { kanjiExposures } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded } = useVocab();
@@ -82,62 +94,86 @@ export default function KanjiInlineDetail({
     };
   }, [char, initialRow]);
 
-  // Depends on vocabEncountersLoaded so the effect re-runs once the frequency
-  // index is ready — without this, lookupFrequencyByEntrySync throws on first
-  // open and every word shows rank: null with no retry.
+  // Reset extras + pager on kanji change; just the pager on filter change.
   useEffect(() => {
-    if (!vocabEncountersLoaded) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- reset on char change */
+    setExtras(new Map());
+    setPageCount(1);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [char]);
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect -- reset on filter change */
+    setPageCount(1);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [filter]);
+
+  const matchingEntries = useMemo<VocabBrowseEntry[] | null>(() => {
+    if (!vocabEncountersLoaded) return null;
+    return getVocabBrowseEntriesSync().filter(
+      (e) => e.rank <= VOCAB_MAX_RANK && e.headword.includes(char)
+    );
+  }, [char, vocabEncountersLoaded]);
+
+  const filteredEntries = useMemo<VocabBrowseEntry[] | null>(() => {
+    if (!matchingEntries) return null;
+    if (filter === "all") return matchingEntries;
+    return matchingEntries.filter(
+      (e) => entryCount(e, vocabEncounters) > 0
+    );
+  }, [matchingEntries, filter, vocabEncounters]);
+
+  const visibleCount = pageCount * PAGE_SIZE;
+  const visibleEntries = useMemo<VocabBrowseEntry[]>(() => {
+    if (!filteredEntries) return [];
+    return filteredEntries.slice(0, visibleCount);
+  }, [filteredEntries, visibleCount]);
+  const hasMore =
+    filteredEntries !== null && filteredEntries.length > visibleEntries.length;
+
+  // Lazy meaning lookup: fetch only for entries currently in the rendered
+  // slice that don't yet have extras. Re-runs when the slice grows or the
+  // extras map changes; the early-return on no-missing keeps it cheap.
+  useEffect(() => {
+    if (visibleEntries.length === 0) return;
+    const missing = visibleEntries.filter((e) => !extras.has(e.headword));
+    if (missing.length === 0) return;
     let cancelled = false;
-    setWordsLoading(true);
-    setWords([]);
-    getKanjiWords(char)
-      .then(async (kanjiWords) => {
-        const resolved = await Promise.all(
-          kanjiWords.map(async (w) => {
-            let reading = w.reading;
-            let meaning = "";
-            try {
-              const results = await lookupWord(w.headword);
-              const primary = results[0];
-              if (primary) {
-                reading = primary.r[0]?.ent ?? reading;
-                meaning =
-                  primary.s[0]?.g
-                    .map((g: { str: string }) => g.str)
-                    .join("; ") ?? "";
-              }
-            } catch {
-              // fall back to stored reading, no meaning
-            }
-            let rank: number | null = null;
-            const freq =
-              w.entryId !== null
-                ? lookupFrequencyByEntrySync(w.entryId)
-                : lookupFrequencyByCanonicalSync(w.headword);
-            rank = freq?.rank ?? null;
-            const hasKanji = [...w.headword].some(
-              (ch) => ch >= "一" && ch <= "鿿" || ch >= "㐀" && ch <= "䶿"
-            );
-            return { headword: w.headword, reading, meaning, rank, entryId: w.entryId, hasKanji };
-          })
-        );
-        if (cancelled) return;
-        resolved.sort((a, b) => {
-          if (a.rank === null && b.rank === null) return 0;
-          if (a.rank === null) return 1;
-          if (b.rank === null) return -1;
-          return a.rank - b.rank;
-        });
-        setWords(resolved);
-        setWordsLoading(false);
+    Promise.all(
+      missing.map(async (e) => {
+        try {
+          const results = await lookupWord(e.headword);
+          const primary = results[0];
+          if (!primary) {
+            return [
+              e.headword,
+              { meaning: "", reading: e.reading },
+            ] as const;
+          }
+          const reading = primary.r[0]?.ent ?? e.reading;
+          const meaning =
+            primary.s[0]?.g
+              .map((g: { str: string }) => g.str)
+              .join("; ") ?? "";
+          return [e.headword, { meaning, reading }] as const;
+        } catch {
+          return [
+            e.headword,
+            { meaning: "", reading: e.reading },
+          ] as const;
+        }
       })
-      .catch(() => {
-        if (!cancelled) setWordsLoading(false);
+    ).then((results) => {
+      if (cancelled) return;
+      setExtras((prev) => {
+        const next = new Map(prev);
+        for (const [hw, data] of results) next.set(hw, data);
+        return next;
       });
+    });
     return () => {
       cancelled = true;
     };
-  }, [char, vocabEncountersLoaded]);
+  }, [visibleEntries, extras]);
 
   const meaningsDisplay = row?.meanings
     .split(/[,、]\s*/)
@@ -219,76 +255,118 @@ export default function KanjiInlineDetail({
       </div>
 
       <div className="kanji-inline__words-section">
-        <div className="kanji-inline__words-heading">WORDS USING {char}</div>
-        {wordsLoading ? (
+        <div className="kanji-inline__words-header">
+          <div className="kanji-inline__words-heading">WORDS USING {char}</div>
+          <div
+            className="chip-group kanji-inline__words-chips"
+            role="radiogroup"
+            aria-label="Word filter"
+          >
+            {(
+              [
+                ["all", "All"],
+                ["seen", "Seen"],
+              ] as const
+            ).map(([v, label]) => (
+              <button
+                key={v}
+                type="button"
+                className={`chip ${filter === v ? "active" : ""}`}
+                onClick={() => setFilter(v)}
+                aria-pressed={filter === v}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {filteredEntries === null ? (
           <div className="kanji-inline__status kanji-inline__status--words">
             Loading
             <AnimatedDots />
           </div>
-        ) : words.length === 0 ? (
+        ) : visibleEntries.length === 0 ? (
           <div className="kanji-inline__status kanji-inline__status--words">
             No words found.
           </div>
         ) : (
-          <ul className="kanji-inline__word-list">
-            {words.map((w) => {
-              const encounters = vocabEncounters.get(w.headword) ?? 0;
-              return (
-                <li key={w.headword} className="kanji-inline__word-row">
-                  <button
-                    type="button"
-                    className="kanji-inline__word-btn"
-                    onClick={() => onWordSelect?.(w.headword, w.entryId)}
-                    disabled={!onWordSelect}
+          <>
+            <ul className="kanji-inline__word-list">
+              {visibleEntries.map((e) => {
+                const extra = extras.get(e.headword);
+                const reading = extra?.reading ?? e.reading;
+                const meaning = extra?.meaning ?? "";
+                const encounters = entryCount(e, vocabEncounters);
+                const unseen = encounters === 0;
+                return (
+                  <li
+                    key={e.headword}
+                    className={`kanji-inline__word-row${
+                      unseen ? " is-unseen" : ""
+                    }`}
                   >
-                    <div className="kanji-inline__word-left">
-                      {w.hasKanji && w.reading ? (
-                        <ruby className="kanji-inline__word-headword">
-                          {w.headword}
-                          <rt>{w.reading}</rt>
-                        </ruby>
-                      ) : (
-                        <span className="kanji-inline__word-headword">
-                          {w.headword}
-                        </span>
-                      )}
-                      {w.meaning && (
-                        <span className="kanji-inline__word-meaning">
-                          {w.meaning}
-                        </span>
-                      )}
-                    </div>
-                    <div className="kanji-inline__word-right">
-                      <div className="kanji-inline__word-stats">
-                        {w.rank !== null && (
-                          <span className="kanji-inline__word-rank">
-                            #{w.rank.toLocaleString()}
+                    <button
+                      type="button"
+                      className="kanji-inline__word-btn"
+                      onClick={() => onWordSelect?.(e.headword, e.entryId)}
+                      disabled={!onWordSelect}
+                    >
+                      <div className="kanji-inline__word-left">
+                        {reading ? (
+                          <ruby className="kanji-inline__word-headword">
+                            {e.headword}
+                            <rt>{reading}</rt>
+                          </ruby>
+                        ) : (
+                          <span className="kanji-inline__word-headword">
+                            {e.headword}
                           </span>
                         )}
-                        <span className="kanji-inline__word-enc">
-                          {encounters}×
-                        </span>
+                        {meaning && (
+                          <span className="kanji-inline__word-meaning">
+                            {meaning}
+                          </span>
+                        )}
                       </div>
-                      <svg
-                        className="kanji-inline__word-chevron"
-                        width="8"
-                        height="12"
-                        viewBox="0 0 8 12"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M2 2l4 4-4 4" />
-                      </svg>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                      <div className="kanji-inline__word-right">
+                        <div className="kanji-inline__word-stats">
+                          <span className="kanji-inline__word-rank">
+                            #{e.rank.toLocaleString()}
+                          </span>
+                          <span className="kanji-inline__word-enc">
+                            {encounters}×
+                          </span>
+                        </div>
+                        <svg
+                          className="kanji-inline__word-chevron"
+                          width="8"
+                          height="12"
+                          viewBox="0 0 8 12"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M2 2l4 4-4 4" />
+                        </svg>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            {hasMore && (
+              <button
+                type="button"
+                className="kanji-inline__show-more"
+                onClick={() => setPageCount((p) => p + 1)}
+              >
+                Show more
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

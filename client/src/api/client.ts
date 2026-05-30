@@ -707,51 +707,6 @@ export async function updateStoryContent(
   if (error) throw new Error(error.message);
 }
 
-export interface KanjiWordResult {
-  headword: string;
-  reading: string | null;
-  entryId: number | null;
-}
-
-/**
- * Returns distinct headwords from the user's read stories that contain
- * `char`. Used by KanjiInlineDetail to populate the "WORDS USING X" list.
- */
-export async function getKanjiWords(char: string): Promise<KanjiWordResult[]> {
-  const { data: storyData, error: storyError } = await supabase
-    .from("stories")
-    .select("id")
-    .eq("status", "complete")
-    .gt("read_count", 0);
-  if (storyError) throw new Error(storyError.message);
-  const readStoryIds = ((storyData ?? []) as { id: number }[]).map((s) => s.id);
-  if (readStoryIds.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from("story_word_occurrences")
-    .select("headword, reading, entry_id")
-    .ilike("headword", `%${char}%`)
-    .in("story_id", readStoryIds);
-  if (error) throw new Error(error.message);
-
-  const seen = new Map<string, KanjiWordResult>();
-  for (const row of (data ?? []) as {
-    headword: string;
-    reading: string | null;
-    entry_id: number | null;
-  }[]) {
-    if (!seen.has(row.headword)) {
-      seen.set(row.headword, {
-        headword: row.headword,
-        reading: row.reading,
-        entryId: row.entry_id,
-      });
-      if (seen.size >= 100) break;
-    }
-  }
-  return [...seen.values()];
-}
-
 // ─────────────────────────────────────────────────────────────────────────
 // Chats
 // ─────────────────────────────────────────────────────────────────────────
