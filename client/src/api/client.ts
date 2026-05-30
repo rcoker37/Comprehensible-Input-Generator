@@ -717,7 +717,11 @@ export async function getChat(id: number): Promise<Chat> {
     .eq("id", id)
     .single();
   if (error) throw new Error(error.message);
-  return { ...(data as Omit<Chat, "min_assistant_read_count">), min_assistant_read_count: null };
+  return {
+    ...(data as Omit<Chat, "min_assistant_read_count" | "last_read_at">),
+    min_assistant_read_count: null,
+    last_read_at: null,
+  };
 }
 
 export async function getChatMessages(chatId: number): Promise<ChatMessage[]> {

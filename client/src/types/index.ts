@@ -105,6 +105,12 @@ export interface Chat {
    * "✓ Read N×" exactly when this is > 0.
    */
   min_assistant_read_count: number | null;
+  /**
+   * MAX(last_read_at) across the chat's complete assistant messages. NULL
+   * when no message has ever been marked read. Powers the "Last Read"
+   * sort on the Chats list.
+   */
+  last_read_at: string | null;
 }
 
 export interface ChatMessage {
@@ -172,6 +178,19 @@ export interface StoriesPreferences {
   sortDir: SortDir;
 }
 
+// Chats-page filter + sort shape. Same skeleton as StoriesPreferences but
+// with chat-appropriate sort modes: "Last Activity" reflects the most
+// recent send/receive (already the natural default for chats), and
+// "lastRead" is MAX(last_read_at) across the chat's complete assistant
+// messages.
+export type ChatSortMode = "lastActivity" | "lastRead" | "score";
+
+export interface ChatsPreferences {
+  readFilter: ReadFilter;
+  sortMode: ChatSortMode;
+  sortDir: SortDir;
+}
+
 // Per-word display modes for the StoryDisplay furigana control:
 // "off" never shown, "unseen" only on words new to the reader, "all" on
 // every word.
@@ -196,6 +215,7 @@ export interface ReaderPreferences {
 export interface Preferences {
   generator?: Partial<GeneratorPreferences>;
   stories?: Partial<StoriesPreferences>;
+  chats?: Partial<ChatsPreferences>;
   reader?: Partial<ReaderPreferences>;
 }
 

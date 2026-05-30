@@ -413,6 +413,7 @@ export type Database = {
           created_at: string
           id: number
           last_activity_at: string
+          last_read_at: string
           min_assistant_read_count: number
           title: string
         }[]

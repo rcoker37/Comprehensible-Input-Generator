@@ -63,3 +63,22 @@
   align-items: center;
   margin-top: 0.5rem;
 }
+
+.chats-page .filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.chats-page .filter-row > label {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  min-width: 45px;
+}
+
+/* Direction caret inside an active directional Sort chip. */
+.chats-page .sort-arrow {
+  font-size: 0.7em;
+  margin-left: 0.3rem;
+}
