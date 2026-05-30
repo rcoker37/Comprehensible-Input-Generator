@@ -896,9 +896,9 @@ export default function WordPopover({
   // carousel surface — a "usually kana" word like うち still shows no chips
   // when the headword and every encounter is kana, while 中 / 内 / 家
   // accumulate as those forms get seen. Including the active headword (not
-  // just `cards`) is what lets headword-mode popovers — Stats Browse vocab
-  // cards and the kanji popover's word-list clicks — show kanji chips on
-  // words the user has never encountered, since those have no cards at all.
+  // just `cards`) is what lets headword-mode popovers — the kanji popover's
+  // word-list clicks — show kanji chips on words the user has never
+  // encountered, since those have no cards at all.
   const stickyKanjiChars = useMemo(() => {
     const set = new Set<string>();
     for (const card of cards) {

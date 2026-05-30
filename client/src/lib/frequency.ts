@@ -269,9 +269,9 @@ export interface VocabBrowseEntry {
   canonicals: string[];
   /**
    * JMdict entry id of the rank-winning record for this display surface. The
-   * Stats Browse vocab popover passes it through so the headword-mode lookup
-   * can hoist this exact JMdict entry instead of letting a deinflection rule
-   * wander to an unrelated homophone (くれる → 刳る, できる → する).
+   * kanji popover's word-list clicks pass it through so the headword-mode
+   * lookup can hoist this exact JMdict entry instead of letting a deinflection
+   * rule wander to an unrelated homophone (くれる → 刳る, できる → する).
    */
   entryId: number;
 }

@@ -419,17 +419,11 @@ const VOCAB_PAGE_SIZE = 1000;
 
 /**
  * Per-headword read-count-weighted encounter totals across the user's read
- * stories, plus the most recent read time (epoch ms) of any story containing
- * each headword. `encounters` powers the vocab side of the header total score
- * (see VocabContext + lib/vocabScore.ts); `lastRead` powers the Browse
- * "last read" sort.
+ * stories. Powers the vocab side of the header total score (see VocabContext
+ * + lib/vocabScore.ts).
  */
-export async function getUserWordEncounters(): Promise<{
-  encounters: Map<string, number>;
-  lastRead: Map<string, number>;
-}> {
+export async function getUserWordEncounters(): Promise<Map<string, number>> {
   const encounters = new Map<string, number>();
-  const lastRead = new Map<string, number>();
   for (let from = 0; ; ) {
     const { data, error } = await supabase
       .rpc("get_user_word_encounters")
@@ -437,18 +431,15 @@ export async function getUserWordEncounters(): Promise<{
       .range(from, from + VOCAB_PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const rows =
-      (data as
-        | { headword: string; encounters: number; last_read_at: string | null }[]
-        | null) ?? [];
+      (data as { headword: string; encounters: number }[] | null) ?? [];
     if (rows.length === 0) break;
     for (const r of rows) {
       encounters.set(r.headword, Number(r.encounters));
-      if (r.last_read_at) lastRead.set(r.headword, Date.parse(r.last_read_at));
     }
     from += rows.length;
     if (rows.length < VOCAB_PAGE_SIZE) break;
   }
-  return { encounters, lastRead };
+  return encounters;
 }
 
 /**
