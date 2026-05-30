@@ -11,6 +11,7 @@ import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
+import { isOnReadCooldown } from "../lib/readCooldown";
 import type {
   ReadFilter,
   SortDir,
@@ -107,10 +108,18 @@ export default function Stories() {
   // Wait for BOTH halves of the payout to load before computing any
   // deltas — otherwise the score tag (and score-sort) would flash a
   // kanji-only number for a beat while the paginated vocab RPC drains.
+  //
+  // Stories at the 5× cap or inside the 24h cooldown collapse to 0: the
+  // mark-read button is locked, so the +X tag would be misleading and
+  // would also drag those stories to the top of the Score sort.
   const deltaById = useMemo(() => {
     const m = new Map<number, number>();
     if (!vocabEncountersLoaded || !storyOccurrencesLoaded) return m;
     for (const s of stories) {
+      if (s.read_count >= 5 || isOnReadCooldown(s.last_read_at)) {
+        m.set(s.id, 0);
+        continue;
+      }
       const kanji = readingScoreDelta(s.content, kanjiExposures);
       const occMap = storyOccurrences.get(s.id);
       const vocab = occMap
