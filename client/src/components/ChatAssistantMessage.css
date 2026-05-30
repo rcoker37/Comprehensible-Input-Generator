@@ -107,6 +107,14 @@
   padding: 7px 12px;
 }
 
+/* Read but re-readable (not at cap, not on cooldown): accent color signals
+   "you can mark this again". The base above stays in effect for the
+   disabled cap/cooldown state, where opacity 0.6 keeps it muted. */
+.chat-msg-read--done:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .chat-msg-read-undo {
   background: transparent;
   border: 1px solid var(--border);

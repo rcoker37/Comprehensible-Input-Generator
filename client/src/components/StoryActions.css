@@ -102,10 +102,16 @@
   border-color: var(--border);
 }
 
-.story-read-btn.is-read:hover:not(:disabled) {
+/* Read but re-readable (not at cap, not on cooldown): accent color signals
+   "you can mark this again". The base .is-read above stays in effect for
+   the disabled cap/cooldown state, where opacity 0.6 keeps it muted. */
+.story-read-btn.is-read:not(:disabled) {
   color: var(--accent);
   border-color: var(--accent);
-  opacity: 1;
+}
+
+.story-read-btn.is-read:hover:not(:disabled) {
+  opacity: 0.9;
 }
 
 .story-read-error {
