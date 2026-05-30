@@ -90,6 +90,7 @@ export default function BrowseSection() {
   const [activeHeadword, setActiveHeadword] = useState<{
     headword: string;
     entryId: number | null;
+    reading: string | null;
     el?: HTMLElement;
   } | null>(null);
 
@@ -511,6 +512,7 @@ export default function BrowseSection() {
                     setActiveHeadword({
                       headword: v.headword,
                       entryId: v.entryId,
+                      reading: v.reading,
                       el: e.currentTarget,
                     })
                   }
@@ -542,9 +544,9 @@ export default function BrowseSection() {
         <KanjiModal
           kanji={activeKanji}
           onClose={() => setActiveKanji(null)}
-          onWordSelect={(headword, entryId) => {
+          onWordSelect={(headword, entryId, reading) => {
             setActiveKanji(null);
-            setActiveHeadword({ headword, entryId });
+            setActiveHeadword({ headword, entryId, reading });
           }}
         />
       )}
@@ -554,6 +556,7 @@ export default function BrowseSection() {
           kind: "headword",
           headword: activeHeadword?.headword ?? "",
           entryId: activeHeadword?.entryId ?? null,
+          reading: activeHeadword?.reading ?? null,
         }}
         open={activeHeadword !== null}
         onOpenChange={(open) => {
@@ -564,7 +567,19 @@ export default function BrowseSection() {
   );
 }
 
-function KanjiModal({ kanji, onClose, onWordSelect }: { kanji: Kanji; onClose: () => void; onWordSelect: (headword: string, entryId: number | null) => void }) {
+function KanjiModal({
+  kanji,
+  onClose,
+  onWordSelect,
+}: {
+  kanji: Kanji;
+  onClose: () => void;
+  onWordSelect: (
+    headword: string,
+    entryId: number | null,
+    reading: string | null
+  ) => void;
+}) {
   const initialRow: KanjiRow = {
     character: kanji.character,
     grade: kanji.grade,
