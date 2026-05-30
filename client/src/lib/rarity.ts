@@ -29,11 +29,27 @@ export function totalScore(exposures: Map<string, number>): number {
   return total;
 }
 
-// Score delta if the user reads this story once: each kanji's count rises by
-// its occurrence count in the story; the contribution shifts from
-// kanjiScore(old) to kanjiScore(old + occ). Unseen kanji (not in the
-// exposures map) start from 0, so reading a story with new kanji rewards
-// the introduction.
+// Score delta from a precomputed (kanji → occurrences in this read) map.
+// Each kanji's stored exposure count rises by its occurrence count; the
+// contribution shifts from kanjiScore(old) to kanjiScore(old + occ).
+// Unseen kanji (not in the exposures map) start from 0. Used by chats
+// (where the kanji counts arrive aggregated server-side via
+// get_per_chat_payout) and by readingScoreDelta (which extracts the
+// counts from story text).
+export function kanjiCountsDelta(
+  counts: Map<string, number>,
+  exposures: Map<string, number>,
+): number {
+  let delta = 0;
+  for (const [ch, n] of counts) {
+    const c = exposures.get(ch) ?? 0;
+    delta += kanjiScore(c + n) - kanjiScore(c);
+  }
+  return delta;
+}
+
+// Story-content variant of kanjiCountsDelta: extracts per-kanji counts
+// from the cleaned content text before scoring.
 export function readingScoreDelta(content: string, exposures: Map<string, number>): number {
   const stripped = stripAnnotations(content);
   const occ = new Map<string, number>();
@@ -41,12 +57,7 @@ export function readingScoreDelta(content: string, exposures: Map<string, number
     if (!KANJI_REGEX.test(ch)) continue;
     occ.set(ch, (occ.get(ch) ?? 0) + 1);
   }
-  let delta = 0;
-  for (const [ch, n] of occ) {
-    const c = exposures.get(ch) ?? 0;
-    delta += kanjiScore(c + n) - kanjiScore(c);
-  }
-  return delta;
+  return kanjiCountsDelta(occ, exposures);
 }
 
 // Display formatter: any score below 1 collapses to "0"; otherwise a

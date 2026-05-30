@@ -1,0 +1,93 @@
+/* Mirrors StoryActions.css so the chat-level Mark button reads as the
+   same primary call-to-action that StoryReadButton uses at the bottom
+   of a story page. */
+
+.chat-read-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.chat-read-controls {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.chat-read-btn {
+  padding: 0.55rem 1.4rem;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+  border-radius: var(--radius);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chat-read-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.chat-read-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.chat-read-btn.is-read {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+/* Mirrors the StoryReadButton change: the post-mark variant carries the
+   accent color when re-readable so the button visibly invites another
+   click. Cap/cooldown keep the dim look via the :disabled opacity. */
+.chat-read-btn.is-read:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.chat-read-btn.is-read:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.chat-read-payout {
+  margin-left: 0.35rem;
+  font-weight: 600;
+  opacity: 0.9;
+}
+
+.chat-read-undo-btn {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  margin-left: 0.5rem;
+  padding: 0.4rem 0.7rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.chat-read-undo-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chat-read-undo-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.chat-read-error {
+  color: var(--accent);
+  font-size: 0.85rem;
+}

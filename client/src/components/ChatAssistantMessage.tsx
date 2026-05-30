@@ -10,15 +10,11 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
-import { useSeenKanji } from "../contexts/KanjiContext";
-import { useVocab } from "../contexts/VocabContext";
 import { useChats } from "../contexts/ChatsContext";
 import {
   getChatMessage,
   getChatMessageOccurrences,
   getChatMessageWordEncounters,
-  markChatMessageRead,
-  undoChatMessageRead,
 } from "../api/client";
 import {
   parseAnnotatedText,
@@ -39,14 +35,9 @@ import {
   lookupFrequencySync,
   type FrequencyTier,
 } from "../lib/frequency";
-import {
-  isOnReadCooldown,
-  readCooldownHoursRemaining,
-} from "../lib/readCooldown";
 import AnimatedDots from "./AnimatedDots";
 import type {
   ChatMessage,
-  ChatMessageReadState,
   DisplayMode,
   FontMode,
   HighlightMode,
@@ -80,10 +71,7 @@ interface Props {
     translation: StoryTranslations[string]
   ) => void;
   onWordTap: (args: TapArgs) => void;
-  onReadChange: (messageId: number, state: ChatMessageReadState) => void;
 }
-
-const MAX_READ_COUNT = 5;
 
 const encountersToTier = (n: number): FrequencyTier | null => {
   if (n <= 0) return "very-rare";
@@ -100,7 +88,6 @@ export default function ChatAssistantMessage({
   highlightMode,
   font,
   onWordTap,
-  onReadChange,
 }: Props) {
   const { state: dictState } = useDictionary();
   const {
@@ -108,16 +95,7 @@ export default function ChatAssistantMessage({
     processing: backfillProcessing,
     currentChatMessageId,
   } = useWordIndexBackfill();
-  const { prepareKanjiRefresh } = useSeenKanji();
-  const { prepareVocabRefresh } = useVocab();
   const { applyMessageUpdate } = useChats();
-  const [readPending, setReadPending] = useState(false);
-  const [readError, setReadError] = useState<string | null>(null);
-  // One mark per visit (per-message). Matches StoryReadButton's per-session
-  // lock — the primary button disables after one click, and the undo button
-  // only appears for that same-session mark. Navigating away from the chat
-  // unmounts this component, so the next visit starts a fresh session.
-  const [markedThisSession, setMarkedThisSession] = useState(false);
 
   // After the backfill finishes processing this message, refetch it so the
   // cached `word_index_at` updates locally. Without this the popover stays
@@ -145,15 +123,16 @@ export default function ChatAssistantMessage({
   // Distinguishes "first-time indexing" (hide the body, show typing dots
   // until the indexer catches up) from "re-indexing an already-shown message"
   // (e.g., the user hit Reset — keep showing the body under the glassy
-  // overlay so the text doesn't disappear).
+  // overlay so the text doesn't disappear). Uses the React-blessed
+  // "store a snapshot of prior props" pattern: setState in render flips
+  // the latch when the prop transitions; React discards this render and
+  // immediately retries with the new state, no effect needed.
   const [hasBeenIndexed, setHasBeenIndexed] = useState(
     message.word_index_at !== null
   );
-  useEffect(() => {
-    if (message.word_index_at !== null && !hasBeenIndexed) {
-      setHasBeenIndexed(true);
-    }
-  }, [message.word_index_at, hasBeenIndexed]);
+  if (message.word_index_at !== null && !hasBeenIndexed) {
+    setHasBeenIndexed(true);
+  }
   const firstIndexPending =
     message.status === "complete" &&
     message.word_index_at === null &&
@@ -190,35 +169,32 @@ export default function ChatAssistantMessage({
   }, [baseParagraphs, cleanContent, rubyAnnotations, dictState]);
 
   // Indexed occurrences (algorithm rows only — no manual overrides for chats).
-  // Refetched after the backfill finishes processing this message.
-  const [occurrences, setOccurrences] = useState<
-    | {
-        start: number;
-        end: number;
-        surface: string;
-        headword: string;
-        reading: string | null;
-        entryId: number | null;
-        isName: boolean;
-      }[]
-    | null
+  // Refetched after the backfill finishes processing this message. The
+  // "no index yet" case is derived from the prop in render so the effect
+  // never needs a synchronous null-reset.
+  type ChatOccurrence = {
+    start: number;
+    end: number;
+    surface: string;
+    headword: string;
+    reading: string | null;
+    entryId: number | null;
+    isName: boolean;
+  };
+  const [fetchedOccurrences, setFetchedOccurrences] = useState<
+    ChatOccurrence[] | null
   >(null);
+  const occurrences =
+    message.word_index_at === null ? null : fetchedOccurrences;
   useEffect(() => {
-    if (message.word_index_at === null) {
-      setOccurrences(null);
-      return;
-    }
+    if (message.word_index_at === null) return;
     let cancelled = false;
     getChatMessageOccurrences(message.id)
       .then((rows) => {
-        if (!cancelled) {
-          // Synthesise the shape applyOccurrences expects (it ignores manual /
-          // user_id, just reads start/end/surface/headword/reading/entryId/isName).
-          setOccurrences(rows);
-        }
+        if (!cancelled) setFetchedOccurrences(rows);
       })
       .catch(() => {
-        if (!cancelled) setOccurrences(null);
+        if (!cancelled) setFetchedOccurrences(null);
       });
     return () => {
       cancelled = true;
@@ -255,21 +231,22 @@ export default function ChatAssistantMessage({
 
   // Per-span encounter counts (from this user's read stories + read chats).
   // Refetched when read state flips or the backfill finishes processing.
-  const [encounters, setEncounters] = useState<Map<string, number>>(
+  // The "no index yet" case is derived from the prop so the effect
+  // doesn't need a synchronous reset.
+  const [fetchedEncounters, setFetchedEncounters] = useState<Map<string, number>>(
     () => new Map()
   );
+  const encounters: Map<string, number> =
+    message.word_index_at === null ? new Map() : fetchedEncounters;
   useEffect(() => {
-    if (message.word_index_at === null) {
-      setEncounters(new Map());
-      return;
-    }
+    if (message.word_index_at === null) return;
     let cancelled = false;
     getChatMessageWordEncounters(message.id)
       .then((m) => {
-        if (!cancelled) setEncounters(m);
+        if (!cancelled) setFetchedEncounters(m);
       })
       .catch(() => {
-        if (!cancelled) setEncounters(new Map());
+        if (!cancelled) setFetchedEncounters(new Map());
       });
     return () => {
       cancelled = true;
@@ -490,48 +467,6 @@ export default function ChatAssistantMessage({
     );
   };
 
-  const refreshScore = async () => {
-    const [commitKanji, commitVocab] = await Promise.all([
-      prepareKanjiRefresh(),
-      prepareVocabRefresh(),
-    ]);
-    commitKanji();
-    commitVocab();
-  };
-
-  const handleMark = async () => {
-    if (readPending || markedThisSession) return;
-    if (isOnReadCooldown(message.last_read_at)) return;
-    setReadPending(true);
-    setReadError(null);
-    try {
-      const state = await markChatMessageRead(message.id);
-      onReadChange(message.id, state);
-      setMarkedThisSession(true);
-      refreshScore();
-    } catch (err) {
-      setReadError(err instanceof Error ? err.message : "Failed to mark as read");
-    } finally {
-      setReadPending(false);
-    }
-  };
-
-  const handleUndo = async () => {
-    if (readPending) return;
-    setReadPending(true);
-    setReadError(null);
-    try {
-      const state = await undoChatMessageRead(message.id);
-      onReadChange(message.id, state);
-      setMarkedThisSession(false);
-      refreshScore();
-    } catch (err) {
-      setReadError(err instanceof Error ? err.message : "Failed to undo");
-    } finally {
-      setReadPending(false);
-    }
-  };
-
   const fontClass = font === "sans" ? "chat-msg-body--sans" : "chat-msg-body--serif";
 
   // Status-conditional rendering. All hooks above run regardless so the
@@ -578,80 +513,6 @@ export default function ChatAssistantMessage({
           {showLoadingOverlay && (
             <div className="chat-msg-body__overlay" aria-hidden="true" />
           )}
-        </div>
-        <div className="chat-msg-actions">
-          {(() => {
-            const count = message.read_count;
-            const isRead = count > 0;
-            const atCap = count >= MAX_READ_COUNT;
-            const lockedAtCap = atCap && !markedThisSession;
-            const onCooldown =
-              !markedThisSession && isOnReadCooldown(message.last_read_at);
-            const buttonLabel = !isRead
-              ? "Mark as Read"
-              : count > 1
-                ? `✓ Read ${count}×`
-                : "✓ Read";
-            const buttonTitle = markedThisSession
-              ? "Already marked as read this visit"
-              : lockedAtCap
-                ? `Already read ${MAX_READ_COUNT}× — the maximum`
-                : onCooldown
-                  ? `Available again in ${readCooldownHoursRemaining(message.last_read_at)}h`
-                  : isRead && message.last_read_at
-                    ? `Last read ${new Date(message.last_read_at).toLocaleString()} — click to mark again`
-                    : undefined;
-            return (
-              <>
-                <button
-                  type="button"
-                  className={`chat-msg-read ${isRead ? "chat-msg-read--done" : ""}`}
-                  onClick={handleMark}
-                  disabled={readPending || markedThisSession || lockedAtCap || onCooldown}
-                  title={buttonTitle}
-                >
-                  {readPending && !markedThisSession ? (
-                    <>
-                      Marking
-                      <AnimatedDots />
-                    </>
-                  ) : isRead ? (
-                    <>
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M3 8.5L6.5 12 13 4.5" />
-                      </svg>
-                      {count > 1 ? `Read ${count}×` : "Read"}
-                    </>
-                  ) : (
-                    buttonLabel
-                  )}
-                </button>
-                {markedThisSession && (
-                  <button
-                    type="button"
-                    className="chat-msg-read-undo"
-                    onClick={handleUndo}
-                    disabled={readPending}
-                    title="Undo this visit's mark"
-                    aria-label="Undo this visit's mark as read"
-                  >
-                    undo
-                  </button>
-                )}
-              </>
-            );
-          })()}
-          {readError && <span className="chat-msg-read-error">{readError}</span>}
         </div>
       </div>
     </div>

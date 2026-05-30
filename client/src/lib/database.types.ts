@@ -413,13 +413,22 @@ export type Database = {
           created_at: string
           id: number
           last_activity_at: string
-          min_assistant_read_count: number | null
+          min_assistant_read_count: number
           title: string
         }[]
       }
       get_openrouter_api_key_for_user: {
         Args: { p_user_id: string }
         Returns: string
+      }
+      get_per_chat_payout: {
+        Args: never
+        Returns: {
+          chat_id: number
+          count: number
+          key: string
+          kind: string
+        }[]
       }
       get_per_story_word_occurrences: {
         Args: never
@@ -481,6 +490,15 @@ export type Database = {
           read_count: number
         }[]
       }
+      mark_chat_read: {
+        Args: { p_chat_id: number }
+        Returns: {
+          first_read_at: string
+          last_read_at: string
+          message_id: number
+          read_count: number
+        }[]
+      }
       mark_story_read: {
         Args: { p_story_id: number }
         Returns: {
@@ -518,6 +536,15 @@ export type Database = {
         Returns: {
           first_read_at: string
           last_read_at: string
+          read_count: number
+        }[]
+      }
+      undo_chat_read: {
+        Args: { p_chat_id: number; p_message_ids: number[] }
+        Returns: {
+          first_read_at: string
+          last_read_at: string
+          message_id: number
           read_count: number
         }[]
       }
