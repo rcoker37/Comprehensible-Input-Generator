@@ -12,10 +12,12 @@ import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import type {
   Chat,
   ChatMessage,
+  ChatMessageMarkUpdate,
   ChatMessageReadState,
   ContentType,
   Formality,
   Kanji,
+  PerChatPayoutRow,
   Preferences,
   SentenceTranslation,
   Story,
@@ -821,6 +823,40 @@ export async function undoChatMessageRead(messageId: number): Promise<ChatMessag
   const row = (data as { read_count: number; first_read_at: string | null; last_read_at: string | null }[] | null)?.[0];
   if (!row) throw new Error("Chat message not found");
   return row;
+}
+
+// Chat-level fan-out mark. Increments every complete assistant message in
+// the chat by 1, subject to the per-message 5× cap and 24h cooldown.
+// Returns one row per message that actually changed (cap/cooldown rows
+// no-op and are omitted from the result). Empty array = nothing landed.
+export async function markChatRead(chatId: number): Promise<ChatMessageMarkUpdate[]> {
+  const { data, error } = await supabase.rpc("mark_chat_read", { p_chat_id: chatId });
+  if (error) throw new Error(error.message);
+  return (data as ChatMessageMarkUpdate[]) ?? [];
+}
+
+// Targeted decrement for the per-session undo affordance. `messageIds`
+// is the list returned by the matching markChatRead call this session.
+export async function undoChatRead(
+  chatId: number,
+  messageIds: number[],
+): Promise<ChatMessageMarkUpdate[]> {
+  const { data, error } = await supabase.rpc("undo_chat_read", {
+    p_chat_id: chatId,
+    p_message_ids: messageIds,
+  });
+  if (error) throw new Error(error.message);
+  return (data as ChatMessageMarkUpdate[]) ?? [];
+}
+
+// Per-chat aggregated headword + kanji counts for every message that
+// would actually contribute to the next chat-level mark. The Chats list
+// page and ChatDetail's mark button both consume this to compute the
+// `+X` payout via vocabScoreDelta / kanjiCountsDelta.
+export async function getPerChatPayout(): Promise<PerChatPayoutRow[]> {
+  const { data, error } = await supabase.rpc("get_per_chat_payout");
+  if (error) throw new Error(error.message);
+  return (data as PerChatPayoutRow[]) ?? [];
 }
 
 export async function deleteChat(id: number): Promise<void> {

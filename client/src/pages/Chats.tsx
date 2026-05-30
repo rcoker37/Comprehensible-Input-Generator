@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { deleteChat } from "../api/client";
 import { useChats } from "../contexts/ChatsContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
+import { useVocab } from "../contexts/VocabContext";
 import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
+import { formatScore, kanjiCountsDelta } from "../lib/rarity";
+import { vocabScoreDelta } from "../lib/vocabScore";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Chats.css";
 
@@ -23,9 +27,54 @@ function formatRelativeDate(iso: string): string {
 }
 
 export default function Chats() {
-  const { chats, chatsLoaded, error, removeChat } = useChats();
+  const {
+    chats,
+    chatsLoaded,
+    error,
+    removeChat,
+    perChatPayout,
+    perChatPayoutLoaded,
+  } = useChats();
+  const { kanjiExposures, kanjiExposuresLoaded } = useSeenKanji();
+  const {
+    vocabEncounters,
+    vocabEncountersLoaded,
+    getWordRank,
+  } = useVocab();
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  // Per-chat `+X` payout — sum of kanji + vocab deltas the next chat-
+  // level Mark would award. Same shape as Stories.tsx's deltaById:
+  // computed from the per-chat payout map (server already filters out
+  // cap/cooldown messages) crossed with the live exposure/encounter
+  // maps from KanjiContext / VocabContext.
+  const deltaById = useMemo(() => {
+    const m = new Map<number, number>();
+    if (!perChatPayoutLoaded || !kanjiExposuresLoaded || !vocabEncountersLoaded) {
+      return m;
+    }
+    for (const chat of chats) {
+      const payout = perChatPayout.get(chat.id);
+      if (!payout) {
+        m.set(chat.id, 0);
+        continue;
+      }
+      const kanji = kanjiCountsDelta(payout.kanjiCounts, kanjiExposures);
+      const vocab = vocabScoreDelta(payout.wordCounts, vocabEncounters, getWordRank);
+      m.set(chat.id, kanji + vocab);
+    }
+    return m;
+  }, [
+    chats,
+    perChatPayout,
+    perChatPayoutLoaded,
+    kanjiExposures,
+    kanjiExposuresLoaded,
+    vocabEncounters,
+    vocabEncountersLoaded,
+    getWordRank,
+  ]);
 
   if (!chatsLoaded) {
     return (
@@ -80,6 +129,11 @@ export default function Chats() {
                           : "✓ Read"}
                       </span>
                     )}
+                  {(deltaById.get(chat.id) ?? 0) > 0 && (
+                    <span className="score-tag" title="Score gain if marked once more">
+                      +{formatScore(deltaById.get(chat.id) ?? 0)}
+                    </span>
+                  )}
                   <button
                     className="delete-btn"
                     onClick={() => handleDelete(chat.id)}

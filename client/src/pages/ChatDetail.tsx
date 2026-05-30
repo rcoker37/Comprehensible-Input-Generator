@@ -15,18 +15,23 @@ import { useAuth } from "../contexts/AuthContext";
 import { useChats } from "../contexts/ChatsContext";
 import { useChatGeneration } from "../contexts/ChatGenerationContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
+import { useVocab } from "../contexts/VocabContext";
 import { stripAnnotations } from "../lib/furigana";
 import { stripBold } from "../lib/text";
+import { kanjiCountsDelta } from "../lib/rarity";
+import { vocabScoreDelta } from "../lib/vocabScore";
 import type { FuriganaAnnotation } from "../lib/furigana";
 import AnimatedDots from "../components/AnimatedDots";
 import ChatAssistantMessage from "../components/ChatAssistantMessage";
+import ChatReadButton from "../components/ChatReadButton";
 import ChatUserBubble from "../components/ChatUserBubble";
 import ChatComposer from "../components/ChatComposer";
 import ReaderControls from "../components/ReaderControls";
 import WordPopover from "../components/WordPopover";
 import type {
   ChatMessage,
-  ChatMessageReadState,
+  ChatMessageMarkUpdate,
   DisplayMode,
   Formality,
   FontMode,
@@ -73,10 +78,24 @@ export default function ChatDetail() {
     removeChat,
     applyMessageUpdate,
     applyChatUpdate,
+    perChatPayout,
+    perChatPayoutLoaded,
+    refreshPerChatPayout,
   } = useChats();
   const { sendMessage, pendingByChat, errorByMessage, dismissError } =
     useChatGeneration();
   const { refresh: refreshBackfill } = useWordIndexBackfill();
+  const {
+    kanjiExposures,
+    kanjiExposuresLoaded,
+    prepareKanjiRefresh,
+  } = useSeenKanji();
+  const {
+    vocabEncounters,
+    vocabEncountersLoaded,
+    getWordRank,
+    prepareVocabRefresh,
+  } = useVocab();
 
   const isNew = rawId === "new";
   const chatId = isNew ? null : Number(rawId);
@@ -285,41 +304,91 @@ export default function ChatDetail() {
     });
   };
 
-  const handleReadChange = (mid: number, state: ChatMessageReadState) => {
-    applyMessageUpdate(mid, {
-      read_count: state.read_count,
-      first_read_at: state.first_read_at,
-      last_read_at: state.last_read_at,
-    });
-    // Recompute this chat's MIN(read_count) locally so the chats-list card
-    // updates without refetching. The cached message we just patched is the
-    // canonical source; substitute its new count when scanning.
-    if (chatId != null) {
-      const updatedMessages = messages.map((m) =>
-        m.id === mid ? { ...m, read_count: state.read_count } : m
-      );
-      const completeAssistant = updatedMessages.filter(
-        (m) => m.role === "assistant" && m.status === "complete"
-      );
-      const minCount =
-        completeAssistant.length === 0
-          ? null
-          : completeAssistant.reduce(
-              (acc, m) => Math.min(acc, m.read_count),
-              Number.POSITIVE_INFINITY
-            );
-      applyChatUpdate(chatId, {
-        min_assistant_read_count:
-          minCount === null || minCount === Number.POSITIVE_INFINITY
+  // Batched read-state update handler used by ChatReadButton (mark and
+  // undo both return an array of per-message updates). Patches each
+  // cached message, then recomputes the chat's MIN(read_count) once so
+  // the chats-list "✓ Read N×" tag reflects the new state without a
+  // round trip.
+  const handleReadBatch = useCallback(
+    (updates: ChatMessageMarkUpdate[]) => {
+      if (updates.length === 0) return;
+      const byId = new Map(updates.map((u) => [u.message_id, u]));
+      for (const u of updates) {
+        applyMessageUpdate(u.message_id, {
+          read_count: u.read_count,
+          first_read_at: u.first_read_at,
+          last_read_at: u.last_read_at,
+        });
+      }
+      if (chatId != null) {
+        const updatedMessages = messages.map((m) => {
+          const u = byId.get(m.id);
+          return u ? { ...m, read_count: u.read_count } : m;
+        });
+        const completeAssistant = updatedMessages.filter(
+          (m) => m.role === "assistant" && m.status === "complete"
+        );
+        const minCount =
+          completeAssistant.length === 0
             ? null
-            : minCount,
-      });
+            : completeAssistant.reduce(
+                (acc, m) => Math.min(acc, m.read_count),
+                Number.POSITIVE_INFINITY
+              );
+        applyChatUpdate(chatId, {
+          min_assistant_read_count:
+            minCount === null || minCount === Number.POSITIVE_INFINITY
+              ? null
+              : minCount,
+        });
+      }
+    },
+    [applyChatUpdate, applyMessageUpdate, chatId, messages]
+  );
+
+  // Refresh the header score (kanji + vocab in one tick) and the per-
+  // chat payout cache after the chat-level mark or undo lands.
+  const refreshScoreAndPayout = useCallback(async () => {
+    const [commitKanji, commitVocab] = await Promise.all([
+      prepareKanjiRefresh(),
+      prepareVocabRefresh(),
+    ]);
+    commitKanji();
+    commitVocab();
+    refreshPerChatPayout();
+  }, [prepareKanjiRefresh, prepareVocabRefresh, refreshPerChatPayout]);
+
+  // Score gain the next chat-level mark would award. Same shape as the
+  // chats-list `+X` calc — feeds ChatReadButton's title hint and lock
+  // logic (zero = nothing to mark right now).
+  const chatPayoutDelta = useMemo(() => {
+    if (chatId == null) return 0;
+    if (!perChatPayoutLoaded || !kanjiExposuresLoaded || !vocabEncountersLoaded) {
+      return 0;
     }
-    // Marking changes encounters; backfill doesn't need to re-run, but the
-    // header score & "unseen" highlight maps need a refresh. The score
-    // contexts will refresh on next route change; for in-page we accept a
-    // small lag rather than building a finer signal here.
-  };
+    const payout = perChatPayout.get(chatId);
+    if (!payout) return 0;
+    const kanji = kanjiCountsDelta(payout.kanjiCounts, kanjiExposures);
+    const vocab = vocabScoreDelta(payout.wordCounts, vocabEncounters, getWordRank);
+    return kanji + vocab;
+  }, [
+    chatId,
+    perChatPayout,
+    perChatPayoutLoaded,
+    kanjiExposures,
+    kanjiExposuresLoaded,
+    vocabEncounters,
+    vocabEncountersLoaded,
+    getWordRank,
+  ]);
+
+  const payoutInputsLoaded =
+    perChatPayoutLoaded && kanjiExposuresLoaded && vocabEncountersLoaded;
+
+  const activeChat = useMemo(
+    () => (chatId != null ? chats.find((c) => c.id === chatId) ?? null : null),
+    [chats, chatId]
+  );
 
   if (loadingMessages && messages.length === 0) {
     return (
@@ -464,11 +533,19 @@ export default function ChatDetail() {
                 });
               }}
               onWordTap={(args) => setActiveTap(args)}
-              onReadChange={handleReadChange}
             />
           )
         )}
         {sendingText != null && <ChatUserBubble text={sendingText} />}
+        {activeChat && messages.some((m) => m.role === "assistant" && m.status === "complete") && (
+          <ChatReadButton
+            chat={activeChat}
+            payoutDelta={chatPayoutDelta}
+            payoutLoaded={payoutInputsLoaded}
+            onBatchUpdate={handleReadBatch}
+            onAfterChange={refreshScoreAndPayout}
+          />
+        )}
       </div>
 
       <ChatComposer

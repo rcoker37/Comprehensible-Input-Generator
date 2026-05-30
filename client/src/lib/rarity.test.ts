@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   formatScore,
+  kanjiCountsDelta,
   kanjiScore,
   totalScore,
   readingScoreDelta,
@@ -111,6 +112,30 @@ describe("readingScoreDelta", () => {
       kanjiScore(1) - kanjiScore(0),
       6,
     );
+  });
+});
+
+describe("kanjiCountsDelta", () => {
+  it("returns 0 for an empty counts map", () => {
+    expect(kanjiCountsDelta(new Map(), new Map([["猫", 3]]))).toBe(0);
+  });
+
+  it("treats unseen kanji as starting at 0", () => {
+    const counts = new Map([
+      ["猫", 1],
+      ["魚", 1],
+    ]);
+    expect(kanjiCountsDelta(counts, new Map())).toBeCloseTo(
+      2 * (kanjiScore(1) - kanjiScore(0)),
+      6,
+    );
+  });
+
+  it("matches readingScoreDelta when fed text-extracted counts", () => {
+    const exposures = new Map([["猫", 2]]);
+    const fromText = readingScoreDelta("猫猫猫", exposures);
+    const fromCounts = kanjiCountsDelta(new Map([["猫", 3]]), exposures);
+    expect(fromCounts).toBeCloseTo(fromText, 6);
   });
 });
 

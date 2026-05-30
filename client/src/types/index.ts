@@ -129,6 +129,26 @@ export interface ChatMessageReadState {
   last_read_at: string | null;
 }
 
+// Per-message slice returned by mark_chat_read / undo_chat_read for each
+// row that actually changed. The fan-out skips messages at cap or on
+// cooldown, so the array length tells the caller how many landed; the
+// `message_id` list drives the same-session undo affordance.
+export interface ChatMessageMarkUpdate extends ChatMessageReadState {
+  message_id: number;
+}
+
+// One row from get_per_chat_payout. `kind` discriminates: `'word'` means
+// `key` is a JMdict-canonical headword (sums into the vocab delta);
+// `'kanji'` means `key` is a single CJK character (sums into the kanji
+// delta). The client groups by chat_id then by kind to assemble the
+// per-chat input maps for vocabScoreDelta / kanjiCountsDelta.
+export interface PerChatPayoutRow {
+  chat_id: number;
+  kind: "word" | "kanji";
+  key: string;
+  count: number;
+}
+
 // Stories-page filter shapes are persisted on the profile so the page
 // reopens with the user's most recent choices.
 export type ReadFilter = "all" | "unread" | "read";
