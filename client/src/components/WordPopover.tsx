@@ -892,12 +892,13 @@ export default function WordPopover({
 
   const activeCard = cards[cardIndex] ?? null;
 
-  // Kanji chips show the union of kanji the user has actually encountered
-  // for this entry across their reading — so a "usually kana" word like
-  // うち shows no chips until they hit a kanji form, while 中 / 内 / 家
-  // accumulate as they're seen. The chip set covers the entire carousel
-  // (current tap + every prior occurrence), so it's still stable across
-  // card swipes — only the big surface above reflows per card.
+  // Kanji chips show the union of kanji across the active headword + every
+  // carousel surface — a "usually kana" word like うち still shows no chips
+  // when the headword and every encounter is kana, while 中 / 内 / 家
+  // accumulate as those forms get seen. Including the active headword (not
+  // just `cards`) is what lets headword-mode popovers — Stats Browse vocab
+  // cards and the kanji popover's word-list clicks — show kanji chips on
+  // words the user has never encountered, since those have no cards at all.
   const stickyKanjiChars = useMemo(() => {
     const set = new Set<string>();
     for (const card of cards) {
@@ -905,8 +906,13 @@ export default function WordPopover({
         if (KANJI_REGEX.test(ch)) set.add(ch);
       }
     }
+    if (effectiveHeadwordParam) {
+      for (const ch of effectiveHeadwordParam) {
+        if (KANJI_REGEX.test(ch)) set.add(ch);
+      }
+    }
     return [...set];
-  }, [cards]);
+  }, [cards, effectiveHeadwordParam]);
 
   const goToCard = useCallback(
     (next: number) => {
