@@ -16,7 +16,7 @@
 // whatever script the surface deinflected *to* (います → the kana base いる),
 // but the entry's canonical form is 居る. Stamping the kana base splits
 // encounter counts — an exact 居る/いる tap stamps 居る while a conjugated
-// います stamps いる — so the Stats Browse card (keyed on the entry's
+// います stamps いる — so the entry's encounter count (keyed on its
 // `canonical`, which is jpdb-by-entry's first-non-sK-kanji surface) under-
 // counts. Both branches resolve through `hit.results[0]`, which is also the
 // entry the indexer stamps as `entry_id`, so the headword always agrees with

@@ -190,8 +190,8 @@ export interface WordOccurrence {
  *       JMdict entry's first non-`sK` kanji form for *deinflected* hits too,
  *       instead of returning the (possibly kana) deinflection base. A `uk`
  *       verb like 居る now stamps 居る for every form — an exact いる tap and a
- *       conjugated います both — so the Stats Browse encounter count (keyed on
- *       the entry's `canonical`) no longer splits between 居る and いる.
+ *       conjugated います both — so the entry's encounter count (keyed on its
+ *       `canonical`) no longer splits between 居る and いる.
  *  21 — the jpdb-by-entry index no longer attributes a bare-kana JPDB rank to
  *       every `uk` homophone reading it: the rank-18 kana surface いる belongs
  *       to 居る, so 要る now ranks 3,812 (not 18) and 癒る 23,034. This corrects

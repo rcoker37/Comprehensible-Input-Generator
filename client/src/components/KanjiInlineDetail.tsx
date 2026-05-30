@@ -26,8 +26,8 @@ interface WordExtras {
   reading: string | null;
 }
 
-// Matches BrowseSection's vocab cap so the popover's "All" universe lines up
-// with what the Stats page Browse vocab section shows.
+// Cap the "All" universe to the top-50k JPDB ranks so opening a high-frequency
+// kanji doesn't fan out into the unranked long tail.
 const VOCAB_MAX_RANK = 50000;
 const PAGE_SIZE = 50;
 
