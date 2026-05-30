@@ -47,7 +47,11 @@ export default function KanjiInlineDetail({
   char: string;
   initialRow?: KanjiRow;
   onBack: () => void;
-  onWordSelect?: (headword: string, entryId: number | null) => void;
+  onWordSelect?: (
+    headword: string,
+    entryId: number | null,
+    reading: string | null
+  ) => void;
 }) {
   const [row, setRow] = useState<KanjiRow | null>(
     initialRow && initialRow.character === char ? initialRow : null
@@ -308,7 +312,9 @@ export default function KanjiInlineDetail({
                     <button
                       type="button"
                       className="kanji-inline__word-btn"
-                      onClick={() => onWordSelect?.(e.headword, e.entryId)}
+                      onClick={() =>
+                        onWordSelect?.(e.headword, e.entryId, e.reading)
+                      }
                       disabled={!onWordSelect}
                     >
                       <div className="kanji-inline__word-left">

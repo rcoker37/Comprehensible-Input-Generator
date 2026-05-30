@@ -44,6 +44,23 @@ import type {
 import "./WordPopover.css";
 
 /**
+ * A frame in the popover's in-flight navigation stack. Tapping a kanji chip
+ * pushes a "kanji" frame; clicking a word row in the kanji detail pushes a
+ * "headword" frame. The close button pops the top frame so the user walks
+ * back through history one step at a time; the popover only fully closes
+ * when the stack is empty (the original mode the popover was opened in is
+ * the implicit bottom of the stack).
+ */
+type PopoverFrame =
+  | { kind: "kanji"; char: string; kanjiRow: KanjiRow | null }
+  | {
+      kind: "headword";
+      headword: string;
+      entryId: number | null;
+      reading: string | null;
+    };
+
+/**
  * Where a tap originated. Tap mode opens against either a story or a chat
  * message; the popover stays generic by routing source-specific writes
  * (recordWordLookup, translateSentence) through this discriminator.
@@ -131,6 +148,15 @@ export type WordPopoverMode =
        * できる → する).
        */
       entryId?: number | null;
+      /**
+       * JPDB-paired reading for the headword. When supplied, the popover
+       * header furigana uses this directly instead of re-deriving it from
+       * JMdict — JPDB's by-entry index ties a reading to the exact entry,
+       * while a JMdict re-lookup can land on the wrong homophone (eg
+       * と言われる resolving to 言う's `r[0]` of いう). Optional because
+       * non-Browse callers (StoryDisplay title taps) don't carry one.
+       */
+      reading?: string | null;
     };
 
 interface WordPopoverProps {
@@ -389,11 +415,11 @@ export default function WordPopover({
   const headwordParam = mode.kind === "headword" ? mode.headword : null;
   const headwordEntryId =
     mode.kind === "headword" ? mode.entryId ?? null : null;
+  const headwordReading =
+    mode.kind === "headword" ? mode.reading ?? null : null;
   const [hit, setHit] = useState<LookupHit | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [showAllSenses, setShowAllSenses] = useState(false);
-  const [activeKanji, setActiveKanji] = useState<string | null>(null);
-  const [activeKanjiRow, setActiveKanjiRow] = useState<KanjiRow | null>(null);
   const [loadingKanji, setLoadingKanji] = useState<string | null>(null);
 
   // Carousel state.
@@ -420,18 +446,27 @@ export default function WordPopover({
 
   const [frequency, setFrequency] = useState<BestFrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
-  // When the user taps a word row in the kanji detail list, we navigate to
-  // that word inside the same popover without involving the parent.
-  const [overrideWord, setOverrideWord] = useState<{
-    headword: string;
-    entryId: number | null;
-  } | null>(null);
-  // When overrideWord is set (user tapped a word from the kanji list), treat
-  // the popover as headword-mode for that word, ignoring the original mode.
-  const effectiveHeadwordParam = overrideWord?.headword ?? headwordParam;
+
+  // In-popover navigation stack. Tapping a kanji chip pushes a "kanji" frame
+  // (showing KanjiInlineDetail); clicking a word row inside that detail pushes
+  // a "headword" frame (showing the word view for that word). Hitting close
+  // pops the top frame, walking back through navigation history; the modal
+  // only actually closes when the stack is empty. The "original" mode the
+  // popover was opened in is the implicit bottom of the stack.
+  const [frames, setFrames] = useState<PopoverFrame[]>([]);
+  const topFrame = frames[frames.length - 1] ?? null;
+  const kanjiFrame = topFrame?.kind === "kanji" ? topFrame : null;
+  const headwordFrame = topFrame?.kind === "headword" ? topFrame : null;
+
+  // When a headword frame is on top, treat the popover as headword-mode for
+  // that frame's word — kanji frames on top are just a UI swap and leave the
+  // underlying word view's state alone.
+  const effectiveHeadwordParam = headwordFrame?.headword ?? headwordParam;
   const effectiveHeadwordEntryId =
-    overrideWord !== null ? overrideWord.entryId : headwordEntryId;
-  const effectiveIsTap = isTap && overrideWord === null;
+    headwordFrame !== null ? headwordFrame.entryId : headwordEntryId;
+  const effectiveHeadwordReading =
+    headwordFrame !== null ? headwordFrame.reading : headwordReading;
+  const effectiveIsTap = isTap && headwordFrame === null;
 
   // Loading flags for the three headword-dependent fetches. The popover body
   // is gated on these being false so badges/cards don't pop in one at a time
@@ -473,8 +508,6 @@ export default function WordPopover({
 
   const resetWordState = useCallback(() => {
     setShowAllSenses(false);
-    setActiveKanji(null);
-    setActiveKanjiRow(null);
     setLoadingKanji(null);
     setHit(null);
     setUsages([]);
@@ -492,20 +525,22 @@ export default function WordPopover({
   }, []);
 
   // Reset transient UI state when we open against a different tap point or
-  // headword. Re-keys on whichever identity is active for the current mode.
+  // headword. Re-keys on whichever identity is active for the current mode,
+  // and clears any in-popover navigation stack so the new tap starts fresh.
   useEffect(() => {
     if (!open) return;
     resetWordState();
-    setOverrideWord(null);
+    setFrames([]);
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
   }, [open, tapStart, tapEnd, headwordParam, resetWordState]);
 
-  // Reset word state when the user navigates to a word from the kanji list.
-  // Does not clear overrideWord itself — that's what triggered this effect.
+  // Reset word state when the user pushes a headword frame (navigates to a
+  // new word inside the popover). Kanji frames don't reset — the underlying
+  // word view keeps its data so popping back is instant.
   useEffect(() => {
-    if (!open || overrideWord === null) return;
+    if (!open || headwordFrame === null) return;
     resetWordState();
-  }, [open, overrideWord, resetWordState]);
+  }, [open, headwordFrame, resetWordState]);
 
   // Tap-mode lookup: span-bounded against the story's clean text. Constrained
   // to the rendered span so the popover doesn't reach past the button the
@@ -666,7 +701,7 @@ export default function WordPopover({
     return () => {
       cancelled = true;
     };
-  }, [open, effectiveIsTap, effectiveHeadwordParam, effectiveHeadwordEntryId, overrideWord, dictState]);
+  }, [open, effectiveIsTap, effectiveHeadwordParam, effectiveHeadwordEntryId, headwordFrame, dictState]);
 
   // Once the hit resolves, record the lookup (tap mode only — opening the
   // popover from Stats isn't a "tap" event we want to log) and fetch the
@@ -917,10 +952,11 @@ export default function WordPopover({
   };
 
   const handleKanjiWordSelect = useCallback(
-    (headword: string, entryId: number | null) => {
-      setActiveKanji(null);
-      setActiveKanjiRow(null);
-      setOverrideWord({ headword, entryId });
+    (headword: string, entryId: number | null, reading: string | null) => {
+      setFrames((f) => [
+        ...f,
+        { kind: "headword", headword, entryId, reading },
+      ]);
     },
     []
   );
@@ -935,15 +971,29 @@ export default function WordPopover({
         .eq("character", ch)
         .single();
       if (error) throw new Error(error.message);
-      setActiveKanjiRow(data as KanjiRow);
-      setActiveKanji(ch);
+      setFrames((f) => [
+        ...f,
+        { kind: "kanji", char: ch, kanjiRow: data as KanjiRow },
+      ]);
     } catch {
-      setActiveKanjiRow(null);
-      setActiveKanji(ch);
+      setFrames((f) => [...f, { kind: "kanji", char: ch, kanjiRow: null }]);
     } finally {
       setLoadingKanji(null);
     }
   };
+
+  // Close button (and Esc, and backdrop): pop one frame, walking back through
+  // the kanji ⇄ headword stack. Only when the stack is empty does the modal
+  // actually close.
+  const handleClose = useCallback(() => {
+    setFrames((f) => {
+      if (f.length === 0) {
+        onOpenChange(false);
+        return f;
+      }
+      return f.slice(0, -1);
+    });
+  }, [onOpenChange]);
 
   const snippet = useMemo(
     () =>
@@ -1104,12 +1154,27 @@ export default function WordPopover({
   const lemmaForm = surfaceHasKanji
     ? frequency?.headword ?? headword?.headword ?? headword?.reading ?? ""
     : headword?.reading ?? frequency?.headword ?? headword?.headword ?? "";
+  // No active card (headword mode with no prior usages): prefer the headword
+  // the caller passed in — JMdict's exact-match lookup can land on the wrong
+  // homophone for phrase entries (と言われる exact-matching only 言う since
+  // jpdict-idb's data doesn't always carry every JMdict phrase), and
+  // `headword.headword` would then surface 言う instead. Falling back through
+  // JPDB display variant → JMdict canonical → hit surface for callers that
+  // don't pass a headword (e.g. tap mode shouldn't ever hit this branch, but
+  // be conservative).
   const cardSurface = !surfaceText
-    ? lemmaForm || hit?.surface || ""
+    ? effectiveHeadwordParam ??
+      frequency?.headword ??
+      headword?.headword ??
+      hit?.surface ??
+      ""
     : entryForms.has(surfaceText)
       ? surfaceText
       : lemmaForm || surfaceText;
-  const cardReading = headword?.reading ?? null;
+  // Prefer the JPDB-paired reading from the mode/frame over JMdict's `r[0]` —
+  // same homophone-mismatch concern as cardSurface above.
+  const cardReading =
+    effectiveHeadwordReading ?? headword?.reading ?? null;
   // Other non-sK kanji forms this entry has, with JPDB's display variant
   // hoisted first when known. Powers the "Also written" subtitle so the
   // reader still sees that うち's entry can also be written 中 · 内 even
@@ -1128,21 +1193,23 @@ export default function WordPopover({
   const showCarouselNav = cards.length > 1;
 
   return (
-    <Modal open={true} onClose={() => onOpenChange(false)} className="word-popover" hideClose={!!activeKanji}>
+    <Modal
+      open={true}
+      onClose={handleClose}
+      className="word-popover"
+      hideClose={kanjiFrame !== null}
+    >
       <div className="word-popover__inner">
-        {!contentReady ? (
+        {!contentReady && !kanjiFrame ? (
           <div className="word-popover__loading">
             Loading<AnimatedDots />
           </div>
-        ) : activeKanji ? (
+        ) : kanjiFrame ? (
           <div className="word-popover__kanji-view">
             <KanjiInlineDetail
-              char={activeKanji}
-              initialRow={activeKanjiRow ?? undefined}
-              onBack={() => {
-                setActiveKanji(null);
-                setActiveKanjiRow(null);
-              }}
+              char={kanjiFrame.char}
+              initialRow={kanjiFrame.kanjiRow ?? undefined}
+              onBack={handleClose}
               onWordSelect={handleKanjiWordSelect}
             />
           </div>
