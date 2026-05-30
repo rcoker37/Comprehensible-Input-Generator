@@ -2,6 +2,10 @@ import { useState } from "react";
 import { markStoryRead, undoStoryRead } from "../api/client";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
+import {
+  isOnReadCooldown,
+  readCooldownHoursRemaining,
+} from "../lib/readCooldown";
 import type { Story, StoryReadState } from "../types";
 
 interface Props {
@@ -31,6 +35,10 @@ export default function StoryReadButton({ story, onChange }: Props) {
   const isRead = count > 0;
   const atCap = count >= MAX_READ_COUNT;
   const lockedAtCap = atCap && !markedThisSession;
+  // 24h cooldown — server enforces the same predicate, this just mirrors
+  // the lock so the click is never wasted. markedThisSession takes
+  // precedence so the user sees the friendlier "this session" title.
+  const onCooldown = !markedThisSession && isOnReadCooldown(story.last_read_at);
 
   // Refresh the header score after a read-state change. Both halves (kanji +
   // vocab) are fetched in parallel, then committed together in one tick so the
@@ -45,7 +53,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
   };
 
   const handleMark = async () => {
-    if (markedThisSession || lockedAtCap) return;
+    if (markedThisSession || lockedAtCap || onCooldown) return;
     setBusy(true);
     setError(null);
     try {
@@ -81,6 +89,8 @@ export default function StoryReadButton({ story, onChange }: Props) {
     ? "Already marked as read this session"
     : lockedAtCap
     ? `Already read ${MAX_READ_COUNT}× — the maximum`
+    : onCooldown
+    ? `Available again in ${readCooldownHoursRemaining(story.last_read_at)}h`
     : isRead && story.last_read_at
     ? `Last read ${new Date(story.last_read_at).toLocaleString()} — click to mark as read again`
     : undefined;
@@ -92,7 +102,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
           type="button"
           className={`story-read-btn ${isRead ? "is-read" : ""}`}
           onClick={handleMark}
-          disabled={busy || markedThisSession || lockedAtCap}
+          disabled={busy || markedThisSession || lockedAtCap || onCooldown}
           title={title}
         >
           {label}

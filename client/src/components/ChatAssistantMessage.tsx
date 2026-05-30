@@ -39,6 +39,10 @@ import {
   lookupFrequencySync,
   type FrequencyTier,
 } from "../lib/frequency";
+import {
+  isOnReadCooldown,
+  readCooldownHoursRemaining,
+} from "../lib/readCooldown";
 import AnimatedDots from "./AnimatedDots";
 import type {
   ChatMessage,
@@ -497,6 +501,7 @@ export default function ChatAssistantMessage({
 
   const handleMark = async () => {
     if (readPending || markedThisSession) return;
+    if (isOnReadCooldown(message.last_read_at)) return;
     setReadPending(true);
     setReadError(null);
     try {
@@ -580,6 +585,8 @@ export default function ChatAssistantMessage({
             const isRead = count > 0;
             const atCap = count >= MAX_READ_COUNT;
             const lockedAtCap = atCap && !markedThisSession;
+            const onCooldown =
+              !markedThisSession && isOnReadCooldown(message.last_read_at);
             const buttonLabel = !isRead
               ? "Mark as Read"
               : count > 1
@@ -589,16 +596,18 @@ export default function ChatAssistantMessage({
               ? "Already marked as read this visit"
               : lockedAtCap
                 ? `Already read ${MAX_READ_COUNT}× — the maximum`
-                : isRead && message.last_read_at
-                  ? `Last read ${new Date(message.last_read_at).toLocaleString()} — click to mark again`
-                  : undefined;
+                : onCooldown
+                  ? `Available again in ${readCooldownHoursRemaining(message.last_read_at)}h`
+                  : isRead && message.last_read_at
+                    ? `Last read ${new Date(message.last_read_at).toLocaleString()} — click to mark again`
+                    : undefined;
             return (
               <>
                 <button
                   type="button"
                   className={`chat-msg-read ${isRead ? "chat-msg-read--done" : ""}`}
                   onClick={handleMark}
-                  disabled={readPending || markedThisSession || lockedAtCap}
+                  disabled={readPending || markedThisSession || lockedAtCap || onCooldown}
                   title={buttonTitle}
                 >
                   {readPending && !markedThisSession ? (
