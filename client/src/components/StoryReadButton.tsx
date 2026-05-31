@@ -3,8 +3,9 @@ import { markStoryRead, undoStoryRead } from "../api/client";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
 import {
+  MAX_READ_COUNT,
   isOnReadCooldown,
-  readCooldownHoursRemaining,
+  readCooldownLabel,
 } from "../lib/readCooldown";
 import type { Story, StoryReadState } from "../types";
 
@@ -19,11 +20,10 @@ interface Props {
 // past-session reads can't be cleared from the UI — only deleting the story
 // removes those. Server-side undo is a safety net (decrements with a floor of 0).
 //
-// Read count is capped at 5 server-side (mark_story_read uses LEAST(... ,
-// GREATEST(read_count, 5))). The mark button locks visually once count >= 5
-// so the cap is discoverable.
-const MAX_READ_COUNT = 5;
-
+// Read count is capped at 3× server-side (mark_story_read uses
+// LEAST(..., GREATEST(read_count, 3))). The mark button locks visually
+// once count >= 3 so the cap is discoverable. Cooldown between reads is
+// 24h normally and 7 days before the 3rd read (see lib/readCooldown.ts).
 export default function StoryReadButton({ story, onChange }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,10 +35,12 @@ export default function StoryReadButton({ story, onChange }: Props) {
   const isRead = count > 0;
   const atCap = count >= MAX_READ_COUNT;
   const lockedAtCap = atCap && !markedThisSession;
-  // 24h cooldown — server enforces the same predicate, this just mirrors
-  // the lock so the click is never wasted. markedThisSession takes
-  // precedence so the user sees the friendlier "this session" title.
-  const onCooldown = !markedThisSession && isOnReadCooldown(story.last_read_at);
+  // Cooldown duration depends on count: 7 days when next mark is the 3rd
+  // (count = 2), 24h otherwise. Server enforces the same predicate.
+  // markedThisSession takes precedence so the user sees the friendlier
+  // "this session" title.
+  const onCooldown =
+    !markedThisSession && isOnReadCooldown(story.last_read_at, count);
 
   // Refresh the header score after a read-state change. Both halves (kanji +
   // vocab) are fetched in parallel, then committed together in one tick so the
@@ -90,7 +92,7 @@ export default function StoryReadButton({ story, onChange }: Props) {
     : lockedAtCap
     ? `Already read ${MAX_READ_COUNT}× — the maximum`
     : onCooldown
-    ? `Available again in ${readCooldownHoursRemaining(story.last_read_at)}h`
+    ? `Available again in ${readCooldownLabel(story.last_read_at, count)}`
     : isRead && story.last_read_at
     ? `Last read ${new Date(story.last_read_at).toLocaleString()} — click to mark as read again`
     : undefined;
