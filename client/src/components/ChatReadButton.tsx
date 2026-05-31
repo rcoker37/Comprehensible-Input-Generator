@@ -10,7 +10,7 @@ interface Props {
    * Score gain (kanji + vocab combined) the next chat-level mark would
    * award. The caller computes this from the per-chat payout map
    * cached at the AppLayout level. Zero means nothing's available —
-   * either every message is on cooldown, at the 5× cap, or the chat
+   * either every message is on cooldown, at the 3× cap, or the chat
    * has no complete assistant replies yet.
    */
   payoutDelta: number;
@@ -32,7 +32,8 @@ interface Props {
 // Mirror of StoryReadButton: same per-session lock semantics, same
 // "✓ Read N×" label style. The button fans out to every complete
 // assistant message in the chat via mark_chat_read, which respects the
-// per-message cap and cooldown — so reads will naturally drift if new
+// per-message 3× cap and the count-dependent cooldown (24h between
+// reads 1→2, 7d between 2→3) — reads will naturally drift if new
 // messages arrive on a different cadence than re-reads, but the user no
 // longer has a per-message affordance that can desync them deliberately.
 //

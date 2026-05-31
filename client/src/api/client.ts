@@ -830,7 +830,8 @@ export async function undoChatMessageRead(messageId: number): Promise<ChatMessag
 }
 
 // Chat-level fan-out mark. Increments every complete assistant message in
-// the chat by 1, subject to the per-message 5× cap and 24h cooldown.
+// the chat by 1, subject to the per-message 3× cap and per-step cooldown
+// (24h between reads 1→2, 7d between 2→3).
 // Returns one row per message that actually changed (cap/cooldown rows
 // no-op and are omitted from the result). Empty array = nothing landed.
 export async function markChatRead(chatId: number): Promise<ChatMessageMarkUpdate[]> {
