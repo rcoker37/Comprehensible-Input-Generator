@@ -15,6 +15,7 @@ const HIGHLIGHT_LABEL: Record<HighlightMode, string> = {
   off: "off",
   frequency: "frequency",
   encounters: "encounters",
+  fiveplus: "5+ reads",
 };
 const FONT_LABEL: Record<FontMode, string> = {
   serif: "serif",

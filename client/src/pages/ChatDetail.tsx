@@ -42,14 +42,25 @@ import type {
 import "./ChatDetail.css";
 
 const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
-const HIGHLIGHT_ORDER: HighlightMode[] = ["off", "frequency", "encounters"];
+const HIGHLIGHT_ORDER: HighlightMode[] = [
+  "off",
+  "frequency",
+  "encounters",
+  "fiveplus",
+];
 const FONT_ORDER: FontMode[] = ["sans", "serif"];
 
 const cycle = <T,>(order: T[], current: T): T =>
   order[(order.indexOf(current) + 1) % order.length]!;
 
 const coerceHighlightMode = (raw: unknown): HighlightMode | null => {
-  if (raw === "off" || raw === "frequency" || raw === "encounters") return raw;
+  if (
+    raw === "off" ||
+    raw === "frequency" ||
+    raw === "encounters" ||
+    raw === "fiveplus"
+  )
+    return raw;
   if (raw === "all") return "frequency";
   if (raw === "unseen") return "encounters";
   return null;

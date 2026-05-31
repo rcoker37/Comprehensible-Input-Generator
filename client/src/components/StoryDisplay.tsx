@@ -53,7 +53,12 @@ import "./StoryDisplay.css";
 // next mode and wraps around. (DisplayMode/HighlightMode/FontMode live in
 // ../types so they can be persisted in `profiles.preferences.reader`.)
 const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
-const HIGHLIGHT_ORDER: HighlightMode[] = ["off", "frequency", "encounters"];
+const HIGHLIGHT_ORDER: HighlightMode[] = [
+  "off",
+  "frequency",
+  "encounters",
+  "fiveplus",
+];
 const FONT_ORDER: FontMode[] = ["sans", "serif"];
 
 const nextMode = (m: DisplayMode): DisplayMode =>
@@ -79,7 +84,13 @@ const encountersToTier = (n: number): FrequencyTier | null => {
 // Migrate any legacy `reader.highlight` preference saved before the
 // mode split (off/unseen/all → off/encounters/frequency).
 const coerceHighlightMode = (raw: unknown): HighlightMode | null => {
-  if (raw === "off" || raw === "frequency" || raw === "encounters") return raw;
+  if (
+    raw === "off" ||
+    raw === "frequency" ||
+    raw === "encounters" ||
+    raw === "fiveplus"
+  )
+    return raw;
   if (raw === "all") return "frequency";
   if (raw === "unseen") return "encounters";
   return null;
@@ -594,10 +605,18 @@ export default function StoryDisplay({
 
   const tokenClass = (start: number, end: number): string => {
     const parts = ["word-token"];
-    const tier = highlightTier(start, end);
-    if (tier) {
-      parts.push("word-token--new");
-      parts.push(`word-token--freq-${tier}`);
+    if (highlightMode === "fiveplus") {
+      const count = encounters.get(`${start}-${end}`);
+      if (count !== undefined && count >= 5) {
+        parts.push("word-token--new");
+        parts.push("word-token--fiveplus");
+      }
+    } else {
+      const tier = highlightTier(start, end);
+      if (tier) {
+        parts.push("word-token--new");
+        parts.push(`word-token--freq-${tier}`);
+      }
     }
     if (inOverrideRegion(start, end)) parts.push("word-token--in-override");
     return parts.join(" ");
