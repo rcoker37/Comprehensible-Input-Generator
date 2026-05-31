@@ -349,10 +349,18 @@ export default function ChatAssistantMessage({
 
   const tokenClass = (start: number, end: number): string => {
     const parts = ["word-token"];
-    const tier = highlightTier(start, end);
-    if (tier) {
-      parts.push("word-token--new");
-      parts.push(`word-token--freq-${tier}`);
+    if (highlightMode === "fiveplus") {
+      const count = encounters.get(`${start}-${end}`);
+      if (count !== undefined && count >= 5) {
+        parts.push("word-token--new");
+        parts.push("word-token--fiveplus");
+      }
+    } else {
+      const tier = highlightTier(start, end);
+      if (tier) {
+        parts.push("word-token--new");
+        parts.push(`word-token--freq-${tier}`);
+      }
     }
     return parts.join(" ");
   };

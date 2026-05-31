@@ -247,6 +247,9 @@ h1 {
 .word-token--new.word-token--freq-very-rare {
   text-decoration-color: var(--freq-very-rare);
 }
+.word-token--new.word-token--fiveplus {
+  text-decoration-color: #4a90e2;
+}
 
 /* Active override region in the StoryDisplay editor. No effect on chat
  * (chats have no override editor), but kept here so the selector lives
