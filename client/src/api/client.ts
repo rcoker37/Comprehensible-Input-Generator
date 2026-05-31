@@ -718,7 +718,13 @@ export async function getChat(id: number): Promise<Chat> {
     .single();
   if (error) throw new Error(error.message);
   return {
-    ...(data as Omit<Chat, "min_assistant_read_count" | "last_read_at">),
+    ...(data as Omit<
+      Chat,
+      "message_count" | "min_assistant_read_count" | "last_read_at"
+    >),
+    // ChatDetail derives its own count from the loaded message list; the list
+    // cards get the real count from get_chats_with_read_stats.
+    message_count: 0,
     min_assistant_read_count: null,
     last_read_at: null,
   };

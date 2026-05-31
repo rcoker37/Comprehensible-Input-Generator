@@ -100,6 +100,11 @@ export interface Chat {
   created_at: string;
   last_activity_at: string;
   /**
+   * Total messages in the chat (user + assistant, any status). Surfaced as
+   * "N messages" on each Chats-list card. Set by get_chats_with_read_stats.
+   */
+  message_count: number;
+  /**
    * MIN(read_count) across the chat's complete assistant messages. NULL when
    * the chat has no complete assistant messages yet. The Chats list shows
    * "✓ Read N×" exactly when this is > 0.
