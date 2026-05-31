@@ -127,24 +127,14 @@ export default function Chats() {
   // A chat counts as "unread" when at least one assistant message hasn't
   // been read through yet — i.e., MIN = 0 OR there's no complete
   // assistant message yet (min === null). "Read" means everyone's been
-  // marked at least once.
-  //
-  // Chats whose every complete assistant message is at the 3× cap or
-  // inside its cooldown window are hidden entirely (no payout entry from
-  // the server). Pending chats with no complete assistant message yet
-  // (min === null) are kept — they're "coming soon", not "done".
+  // marked at least once. Cooled-out chats (every message at the 3× cap
+  // or inside its cooldown window) stay visible so the user can still
+  // follow up — they just won't show a `+X` tag.
   const filtered = chats.filter((c) => {
     const min = c.min_assistant_read_count;
     const isRead = min != null && min > 0;
     if (readFilter === "unread" && isRead) return false;
     if (readFilter === "read" && !isRead) return false;
-    if (
-      perChatPayoutLoaded &&
-      min != null &&
-      !perChatPayout.has(c.id)
-    ) {
-      return false;
-    }
     return true;
   });
 

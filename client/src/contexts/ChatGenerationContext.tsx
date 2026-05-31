@@ -83,18 +83,25 @@ export function useChatGeneration() {
 export function ChatGenerationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { seenKanji } = useSeenKanji();
-  const { addChatMessage, applyMessageUpdate, applyChatUpdate } = useChats();
+  const {
+    addChatMessage,
+    applyMessageUpdate,
+    applyChatUpdate,
+    refreshPerChatPayout,
+  } = useChats();
   const { refresh: refreshBackfill } = useWordIndexBackfill();
 
   // Refs so the polling callbacks read the latest fns without rebuilding.
   const applyMessageUpdateRef = useRef(applyMessageUpdate);
   const applyChatUpdateRef = useRef(applyChatUpdate);
   const refreshBackfillRef = useRef(refreshBackfill);
+  const refreshPerChatPayoutRef = useRef(refreshPerChatPayout);
   useEffect(() => {
     applyMessageUpdateRef.current = applyMessageUpdate;
     applyChatUpdateRef.current = applyChatUpdate;
     refreshBackfillRef.current = refreshBackfill;
-  }, [applyMessageUpdate, applyChatUpdate, refreshBackfill]);
+    refreshPerChatPayoutRef.current = refreshPerChatPayout;
+  }, [applyMessageUpdate, applyChatUpdate, refreshBackfill, refreshPerChatPayout]);
 
   // One poll token per pending message. Stopping a poll bumps the token
   // so any in-flight tick checks-and-bails.
@@ -164,14 +171,25 @@ export function ChatGenerationProvider({ children }: { children: ReactNode }) {
               status: "complete",
               error_message: null,
             });
+            // A new complete assistant message lands at read_count=0, so
+            // the chat's MIN can only drop to 0 — stamp it directly so the
+            // ChatReadButton label flips back to "Mark Chat as Read"
+            // without waiting for a list refetch.
             applyChatUpdateRef.current(chatId, {
               last_activity_at: fresh.created_at,
+              min_assistant_read_count: 0,
             });
             clearPending(messageId);
             // Newly-complete assistant messages need indexing. The backfill
             // would pick it up on next session anyway; refreshing pulls it
             // into the queue immediately so tap-spans go live ASAP.
             refreshBackfillRef.current();
+            // The per-chat payout's kanji arm reads strip_ruby(content)
+            // directly and doesn't need indexing — refresh now so the new
+            // message's kanji enter the +X tag immediately, instead of
+            // waiting for the backfill drain. The word arm fills in on
+            // that later refresh once the message is indexed.
+            void refreshPerChatPayoutRef.current();
             return;
           }
           if (fresh.status === "failed") {
