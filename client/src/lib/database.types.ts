@@ -414,6 +414,7 @@ export type Database = {
           id: number
           last_activity_at: string
           last_read_at: string
+          message_count: number
           min_assistant_read_count: number
           title: string
         }[]
