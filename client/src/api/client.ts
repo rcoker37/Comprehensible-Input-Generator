@@ -857,10 +857,29 @@ export async function undoChatRead(
 // would actually contribute to the next chat-level mark. The Chats list
 // page and ChatDetail's mark button both consume this to compute the
 // `+X` payout via vocabScoreDelta / kanjiCountsDelta.
+//
+// Pages through PostgREST's `db-max-rows` cap (1000) — a healthy chat
+// history easily blows past that across (chat × kind × key) tuples, and
+// silent truncation was severely undercounting the score preview.
 export async function getPerChatPayout(): Promise<PerChatPayoutRow[]> {
-  const { data, error } = await supabase.rpc("get_per_chat_payout");
-  if (error) throw new Error(error.message);
-  return (data as PerChatPayoutRow[]) ?? [];
+  const out: PerChatPayoutRow[] = [];
+  for (let from = 0; ; ) {
+    const { data, error } = await supabase
+      .rpc("get_per_chat_payout")
+      .order("chat_id")
+      .order("kind")
+      .order("key")
+      .range(from, from + VOCAB_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data as PerChatPayoutRow[] | null) ?? [];
+    if (rows.length === 0) break;
+    for (const r of rows) {
+      out.push({ ...r, count: Number(r.count) });
+    }
+    from += rows.length;
+    if (rows.length < VOCAB_PAGE_SIZE) break;
+  }
+  return out;
 }
 
 export async function deleteChat(id: number): Promise<void> {
