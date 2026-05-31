@@ -90,7 +90,10 @@ function buildSystemPrompt(allowedKanji: string, formality: string): string {
     "",
     "Reply naturally and conversationally. Keep responses concise — typically 1–3 short paragraphs. If the user asks a grammar or vocabulary question, explain it in Japanese with examples (the user is learning by reading your replies).",
     "",
-    "When (and ONLY when) the user's most recent message is written entirely in Japanese, end your reply with a corrections section. Format: leave a blank line, then the header 「訂正《ていせい》：」 on its own line, then each issue on its own line as 「<user's phrase>」→「<natural version>」（<short Japanese reason>）. Cover particles, conjugation, word choice, register, and naturalness — anything you would flag as a Japanese teacher. If the user's Japanese was entirely natural and grammatical, write 「特《とく》に問題《もんだい》ありません。」 as the only line under the header. If the user's message contains any English, romaji, or other non-Japanese language, OMIT this section entirely — no header, no placeholder, no encouragement to switch languages. The section, when present, must follow all the kanji and ruby rules above.",
+    "End your reply with exactly ONE of these two trailing sections, chosen by the language of the user's most recent message:",
+    "- If the message is written entirely in Japanese: a corrections section. Leave a blank line, then the header 「訂正《ていせい》：」 on its own line, then each issue on its own line as 「<user's phrase>」→「<natural version>」（<short Japanese reason>）. Cover particles, conjugation, word choice, register, and naturalness — anything you would flag as a Japanese teacher. If the user's Japanese was entirely natural and grammatical, write 「特《とく》に問題《もんだい》ありません。」 as the only line under the header.",
+    "- If the message contains any English, romaji, or other non-Japanese language: a translation section. Leave a blank line, then the header 「翻訳《ほんやく》：」 on its own line, then exactly one natural Japanese rendering of the user's message on a single line below it — no quotes, no English, no commentary, no alternatives. Use the most idiomatic phrasing a native speaker would actually say in this context.",
+    "Either section, when present, must follow all the kanji and ruby rules above. Never include both sections, and never omit both — pick one based on the language test.",
     "",
     "Output ONLY the Japanese reply. No preamble, no quotes, no English, no markdown (no #, **, _, -, >, backticks).",
   ].join("\n");
@@ -156,7 +159,11 @@ function isAllJapanese(s: string): boolean {
 
 function buildFakeReply(userText: string, seed: number): string {
   const reply = FAKE_REPLIES[seed % FAKE_REPLIES.length];
-  if (!isAllJapanese(userText)) return reply;
+  if (!isAllJapanese(userText)) {
+    // English (or mixed) user message → translation section.
+    const translation = "今日《きょう》は天気《てんき》がいいですね。";
+    return `${reply}\n\n翻訳《ほんやく》：\n${translation}`;
+  }
   // Alternate between the "no issues" placeholder and a sample correction
   // so both rendering paths are exercised in dev.
   const correction =
