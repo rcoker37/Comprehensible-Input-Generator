@@ -27,7 +27,6 @@ import ChatReadButton from "../components/ChatReadButton";
 import ChatUserBubble from "../components/ChatUserBubble";
 import ChatComposer from "../components/ChatComposer";
 import ReaderControls from "../components/ReaderControls";
-import WordsToLearnButton from "../components/WordsToLearnButton";
 import type {
   ChatMessage,
   ChatMessageMarkUpdate,
@@ -476,25 +475,13 @@ export default function ChatDetail() {
         )}
         {sendingText != null && <ChatUserBubble text={sendingText} />}
         {activeChat && messages.some((m) => m.role === "assistant" && m.status === "complete") && (
-          <div className="chat-detail-actions-row">
-            <ChatReadButton
-              chat={activeChat}
-              payoutDelta={chatPayoutDelta}
-              payoutLoaded={payoutInputsLoaded}
-              onBatchUpdate={handleReadBatch}
-              onAfterChange={refreshScoreAndPayout}
-            />
-            <WordsToLearnButton
-              source={{
-                kind: "chat",
-                messageIds: messages
-                  .filter(
-                    (m) => m.role === "assistant" && m.status === "complete"
-                  )
-                  .map((m) => m.id),
-              }}
-            />
-          </div>
+          <ChatReadButton
+            chat={activeChat}
+            payoutDelta={chatPayoutDelta}
+            payoutLoaded={payoutInputsLoaded}
+            onBatchUpdate={handleReadBatch}
+            onAfterChange={refreshScoreAndPayout}
+          />
         )}
       </div>
 
