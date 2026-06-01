@@ -181,20 +181,13 @@ export interface ChatsPreferences {
 // every word.
 export type DisplayMode = "off" | "unseen" | "all";
 
-// Highlight control modes: "off" no underline, "frequency" colours every
-// word by its JPDB rarity tier, "encounters" colours each word by how
-// many times the reader has encountered it (0 = dark red through 9 =
-// green; 10+ unhighlighted). "fiveplus" inverts that — only words seen
-// 5+ times are underlined, in blue.
-export type HighlightMode = "off" | "frequency" | "encounters" | "fiveplus";
-
 // Reading font: shared between Story reader and Chat thread. "serif" is the
 // default Noto Serif JP body; "sans" swaps to Zen Kaku Gothic New (the UI sans).
 export type FontMode = "serif" | "sans";
 
 export interface ReaderPreferences {
   furigana: DisplayMode;
-  highlight: HighlightMode;
+  showSavedLookups: boolean;
   font: FontMode;
 }
 

@@ -391,28 +391,6 @@ export async function getWordEncounters(headword: string): Promise<number> {
   return Number.isFinite(n) ? n : 0;
 }
 
-/**
- * Per-occurrence encounter counts for a single story — one row per indexed
- * span. Used by StoryDisplay to mark zero-encounter spans as new. Spans
- * that haven't been indexed yet are absent, so the caller defaults to
- * "unknown / don't highlight" for missing entries.
- */
-export async function getStoryWordEncounters(
-  storyId: number
-): Promise<Map<string, number>> {
-  const { data, error } = await supabase.rpc("get_story_word_encounters", {
-    p_story_id: storyId,
-  });
-  if (error) throw new Error(error.message);
-  const rows =
-    (data as { start_offset: number; end_offset: number; encounters: number }[] | null) ?? [];
-  const map = new Map<string, number>();
-  for (const r of rows) {
-    map.set(`${r.start_offset}-${r.end_offset}`, Number(r.encounters));
-  }
-  return map;
-}
-
 // PostgREST caps RPC responses at `db-max-rows` (1000 on Supabase Cloud)
 // regardless of the query's actual size. Both vocab RPCs can exceed that
 // once a user has a healthy reading history, so we page through with an
@@ -901,25 +879,6 @@ export async function getChatMessageOccurrences(
     entryId: r.entry_id,
     isName: r.is_name,
   }));
-}
-
-export async function getChatMessageWordEncounters(
-  messageId: number
-): Promise<Map<string, number>> {
-  const { data, error } = await supabase.rpc(
-    "get_chat_message_word_encounters",
-    { p_message_id: messageId }
-  );
-  if (error) throw new Error(error.message);
-  const rows =
-    (data as
-      | { start_offset: number; end_offset: number; encounters: number }[]
-      | null) ?? [];
-  const map = new Map<string, number>();
-  for (const r of rows) {
-    map.set(`${r.start_offset}-${r.end_offset}`, Number(r.encounters));
-  }
-  return map;
 }
 
 /**

@@ -1,21 +1,15 @@
-// Shared furigana / highlight / font toggle row. The CSS classes are the
+// Shared furigana / lookups / font toggle row. The CSS classes are the
 // historical `furigana-*` names (extracted from StoryDisplay) — kept as-is
 // to avoid churn in matching selectors, even though the controls now span
 // more than just furigana.
 
-import type { DisplayMode, FontMode, HighlightMode } from "../types";
+import type { DisplayMode, FontMode } from "../types";
 import "./ReaderControls.css";
 
 const DISPLAY_LABEL: Record<DisplayMode, string> = {
   off: "off",
   unseen: "unseen",
   all: "all",
-};
-const HIGHLIGHT_LABEL: Record<HighlightMode, string> = {
-  off: "off",
-  frequency: "frequency",
-  encounters: "encounters",
-  fiveplus: "5+ reads",
 };
 const FONT_LABEL: Record<FontMode, string> = {
   serif: "serif",
@@ -24,19 +18,19 @@ const FONT_LABEL: Record<FontMode, string> = {
 
 interface Props {
   furigana: DisplayMode;
-  highlight: HighlightMode;
+  showSavedLookups: boolean;
   font: FontMode;
   onFuriganaCycle: () => void;
-  onHighlightCycle: () => void;
+  onShowSavedLookupsToggle: () => void;
   onFontCycle: () => void;
 }
 
 export default function ReaderControls({
   furigana,
-  highlight,
+  showSavedLookups,
   font,
   onFuriganaCycle,
-  onHighlightCycle,
+  onShowSavedLookupsToggle,
   onFontCycle,
 }: Props) {
   return (
@@ -52,13 +46,13 @@ export default function ReaderControls({
         </button>
       </div>
       <div className="furigana-control">
-        <span className="furigana-label">highlight: </span>
+        <span className="furigana-label">lookups: </span>
         <button
           type="button"
           className="furigana-toggle"
-          onClick={onHighlightCycle}
+          onClick={onShowSavedLookupsToggle}
         >
-          {HIGHLIGHT_LABEL[highlight]}
+          {showSavedLookups ? "on" : "off"}
         </button>
       </div>
       <div className="furigana-control">
