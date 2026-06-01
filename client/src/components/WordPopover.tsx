@@ -1250,15 +1250,18 @@ export default function WordPopover({
                     </span>
                   )
                 )}
-                {encounters !== null && (
-                  <span
-                    className="word-popover__encounters"
-                    title="Total reads across your read stories (re-reads counted)"
-                  >
-                    {encounters.toLocaleString()}{" "}
-                    {encounters === 1 ? "encounter" : "encounters"}
-                  </span>
-                )}
+                {encounters !== null && (() => {
+                  const rounded = Math.round(encounters);
+                  return (
+                    <span
+                      className="word-popover__encounters"
+                      title="Total reads across your read stories (re-reads counted)"
+                    >
+                      {rounded.toLocaleString()}{" "}
+                      {rounded === 1 ? "encounter" : "encounters"}
+                    </span>
+                  );
+                })()}
               </header>
               {!lookupIsName && otherDictForms.length > 0 && (
                 <div className="word-popover__alt-forms">

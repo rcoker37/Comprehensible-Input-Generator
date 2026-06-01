@@ -224,7 +224,7 @@ export default function KanjiInlineDetail({
                   <span className="kanji-inline__jlpt-badge">N{row.jlpt}</span>
                 )}
                 <span className="kanji-inline__encounters">
-                  {kanjiEncounters.toLocaleString()} encounters
+                  {Math.round(kanjiEncounters).toLocaleString()} encounters
                 </span>
               </div>
               {meaningsDisplay && (
@@ -340,7 +340,7 @@ export default function KanjiInlineDetail({
                             #{e.rank.toLocaleString()}
                           </span>
                           <span className="kanji-inline__word-enc">
-                            {encounters}×
+                            {Math.round(encounters)}×
                           </span>
                         </div>
                         <svg
