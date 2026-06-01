@@ -35,6 +35,7 @@ import {
   type FrequencyTier,
 } from "../lib/frequency";
 import AnimatedDots from "./AnimatedDots";
+import WordsToLearnButton from "./WordsToLearnButton";
 import type {
   ChatMessage,
   DisplayMode,
@@ -445,6 +446,12 @@ export default function ChatAssistantMessage({
             <div className="chat-msg-body__overlay" aria-hidden="true" />
           )}
         </div>
+      </div>
+      <div className="chat-msg-actions">
+        <WordsToLearnButton
+          source={{ kind: "chat", messageIds: [message.id] }}
+          hidden={message.word_index_at === null}
+        />
       </div>
     </div>
   );

@@ -89,3 +89,10 @@
   color: var(--error-fg);
   font-size: 0.9rem;
 }
+
+/* Per-message footer for the Words to learn affordance — sits flush
+   under the bubble, left-aligned with the bubble's tail. */
+.chat-msg-actions {
+  display: flex;
+  margin-top: 0.25rem;
+}
