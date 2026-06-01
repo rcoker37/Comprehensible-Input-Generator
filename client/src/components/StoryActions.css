@@ -50,10 +50,6 @@
 }
 
 .story-read-undo-btn {
-  position: absolute;
-  left: 100%;
-  top: 50%;
-  transform: translateY(-50%);
   margin-left: 0.5rem;
   padding: 0.4rem 0.7rem;
   background: transparent;
