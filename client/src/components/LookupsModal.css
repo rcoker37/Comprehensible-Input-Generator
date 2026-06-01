@@ -1,26 +1,26 @@
-.words-to-learn-modal {
+.lookups-modal {
   width: min(520px, calc(100vw - 2rem));
 }
 
-.words-to-learn-body {
+.lookups-body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 1.25rem 1.25rem 1rem;
 }
 
-.words-to-learn-title {
+.lookups-title {
   font-size: 1.1rem;
   margin: 0;
   padding-right: 1.5rem;
 }
 
-.words-to-learn-status {
+.lookups-status {
   color: var(--text-dim);
   font-size: 0.95rem;
 }
 
-.words-to-learn-list {
+.lookups-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -31,7 +31,7 @@
   overflow-y: auto;
 }
 
-.words-to-learn-row {
+.lookups-row {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -46,53 +46,45 @@
   font: inherit;
 }
 
-.words-to-learn-row:hover {
+.lookups-row:hover {
   background: var(--bg-dim);
   border-color: var(--border);
 }
 
-.words-to-learn-row-top {
+.lookups-row-top {
   display: flex;
   align-items: baseline;
   gap: 0.75rem;
 }
 
-.words-to-learn-surface {
+.lookups-surface {
   font-size: 1.15rem;
   line-height: 1.4;
   flex-shrink: 0;
 }
 
-.words-to-learn-surface rt {
+.lookups-surface rt {
   font-size: 0.55em;
   color: var(--text-dim);
 }
 
-.words-to-learn-meaning {
+.lookups-meaning {
   flex: 1;
   min-width: 0;
   font-size: 0.9rem;
   color: var(--text-dim);
-  /* Long glosses don't push the count off-row — clamp to one line. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.words-to-learn-count {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.words-to-learn-context {
+.lookups-context {
   font-size: 0.95rem;
   line-height: 1.55;
   color: var(--text-dim);
 }
 
-.words-to-learn-context mark {
+.lookups-context mark {
   background: color-mix(in srgb, var(--accent) 25%, transparent);
   color: var(--text);
   padding: 0 0.1em;

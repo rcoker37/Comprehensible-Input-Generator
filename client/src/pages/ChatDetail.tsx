@@ -33,34 +33,14 @@ import type {
   DisplayMode,
   Formality,
   FontMode,
-  HighlightMode,
 } from "../types";
 import "./ChatDetail.css";
 
 const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
-const HIGHLIGHT_ORDER: HighlightMode[] = [
-  "off",
-  "frequency",
-  "encounters",
-  "fiveplus",
-];
 const FONT_ORDER: FontMode[] = ["sans", "serif"];
 
 const cycle = <T,>(order: T[], current: T): T =>
   order[(order.indexOf(current) + 1) % order.length]!;
-
-const coerceHighlightMode = (raw: unknown): HighlightMode | null => {
-  if (
-    raw === "off" ||
-    raw === "frequency" ||
-    raw === "encounters" ||
-    raw === "fiveplus"
-  )
-    return raw;
-  if (raw === "all") return "frequency";
-  if (raw === "unseen") return "encounters";
-  return null;
-};
 
 export default function ChatDetail() {
   const { id: rawId } = useParams<{ id: string }>();
@@ -105,7 +85,7 @@ export default function ChatDetail() {
   const [sendingText, setSendingText] = useState<string | null>(null);
 
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
-  const [highlightMode, setHighlightMode] = useState<HighlightMode>("encounters");
+  const [showSavedLookups, setShowSavedLookups] = useState<boolean>(true);
   const [font, setFont] = useState<FontMode>("sans");
 
   // Hydrate reader prefs once.
@@ -115,13 +95,13 @@ export default function ChatDetail() {
     readerSyncedRef.current = true;
     const reader = profile.preferences?.reader;
     if (reader?.furigana) setFuriganaMode(reader.furigana);
-    const migrated = coerceHighlightMode(reader?.highlight);
-    if (migrated) setHighlightMode(migrated);
+    if (typeof reader?.showSavedLookups === "boolean")
+      setShowSavedLookups(reader.showSavedLookups);
     if (reader?.font) setFont(reader.font);
   }, [profile]);
 
   const persistReader = useCallback(
-    (next: { furigana: DisplayMode; highlight: HighlightMode; font: FontMode }) => {
+    (next: { furigana: DisplayMode; showSavedLookups: boolean; font: FontMode }) => {
       updatePreferences({ reader: next }).catch((err) =>
         console.warn("Failed to save reader preferences:", err)
       );
@@ -132,21 +112,21 @@ export default function ChatDetail() {
   const cycleFurigana = () => {
     setFuriganaMode((prev) => {
       const next = cycle(DISPLAY_ORDER, prev);
-      persistReader({ furigana: next, highlight: highlightMode, font });
+      persistReader({ furigana: next, showSavedLookups, font });
       return next;
     });
   };
-  const cycleHighlight = () => {
-    setHighlightMode((prev) => {
-      const next = cycle(HIGHLIGHT_ORDER, prev);
-      persistReader({ furigana: furiganaMode, highlight: next, font });
+  const toggleShowSavedLookups = () => {
+    setShowSavedLookups((prev) => {
+      const next = !prev;
+      persistReader({ furigana: furiganaMode, showSavedLookups: next, font });
       return next;
     });
   };
   const cycleFont = () => {
     setFont((prev) => {
       const next = cycle(FONT_ORDER, prev);
-      persistReader({ furigana: furiganaMode, highlight: highlightMode, font: next });
+      persistReader({ furigana: furiganaMode, showSavedLookups, font: next });
       return next;
     });
   };
@@ -431,10 +411,10 @@ export default function ChatDetail() {
       <div className="chat-detail-controls">
         <ReaderControls
           furigana={furiganaMode}
-          highlight={highlightMode}
+          showSavedLookups={showSavedLookups}
           font={font}
           onFuriganaCycle={cycleFurigana}
-          onHighlightCycle={cycleHighlight}
+          onShowSavedLookupsToggle={toggleShowSavedLookups}
           onFontCycle={cycleFont}
         />
       </div>
@@ -468,7 +448,7 @@ export default function ChatDetail() {
               key={m.id}
               message={m}
               furiganaMode={furiganaMode}
-              highlightMode={highlightMode}
+              showSavedLookups={showSavedLookups}
               font={font}
             />
           )
