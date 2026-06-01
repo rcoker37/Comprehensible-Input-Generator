@@ -4,7 +4,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import { useVocab } from "../contexts/VocabContext";
-import type { UnseenWordTarget } from "../lib/generation";
+import {
+  DEFAULT_PARAGRAPH_COUNT,
+  PARAGRAPH_OPTIONS,
+  type UnseenWordTarget,
+} from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
 import Modal from "./Modal";
@@ -33,6 +37,7 @@ export default function GenerationModal({ open, onClose }: Props) {
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
+  const [paragraphs, setParagraphs] = useState<number>(DEFAULT_PARAGRAPH_COUNT);
   const [unseenWordTarget, setUnseenWordTarget] = useState<UnseenWordTarget>("none");
 
   // Sync preferences from profile once it resolves — state initializers run
@@ -47,6 +52,10 @@ export default function GenerationModal({ open, onClose }: Props) {
     if (gen?.contentType) setContentType(gen.contentType as ContentType);
     if (gen?.formality) setFormality(gen.formality as Formality);
     if (gen?.unseenWordTarget) setUnseenWordTarget(gen.unseenWordTarget as UnseenWordTarget);
+    if (typeof gen?.paragraphs === "number" &&
+        (PARAGRAPH_OPTIONS as readonly number[]).includes(gen.paragraphs)) {
+      setParagraphs(gen.paragraphs);
+    }
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [profile]);
 
@@ -57,6 +66,7 @@ export default function GenerationModal({ open, onClose }: Props) {
       topic: topic.trim() || undefined,
       style: style.trim() || undefined,
       formality,
+      paragraphs,
       model: MODEL,
       seenKanji,
       unseenWordTarget,
@@ -67,6 +77,7 @@ export default function GenerationModal({ open, onClose }: Props) {
         model: MODEL,
         contentType,
         formality,
+        paragraphs,
         unseenWordTarget,
       },
     }).catch((err) => console.warn("Failed to save preferences:", err));
@@ -131,6 +142,22 @@ export default function GenerationModal({ open, onClose }: Props) {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="form-group">
+            <label>
+              <span>Paragraphs</span>
+              <select
+                value={paragraphs}
+                onChange={(e) => setParagraphs(Number(e.target.value))}
+              >
+                {PARAGRAPH_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <div className="form-group">

@@ -342,6 +342,7 @@ Deno.serve(async (req) => {
       contentType,
       topic,
       formality,
+      paragraphs,
       allowedKanji,
     } = body as {
       prompt?: string;
@@ -349,6 +350,7 @@ Deno.serve(async (req) => {
       contentType?: string;
       topic?: string | null;
       formality?: string;
+      paragraphs?: number;
       allowedKanji?: string;
     };
 
@@ -357,6 +359,10 @@ Deno.serve(async (req) => {
     if (!contentType || !formality || typeof allowedKanji !== "string") {
       return jsonResponse({ error: "Missing story params" }, 400);
     }
+    const paragraphCount =
+      typeof paragraphs === "number" && paragraphs >= 1 && paragraphs <= 10
+        ? Math.trunc(paragraphs)
+        : 3;
 
     // One in-flight generation per user.
     const { count, error: countError } = await supabaseAdmin
@@ -380,9 +386,7 @@ Deno.serve(async (req) => {
         title: "",
         content: "",
         content_type: contentType,
-        // Paragraph count is fixed — the client no longer offers a choice.
-        // The column is NOT NULL, so a constant 3 is still written.
-        paragraphs: 3,
+        paragraphs: paragraphCount,
         topic: topic || null,
         formality,
         filters: { knownOnly: true, jlptLevels: [], grades: [] },

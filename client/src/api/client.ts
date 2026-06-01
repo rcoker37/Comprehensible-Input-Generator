@@ -1,7 +1,6 @@
 import { supabase } from "../lib/supabase";
 import {
   buildPrompt,
-  PARAGRAPH_COUNT,
   UNSEEN_WORD_POOL_SIZE,
   type UnseenWordTarget,
 } from "../lib/generation";
@@ -82,6 +81,7 @@ export async function startStoryGeneration(
     topic?: string;
     style?: string;
     formality: Formality;
+    paragraphs: number;
     model: string;
     seenKanji: Set<string>;
     unseenWordTarget: UnseenWordTarget;
@@ -112,7 +112,7 @@ export async function startStoryGeneration(
 
   const prompt = buildPrompt(
     params.contentType,
-    PARAGRAPH_COUNT,
+    params.paragraphs,
     allowedKanji,
     params.formality,
     params.topic,
@@ -138,6 +138,7 @@ export async function startStoryGeneration(
       contentType: params.contentType,
       topic: params.topic || null,
       formality: params.formality,
+      paragraphs: params.paragraphs,
       allowedKanji,
     }),
   });

@@ -11,8 +11,7 @@ import { stripBold } from "../lib/text";
 import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
-import { MAX_READ_COUNT, isOnReadCooldown } from "../lib/readCooldown";
-import type { ReadFilter, Story } from "../types";
+import type { ReadFilter } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
 
@@ -75,13 +74,15 @@ export default function Stories() {
   const error = deleteError ?? contextError;
   const loading = !storiesLoaded;
 
-  // Wait for BOTH halves of the payout to load before computing any
-  // deltas — otherwise the score tag (and score-sort) would flash a
-  // kanji-only number for a beat while the paginated vocab RPC drains.
+  // Score preview for unread stories only — a read story has nothing to
+  // award. Wait for BOTH halves of the payout to load before computing any
+  // deltas, otherwise the score tag would flash a kanji-only number for a
+  // beat while the paginated vocab RPC drains.
   const deltaById = useMemo(() => {
     const m = new Map<number, number>();
     if (!vocabEncountersLoaded || !storyOccurrencesLoaded) return m;
     for (const s of stories) {
+      if (s.read_count > 0) continue;
       const kanji = readingScoreDelta(s.content, kanjiExposures);
       const occMap = storyOccurrences.get(s.id);
       const vocab = occMap
@@ -102,24 +103,11 @@ export default function Stories() {
 
   if (loading) return <div className="loading">Loading compositions<AnimatedDots /></div>;
 
-  // Stories at the cap or inside the per-step cooldown are hidden
-  // entirely from the list — the mark-read button would be locked and
-  // they aren't candidates for the user's next reading session. They
-  // become visible again when the cooldown expires (or never, once at
-  // cap), so the list mirrors what's actually actionable right now.
-  const filtered = stories.filter((s) => {
-    if (s.read_count >= MAX_READ_COUNT) return false;
-    if (isOnReadCooldown(s.last_read_at, s.read_count)) return false;
+  const visibleStories = stories.filter((s) => {
     if (readFilter === "unread" && s.read_count !== 0) return false;
     if (readFilter === "read" && s.read_count === 0) return false;
     return true;
   });
-
-  const scoreFor = (s: Story) => deltaById.get(s.id) ?? 0;
-
-  const visibleStories = [...filtered].sort(
-    (a, b) => scoreFor(b) - scoreFor(a)
-  );
 
   return (
     <div className="stories-page">
@@ -169,7 +157,7 @@ export default function Stories() {
                           : undefined
                       }
                     >
-                      {story.read_count > 1 ? `✓ Read ${story.read_count}×` : "✓ Read"}
+                      ✓ Read
                     </span>
                   )}
                   <button
@@ -195,7 +183,7 @@ export default function Stories() {
                   );
                 })()}
                 {(deltaById.get(story.id) ?? 0) > 0 && (
-                  <span className="score-tag" title="Score gain if read once more">
+                  <span className="score-tag" title="Score gain if marked read">
                     +{formatScore(deltaById.get(story.id) ?? 0)}
                   </span>
                 )}

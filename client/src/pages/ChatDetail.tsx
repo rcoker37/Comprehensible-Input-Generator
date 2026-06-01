@@ -457,6 +457,9 @@ export default function ChatDetail() {
         {activeChat && messages.some((m) => m.role === "assistant" && m.status === "complete") && (
           <ChatReadButton
             chat={activeChat}
+            completeAssistantMessageIds={messages
+              .filter((m) => m.role === "assistant" && m.status === "complete")
+              .map((m) => m.id)}
             payoutDelta={chatPayoutDelta}
             payoutLoaded={payoutInputsLoaded}
             onBatchUpdate={handleReadBatch}

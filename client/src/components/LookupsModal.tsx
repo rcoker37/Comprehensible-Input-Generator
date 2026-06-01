@@ -5,7 +5,6 @@ import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
 import { stripBold } from "../lib/text";
 import { KANJI_REGEX } from "../lib/constants";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
-import { lookupWord } from "../lib/dictionary";
 import "./LookupsModal.css";
 
 function renderWithRuby(
@@ -131,7 +130,6 @@ export default function LookupsModal({
   onClose,
 }: Props) {
   const [activeWord, setActiveWord] = useState<Row | null>(null);
-  const [meanings, setMeanings] = useState<Map<string, string>>(new Map());
 
   const rows = useMemo(
     () => (open ? buildRows(content, occurrences, markedHeadwords) : []),
@@ -143,45 +141,9 @@ export default function LookupsModal({
       /* eslint-disable react-hooks/set-state-in-effect -- one-shot
          reset when the modal closes; the cascading render is desired. */
       setActiveWord(null);
-      setMeanings(new Map());
       /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [open]);
-
-  useEffect(() => {
-    if (!open || rows.length === 0) return;
-    const missing = rows.filter((r) => !meanings.has(r.headword));
-    if (missing.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      missing.map(async (r) => {
-        try {
-          const results = await lookupWord(r.headword);
-          const entry =
-            (r.entryId !== null && results.find((w) => w.id === r.entryId)) ||
-            results[0];
-          if (!entry) return [r.headword, ""] as const;
-          const gloss =
-            entry.s[0]?.g
-              .map((g: { str: string }) => g.str)
-              .join("; ") ?? "";
-          return [r.headword, gloss] as const;
-        } catch {
-          return [r.headword, ""] as const;
-        }
-      })
-    ).then((pairs) => {
-      if (cancelled) return;
-      setMeanings((prev) => {
-        const next = new Map(prev);
-        for (const [hw, gloss] of pairs) next.set(hw, gloss);
-        return next;
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, rows, meanings]);
 
   return (
     <>
@@ -205,16 +167,9 @@ export default function LookupsModal({
                     className="lookups-row"
                     onClick={() => setActiveWord(r)}
                   >
-                    <div className="lookups-row-top">
-                      <span className="lookups-surface">
-                        {renderWithRuby(r.surface, r.surfaceAnnotations)}
-                      </span>
-                      {meanings.get(r.headword) && (
-                        <span className="lookups-meaning">
-                          {meanings.get(r.headword)}
-                        </span>
-                      )}
-                    </div>
+                    <span className="lookups-surface">
+                      {renderWithRuby(r.surface, r.surfaceAnnotations)}
+                    </span>
                     {r.context && (
                       <div className="lookups-context">
                         {r.context.text.slice(0, r.context.surfaceStart)}

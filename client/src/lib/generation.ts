@@ -1,11 +1,12 @@
 import type { ContentType, Formality } from "../types";
 
 /**
- * Every generated story is fixed at this many paragraphs. The count is no
- * longer user-selectable; `buildPrompt` still takes it as a parameter so the
- * value stays explicit at the call site.
+ * Paragraph count options surfaced in the Generator modal. 3 is the default;
+ * the upper bound is a soft cap on how much text the model is asked to
+ * produce in one shot.
  */
-export const PARAGRAPH_COUNT = 3;
+export const PARAGRAPH_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+export const DEFAULT_PARAGRAPH_COUNT = 3;
 
 export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
   impolite:

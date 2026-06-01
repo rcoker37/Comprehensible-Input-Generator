@@ -10,7 +10,7 @@ import { stripAnnotations } from "../lib/furigana";
 import { formatScore, kanjiCountsDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
 import AnimatedDots from "../components/AnimatedDots";
-import type { Chat, ReadFilter } from "../types";
+import type { ReadFilter } from "../types";
 import "./Chats.css";
 
 function formatRelativeDate(iso: string): string {
@@ -102,19 +102,15 @@ export default function Chats() {
   // assistant message yet (min === null). "Read" means everyone's been
   // marked at least once. Cooled-out chats (every message at the 3× cap
   // or inside its cooldown window) stay visible so the user can still
-  // follow up — they just won't show a `+X` tag.
-  const filtered = chats.filter((c) => {
+  // follow up — they just won't show a `+X` tag. Chats arrive from
+  // get_chats_with_read_stats ordered by last_activity_at DESC.
+  const visibleChats = chats.filter((c) => {
     const min = c.min_assistant_read_count;
     const isRead = min != null && min > 0;
     if (readFilter === "unread" && isRead) return false;
     if (readFilter === "read" && !isRead) return false;
     return true;
   });
-
-  const scoreFor = (c: Chat) => deltaById.get(c.id) ?? 0;
-  const visibleChats = [...filtered].sort(
-    (a, b) => scoreFor(b) - scoreFor(a)
-  );
 
   if (!chatsLoaded) {
     return (
@@ -192,13 +188,11 @@ export default function Chats() {
                             : undefined
                         }
                       >
-                        {chat.min_assistant_read_count > 1
-                          ? `✓ Read ${chat.min_assistant_read_count}×`
-                          : "✓ Read"}
+                        ✓ Read
                       </span>
                     )}
                   {(deltaById.get(chat.id) ?? 0) > 0 && (
-                    <span className="score-tag" title="Score gain if marked once more">
+                    <span className="score-tag" title="Score gain if marked read">
                       +{formatScore(deltaById.get(chat.id) ?? 0)}
                     </span>
                   )}
