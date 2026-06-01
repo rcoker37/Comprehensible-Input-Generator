@@ -19,6 +19,7 @@ interface GenerateParams {
   topic?: string;
   style?: string;
   formality: Formality;
+  paragraphs: number;
   model: string;
   seenKanji: Set<string>;
   unseenWordTarget: UnseenWordTarget;

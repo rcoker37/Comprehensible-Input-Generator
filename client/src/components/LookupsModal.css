@@ -51,31 +51,14 @@
   border-color: var(--border);
 }
 
-.lookups-row-top {
-  display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
 .lookups-surface {
   font-size: 1.15rem;
   line-height: 1.4;
-  flex-shrink: 0;
 }
 
 .lookups-surface rt {
   font-size: 0.55em;
   color: var(--text-dim);
-}
-
-.lookups-meaning {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.9rem;
-  color: var(--text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .lookups-context {

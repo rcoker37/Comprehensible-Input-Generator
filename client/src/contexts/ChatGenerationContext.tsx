@@ -28,6 +28,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  getChat,
   getChatMessage,
   getPendingChatAssistantMessages,
   markChatMessageFailed,
@@ -84,6 +85,7 @@ export function ChatGenerationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { seenKanji } = useSeenKanji();
   const {
+    addChat,
     addChatMessage,
     applyMessageUpdate,
     applyChatUpdate,
@@ -277,6 +279,21 @@ export function ChatGenerationProvider({ children }: { children: ReactNode }) {
         formality,
       });
 
+      // If the Edge Function just created a fresh chat row, pull it into
+      // the cached chats list right away — without this, ChatDetail's
+      // `activeChat` stays null and the ChatReadButton can't render, and
+      // the Chats list page won't see the new row until the next refetch.
+      // Best-effort: the messages are already optimistically inserted, so
+      // a getChat failure just delays the chat-row appearance.
+      if (res.chatCreated) {
+        try {
+          const chat = await getChat(res.chatId);
+          addChat(chat);
+        } catch (err) {
+          console.warn("Failed to hydrate new chat row:", err);
+        }
+      }
+
       // Optimistic local state: insert the user + assistant placeholder so
       // the UI shows them before the next refetch.
       const nowIso = new Date().toISOString();
@@ -315,7 +332,7 @@ export function ChatGenerationProvider({ children }: { children: ReactNode }) {
       startPolling(res.assistantMessageId, res.chatId, Date.now());
       return res;
     },
-    [seenKanji, addChatMessage, startPolling]
+    [seenKanji, addChat, addChatMessage, startPolling]
   );
 
   const dismissError = useCallback(
