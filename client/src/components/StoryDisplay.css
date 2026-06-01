@@ -2,27 +2,6 @@
   /* no card chrome — story flows on the page background */
 }
 
-.story-override-modal {
-  width: min(700px, 90vw);
-  max-height: 90vh;
-  overflow: hidden;
-}
-
-/* The editor inside owns its own padding + chrome via .story-override; the
- * modal container just provides the scrollable viewport so tall candidate
- * lists / many sub-spans don't overflow the screen. */
-.story-override-modal > .story-override {
-  /* flex-basis auto (not 0) so the modal's `height: fit-content` can size
-   * to this body's content — iOS WebKit collapses a fit-content flex
-   * container whose only child has flex-basis 0. */
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-}
-
 .story-header {
   display: flex;
   align-items: center;
@@ -45,21 +24,6 @@
   color: var(--text-dim);
   font-size: 0.4em;
   font-weight: 400;
-}
-
-.story-title-token {
-  display: inline;
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-}
-
-.story-title-token:focus {
-  outline: none;
 }
 
 .story-meta {
@@ -110,12 +74,7 @@
 }
 
 /* `.word-token` + variants live in App.css since both StoryDisplay and
- * ChatAssistantMessage use them. The popover-disabled override below is
- * story-specific (chats use a different gate) so it stays here. */
-
-.story-content--popover-disabled .word-token {
-  cursor: default;
-}
+ * ChatAssistantMessage use them. */
 
 .story-content__preparing {
   color: var(--text-dim);

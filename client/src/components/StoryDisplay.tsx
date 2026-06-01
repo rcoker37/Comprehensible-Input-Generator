@@ -5,16 +5,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Modal from "./Modal";
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { useAuth } from "../contexts/AuthContext";
 import {
   getStoryOccurrences,
   getStoryWordEncounters,
-  setStoryWordOverrides,
   type StoryOccurrence,
-  type WordOverride,
 } from "../api/client";
 import {
   parseAnnotatedText,
@@ -35,17 +32,13 @@ import {
   lookupFrequencySync,
   type FrequencyTier,
 } from "../lib/frequency";
-import WordPopover from "./WordPopover";
-import StoryOverrideEditor from "./StoryOverrideEditor";
 import ReaderControls from "./ReaderControls";
 import AnimatedDots from "./AnimatedDots";
 import type {
   DisplayMode,
   FontMode,
   HighlightMode,
-  SentenceTranslation,
   Story,
-  StoryTranslations,
 } from "../types";
 import "./StoryDisplay.css";
 
@@ -99,51 +92,24 @@ const coerceHighlightMode = (raw: unknown): HighlightMode | null => {
 interface Props {
   story: Story;
   showLink?: boolean;
-  // True when an external action (override save, reset, content edit)
-  // has nulled the word index and the backfill is re-stamping it. Adds
-  // the glassy loading overlay on top of the story text. The parent owns
-  // this state because it also owns the post-backfill refetch that
-  // restores `word_index_at` — we'd otherwise leave popover taps disabled
-  // indefinitely.
+  // True when an external action (reset overrides, content edit) has
+  // nulled the word index and the backfill is re-stamping it. Adds the
+  // glassy loading overlay on top of the story text so the reader sees a
+  // clear "not ready" signal while spans regroup.
   regenerating?: boolean;
-  // Called when StoryDisplay itself initiates a re-index (override save).
-  // The parent flips its `regenerating` flag in response.
-  onRegenerationStart?: () => void;
 }
 
 export default function StoryDisplay({
   story,
   showLink,
   regenerating = false,
-  onRegenerationStart,
 }: Props) {
   const { state: dictState } = useDictionary();
   const { profile, updatePreferences } = useAuth();
   const {
     remaining: backfillRemaining,
     processing: backfillProcessing,
-    refresh: refreshBackfill,
   } = useWordIndexBackfill();
-  const [translations, setTranslations] = useState<StoryTranslations>(
-    story.translations ?? {}
-  );
-  const [activeTap, setActiveTap] = useState<{
-    start: number;
-    end: number;
-    el: HTMLElement;
-    lookupHeadword: string | null;
-    lookupEntryId: number | null;
-    lookupIsName: boolean;
-    lookupReading: string | null;
-  } | null>(null);
-  const [titleTap, setTitleTap] = useState<{
-    headword: string;
-    el: HTMLElement;
-  } | null>(null);
-  const [overrideSpan, setOverrideSpan] = useState<{
-    start: number;
-    end: number;
-  } | null>(null);
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [highlightMode, setHighlightMode] =
     useState<HighlightMode>("encounters");
@@ -200,22 +166,21 @@ export default function StoryDisplay({
     });
   };
 
-  // The popover's carousel pulls from `story_word_occurrences`, which is only
-  // populated for stories that have been indexed. If this story hasn't been
-  // indexed yet, or any indexing is still in flight, the carousel would be
-  // missing cards — so we suppress taps entirely until the index is settled.
-  const popoverDisabled =
+  // True while the word index for this story isn't fully settled — either
+  // the story hasn't been indexed yet, or any backfill pass is still in
+  // flight. Used to gate the loading overlay so visible reflow from the
+  // regroup pass is hidden until spans stop moving.
+  const indexUnsettled =
     story.word_index_at === null ||
     backfillProcessing ||
     backfillRemaining > 0;
-  const tapsBlocked = popoverDisabled || overrideSpan !== null;
 
   // Track whether this story has EVER been seen with word_index_at !== null.
   // Distinguishes "first-time indexing" (hide the body, show a preparing
   // placeholder so the freshly-generated text doesn't flash in before its
-  // tap targets are ready) from "re-indexing an already-shown story" (the
-  // user edited / saved overrides / hit reset — keep showing the body
-  // under the glassy overlay so the text doesn't disappear).
+  // regrouped spans are ready) from "re-indexing an already-shown story"
+  // (the user edited / hit reset — keep showing the body under the glassy
+  // overlay so the text doesn't disappear).
   const [hasBeenIndexed, setHasBeenIndexed] = useState(
     story.word_index_at !== null
   );
@@ -227,20 +192,6 @@ export default function StoryDisplay({
   }, [story.word_index_at, hasBeenIndexed]);
   const firstIndexPending =
     story.word_index_at === null && !hasBeenIndexed;
-
-  useEffect(() => {
-    // Sync the server-owned translation map into local state whenever the
-    // story prop changes; local edits bubble back up via onTranslationUpdated.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setTranslations(story.translations ?? {});
-  }, [story.translations]);
-
-  // Close any open popover if indexing kicks in mid-view (e.g., the user is
-  // reading and a freshly-generated story enters the backfill queue).
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (popoverDisabled) setActiveTap(null);
-  }, [popoverDisabled]);
 
   const { cleanContent, rubyAnnotations } = useMemo(() => {
     const raw = stripBold(story.content);
@@ -321,17 +272,14 @@ export default function StoryDisplay({
     };
   }, [baseParagraphs, cleanContent, rubyAnnotations, dictState]);
 
-  // Indexed occurrences (algorithm + manual rows). When loaded for a fully
-  // indexed story, we prefer these over the local regroup pass because they
-  // (a) are what the popover carousel pulls from, so the tap-target span
-  // matches the carousel cards exactly, and (b) carry manual override rows
-  // produced via `set_story_word_overrides` that the local regrouper
-  // doesn't know about. We re-fetch when the backfill finishes processing
-  // (a re-index just happened) and when the user saves new overrides.
+  // Indexed occurrences. When loaded for a fully indexed story, we prefer
+  // these over the local regroup pass because they carry manual override
+  // rows produced via `set_story_word_overrides` that the local regrouper
+  // doesn't know about. Re-fetched when the backfill finishes processing
+  // (a re-index just happened).
   const [occurrences, setOccurrences] = useState<StoryOccurrence[] | null>(
     null
   );
-  const [occurrencesNonce, setOccurrencesNonce] = useState(0);
   useEffect(() => {
     if (story.word_index_at === null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -349,11 +297,11 @@ export default function StoryDisplay({
     return () => {
       cancelled = true;
     };
-  }, [story.id, story.word_index_at, backfillProcessing, occurrencesNonce]);
+  }, [story.id, story.word_index_at, backfillProcessing]);
 
-  // Merged word-shaped tap targets when ready; null while the kuromoji +
-  // JMdict regroup pass is still running. The loading overlay covers any
-  // visual reflow if we render the char-level baseline as a fallback.
+  // Merged word-shaped spans when ready; null while the kuromoji + JMdict
+  // regroup pass is still running. The loading overlay covers any visual
+  // reflow if we render the char-level baseline as a fallback.
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
       groupedState?.source === baseParagraphs
@@ -381,45 +329,14 @@ export default function StoryDisplay({
   const displayParagraphs = paragraphs ?? baseParagraphs;
 
   // Show the loading overlay only for "re-indexing an existing story" — the
-  // regroup pass hasn't produced word-shaped tap targets, the parent
-  // signalled a re-index is in flight, or the story hasn't been indexed /
-  // the backfill queue isn't drained. First-time indexing hides the body
-  // entirely (see firstIndexPending below), so the glassy overlay only
-  // appears on top of text the user has already seen.
+  // regroup pass hasn't produced word-shaped spans, the parent signalled a
+  // re-index is in flight, or the story hasn't been indexed / the backfill
+  // queue isn't drained. First-time indexing hides the body entirely (see
+  // firstIndexPending below), so the glassy overlay only appears on top of
+  // text the user has already seen.
   const showLoadingOverlay =
     hasBeenIndexed &&
-    (paragraphs === null || regenerating || popoverDisabled);
-
-  // Lookup map for tap-target headwords: when the tapped span has an
-  // occurrence row, pass the row's headword to the popover so its JMdict
-  // lookup uses the canonical/override lemma rather than the raw surface
-  // (which can be a deinflected form or a surface like 野さい that has no
-  // entry of its own). The entry id (when stamped) rides along so the
-  // popover can hoist the indexer's chosen homophone instead of letting
-  // JMdict's natural ordering pick `results[0]`.
-  const lookupBySpan = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        headword: string;
-        entryId: number | null;
-        isName: boolean;
-        reading: string | null;
-      }
-    >();
-    if (occurrences) {
-      for (const o of occurrences) {
-        if (!o.headword) continue;
-        map.set(`${o.start}-${o.end}`, {
-          headword: o.headword,
-          entryId: o.entryId,
-          isName: o.isName,
-          reading: o.reading,
-        });
-      }
-    }
-    return map;
-  }, [occurrences]);
+    (paragraphs === null || regenerating || indexUnsettled);
 
   // Per-span encounter counts so we can mark zero-encounter spans as new
   // (accent underline). Fetched after the story is indexed; absent spans
@@ -490,32 +407,6 @@ export default function StoryDisplay({
     }
     return map;
   }, [freqLoaded, occurrences]);
-
-  const handleWordClick = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    start: number,
-    end: number
-  ) => {
-    e.stopPropagation();
-    if (tapsBlocked) return;
-    const entry = lookupBySpan.get(`${start}-${end}`);
-    setActiveTap({
-      start,
-      end,
-      el: e.currentTarget,
-      lookupHeadword: entry?.headword ?? null,
-      lookupEntryId: entry?.entryId ?? null,
-      lookupIsName: entry?.isName ?? false,
-      lookupReading: entry?.reading ?? null,
-    });
-  };
-
-  const handleTranslationUpdated = (
-    rangeKey: string,
-    translation: SentenceTranslation
-  ) => {
-    setTranslations((prev) => ({ ...prev, [rangeKey]: translation }));
-  };
 
   // Resolve a display mode to a per-word (tap-target span) decision:
   //   all    — every word
@@ -598,11 +489,6 @@ export default function StoryDisplay({
     return encountersToTier(count);
   };
 
-  const inOverrideRegion = (start: number, end: number): boolean =>
-    overrideSpan !== null &&
-    start < overrideSpan.end &&
-    end > overrideSpan.start;
-
   const tokenClass = (start: number, end: number): string => {
     const parts = ["word-token"];
     if (highlightMode === "fiveplus") {
@@ -618,91 +504,43 @@ export default function StoryDisplay({
         parts.push(`word-token--freq-${tier}`);
       }
     }
-    if (inOverrideRegion(start, end)) parts.push("word-token--in-override");
     return parts.join(" ");
   };
 
-  const handleTitleClick = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    headword: string
-  ) => {
-    e.stopPropagation();
-    if (!headword) return;
-    setTitleTap({ headword, el: e.currentTarget });
-  };
-
-  // Title tap targets always render ruby when available (titles are short,
-  // no per-word visibility toggle). Opens the popover in headword mode —
-  // titles aren't indexed in `story_word_occurrences`, so there's no
-  // current-card sentence-translation flow available.
+  // Title is inert text — no tap-to-lookup. Ruby renders when available.
   const renderTitlePart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
       return (
-        <button
-          key={key}
-          type="button"
-          className="story-title-token"
-          aria-label={part.surface}
-          onClick={(e) => handleTitleClick(e, part.surface)}
-        >
-          <ruby>
-            {part.surface}
-            <rt>{part.reading}</rt>
-          </ruby>
-        </button>
+        <ruby key={key}>
+          {part.surface}
+          <rt>{part.reading}</rt>
+        </ruby>
       );
     }
     if (part.kind === "word") {
-      const inner =
-        part.rubies && part.rubies.length > 0
-          ? (() => {
-              const out: ReactNode[] = [];
-              let cursor = 0;
-              for (const r of part.rubies!) {
-                const relStart = r.start - part.start;
-                const relEnd = r.end - part.start;
-                if (relStart > cursor)
-                  out.push(part.surface.slice(cursor, relStart));
-                out.push(
-                  <ruby key={relStart}>
-                    {part.surface.slice(relStart, relEnd)}
-                    <rt>{r.reading}</rt>
-                  </ruby>
-                );
-                cursor = relEnd;
-              }
-              if (cursor < part.surface.length)
-                out.push(part.surface.slice(cursor));
-              return out;
-            })()
-          : part.surface;
-      return (
-        <button
-          key={key}
-          type="button"
-          className="story-title-token"
-          aria-label={part.surface}
-          onClick={(e) => handleTitleClick(e, part.surface)}
-        >
-          {inner}
-        </button>
-      );
+      if (part.rubies && part.rubies.length > 0) {
+        const out: ReactNode[] = [];
+        let cursor = 0;
+        for (const r of part.rubies) {
+          const relStart = r.start - part.start;
+          const relEnd = r.end - part.start;
+          if (relStart > cursor)
+            out.push(part.surface.slice(cursor, relStart));
+          out.push(
+            <ruby key={relStart}>
+              {part.surface.slice(relStart, relEnd)}
+              <rt>{r.reading}</rt>
+            </ruby>
+          );
+          cursor = relEnd;
+        }
+        if (cursor < part.surface.length)
+          out.push(part.surface.slice(cursor));
+        return <span key={key}>{out}</span>;
+      }
+      return <span key={key}>{part.surface}</span>;
     }
-    // Punctuation isn't a dictionary word — render it as inert text.
-    if (isPunctuation(part.char)) {
-      return <span key={key}>{part.char}</span>;
-    }
-    return (
-      <button
-        key={key}
-        type="button"
-        className="story-title-token"
-        aria-label={part.char}
-        onClick={(e) => handleTitleClick(e, part.char)}
-      >
-        {part.char}
-      </button>
-    );
+    return <span key={key}>{part.char}</span>;
   };
 
   const renderPart = (part: SegmentPart, key: number) => {
@@ -716,16 +554,13 @@ export default function StoryDisplay({
         part.surface
       );
       return (
-        <button
+        <span
           key={key}
-          type="button"
           className={tokenClass(part.start, part.end)}
           data-offset={part.start}
-          aria-label={part.surface}
-          onClick={(e) => handleWordClick(e, part.start, part.end)}
         >
           {inner}
-        </button>
+        </span>
       );
     }
     if (part.kind === "word") {
@@ -734,35 +569,29 @@ export default function StoryDisplay({
           ? renderRubySegments(part.surface, part.start, part.end, part.rubies)
           : part.surface;
       return (
-        <button
+        <span
           key={key}
-          type="button"
           className={tokenClass(part.start, part.end)}
           data-offset={part.start}
-          aria-label={part.surface}
-          onClick={(e) => handleWordClick(e, part.start, part.end)}
         >
           {inner}
-        </button>
+        </span>
       );
     }
     // CharPart. Punctuation (commas, stops, brackets, middle dots, …) is
-    // never a dictionary word — render it as inert text with no tap target,
-    // popover, or new-word underline.
+    // never a dictionary word — render it as inert text with no new-word
+    // underline.
     if (isPunctuation(part.char)) {
       return <span key={key}>{part.char}</span>;
     }
     return (
-      <button
+      <span
         key={key}
-        type="button"
         className={tokenClass(part.offset, part.offset + 1)}
         data-offset={part.offset}
-        aria-label={part.char}
-        onClick={(e) => handleWordClick(e, part.offset, part.offset + 1)}
       >
         {part.char}
-      </button>
+      </span>
     );
   };
 
@@ -793,9 +622,7 @@ export default function StoryDisplay({
           onFontCycle={cycleFont}
         />
       </div>
-      <div
-        className={`story-content story-content--font-${font}${popoverDisabled ? " story-content--popover-disabled" : ""}`}
-      >
+      <div className={`story-content story-content--font-${font}`}>
         {firstIndexPending ? (
           <div className="story-content__preparing">
             Preparing<AnimatedDots />
@@ -822,97 +649,11 @@ export default function StoryDisplay({
           </>
         )}
       </div>
-      <WordPopover
-        mode={{
-          kind: "headword",
-          headword: titleTap?.headword ?? "",
-        }}
-        open={titleTap !== null}
-        onOpenChange={(open) => {
-          if (!open) setTitleTap(null);
-        }}
-      />
-      <WordPopover
-        mode={{
-          kind: "tap",
-          source: { kind: "story", storyId: story.id },
-          cleanText: cleanContent,
-          annotations: rubyAnnotations,
-          start: activeTap?.start ?? 0,
-          end: activeTap?.end ?? 0,
-          lookupHeadword: activeTap?.lookupHeadword ?? null,
-          lookupEntryId: activeTap?.lookupEntryId ?? null,
-          lookupIsName: activeTap?.lookupIsName ?? false,
-          lookupReading: activeTap?.lookupReading ?? null,
-          translations,
-          onTranslationUpdated: handleTranslationUpdated,
-          onRequestOverride: (start, end) => {
-            setActiveTap(null);
-            setOverrideSpan({ start, end });
-          },
-        }}
-        open={activeTap !== null}
-        onOpenChange={(open) => {
-          if (!open) setActiveTap(null);
-        }}
-      />
-      {overrideSpan && (
-        <OverrideModal
-          cleanText={cleanContent}
-          annotations={rubyAnnotations}
-          start={overrideSpan.start}
-          end={overrideSpan.end}
-          onCancel={() => setOverrideSpan(null)}
-          onSave={async (overrides: WordOverride[]) => {
-            onRegenerationStart?.();
-            await setStoryWordOverrides(
-              story.id,
-              overrideSpan.start,
-              overrideSpan.end,
-              overrides
-            );
-            setOverrideSpan(null);
-            setOccurrencesNonce((n) => n + 1);
-            refreshBackfill();
-          }}
-        />
-      )}
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">
           View full story
         </a>
       )}
     </div>
-  );
-}
-
-interface OverrideModalProps {
-  cleanText: string;
-  annotations: FuriganaAnnotation[];
-  start: number;
-  end: number;
-  onCancel: () => void;
-  onSave: (overrides: WordOverride[]) => void | Promise<void>;
-}
-
-function OverrideModal({
-  cleanText,
-  annotations,
-  start,
-  end,
-  onCancel,
-  onSave,
-}: OverrideModalProps) {
-  return (
-    <Modal open={true} onClose={onCancel} className="story-override-modal" disableBackdropDismiss hideClose>
-      <StoryOverrideEditor
-        cleanText={cleanText}
-        annotations={annotations}
-        initialStart={start}
-        initialEnd={end}
-        onCancel={onCancel}
-        onSave={onSave}
-      />
-    </Modal>
   );
 }

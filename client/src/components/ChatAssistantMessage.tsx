@@ -1,11 +1,10 @@
-// Renders one assistant chat message body with the same tap-target +
-// furigana + new-word highlighting pipeline as StoryDisplay, plus the
-// per-message "Mark as Read" toggle. Reuses the pure rendering lib
-// functions (buildDisplaySegments, regroupWords, applyOccurrences) but
-// doesn't try to extract anything from StoryDisplay itself — chat
-// messages don't have manual overrides, title rendering, or per-message
-// translation parent ownership, so a focused copy is simpler than a
-// shared abstraction that has to opt-out of all that.
+// Renders one assistant chat message body as inert text: furigana
+// annotations and new-word / frequency-tier underlines, but no
+// tap-to-lookup. The user-facing WordPopover only opens via the post-read
+// modal (ChatReadButton) or the Stats Browse → kanji-detail flow.
+// Reuses the pure rendering lib functions (buildDisplaySegments,
+// regroupWords, applyOccurrences); chat messages don't have manual
+// overrides or per-message translation ownership.
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useDictionary } from "../contexts/DictionaryContext";
@@ -41,36 +40,14 @@ import type {
   DisplayMode,
   FontMode,
   HighlightMode,
-  StoryTranslations,
 } from "../types";
 import "./ChatAssistantMessage.css";
-
-interface TapArgs {
-  messageId: number;
-  start: number;
-  end: number;
-  cleanText: string;
-  annotations: FuriganaAnnotation[];
-  lookupHeadword: string | null;
-  lookupEntryId: number | null;
-  lookupIsName: boolean;
-  lookupReading: string | null;
-  translations: StoryTranslations;
-}
 
 interface Props {
   message: ChatMessage;
   furiganaMode: DisplayMode;
   highlightMode: HighlightMode;
   font: FontMode;
-  /** ChatDetail-owned translations map; this message's slot keys off `${start}-${end}`. */
-  translations: StoryTranslations;
-  onTranslationUpdated: (
-    messageId: number,
-    rangeKey: string,
-    translation: StoryTranslations[string]
-  ) => void;
-  onWordTap: (args: TapArgs) => void;
 }
 
 const encountersToTier = (n: number): FrequencyTier | null => {
@@ -87,7 +64,6 @@ export default function ChatAssistantMessage({
   furiganaMode,
   highlightMode,
   font,
-  onWordTap,
 }: Props) {
   const { state: dictState } = useDictionary();
   const {
@@ -283,32 +259,10 @@ export default function ChatAssistantMessage({
     return map;
   }, [freqLoaded, occurrences]);
 
-  const lookupBySpan = useMemo(() => {
-    const map = new Map<
-      string,
-      {
-        headword: string;
-        entryId: number | null;
-        isName: boolean;
-        reading: string | null;
-      }
-    >();
-    if (occurrences) {
-      for (const o of occurrences) {
-        if (!o.headword) continue;
-        map.set(`${o.start}-${o.end}`, {
-          headword: o.headword,
-          entryId: o.entryId,
-          isName: o.isName,
-          reading: o.reading,
-        });
-      }
-    }
-    return map;
-  }, [occurrences]);
-
-  // Block tap targets while indexing is pending (mirrors StoryDisplay).
-  const popoverDisabled =
+  // True while the word index for this message isn't settled — used to
+  // gate the loading overlay so visible reflow from the regroup pass is
+  // hidden until spans stop moving.
+  const indexUnsettled =
     message.word_index_at === null ||
     backfillProcessing ||
     backfillRemaining > 0;
@@ -319,7 +273,7 @@ export default function ChatAssistantMessage({
   const showLoadingOverlay =
     hasBeenIndexed &&
     (paragraphs === null ||
-      popoverDisabled ||
+      indexUnsettled ||
       currentChatMessageId === message.id);
 
   const showForMode = (mode: DisplayMode, start: number, end: number) => {
@@ -365,28 +319,6 @@ export default function ChatAssistantMessage({
     return parts.join(" ");
   };
 
-  const handleWordClick = (
-    e: React.MouseEvent<HTMLButtonElement>,
-    start: number,
-    end: number
-  ) => {
-    e.stopPropagation();
-    if (popoverDisabled) return;
-    const entry = lookupBySpan.get(`${start}-${end}`);
-    onWordTap({
-      messageId: message.id,
-      start,
-      end,
-      cleanText: cleanContent,
-      annotations: rubyAnnotations,
-      lookupHeadword: entry?.headword ?? null,
-      lookupEntryId: entry?.entryId ?? null,
-      lookupIsName: entry?.isName ?? false,
-      lookupReading: entry?.reading ?? null,
-      translations: message.translations ?? {},
-    });
-  };
-
   const renderRubySegments = (
     surface: string,
     surfaceStart: number,
@@ -428,16 +360,13 @@ export default function ChatAssistantMessage({
         part.surface
       );
       return (
-        <button
+        <span
           key={key}
-          type="button"
           className={tokenClass(part.start, part.end)}
           data-offset={part.start}
-          aria-label={part.surface}
-          onClick={(e) => handleWordClick(e, part.start, part.end)}
         >
           {inner}
-        </button>
+        </span>
       );
     }
     if (part.kind === "word") {
@@ -446,32 +375,26 @@ export default function ChatAssistantMessage({
           ? renderRubySegments(part.surface, part.start, part.end, part.rubies)
           : part.surface;
       return (
-        <button
+        <span
           key={key}
-          type="button"
           className={tokenClass(part.start, part.end)}
           data-offset={part.start}
-          aria-label={part.surface}
-          onClick={(e) => handleWordClick(e, part.start, part.end)}
         >
           {inner}
-        </button>
+        </span>
       );
     }
     if (isPunctuation(part.char)) {
       return <span key={key}>{part.char}</span>;
     }
     return (
-      <button
+      <span
         key={key}
-        type="button"
         className={tokenClass(part.offset, part.offset + 1)}
         data-offset={part.offset}
-        aria-label={part.char}
-        onClick={(e) => handleWordClick(e, part.offset, part.offset + 1)}
       >
         {part.char}
-      </button>
+      </span>
     );
   };
 

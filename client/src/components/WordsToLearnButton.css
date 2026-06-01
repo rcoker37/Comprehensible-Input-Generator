@@ -1,0 +1,20 @@
+/* Secondary-style button — paired with the primary Read button on the
+   story / chat pages. Matches the chat-read-undo-btn outline so it reads
+   as a sibling action without competing with the primary CTA. */
+.words-to-learn-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  font: inherit;
+}
+
+.words-to-learn-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

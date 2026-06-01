@@ -11,6 +11,24 @@
   margin-bottom: 0.5rem;
 }
 
+/* Sibling Read + Words-to-learn row under the story. `.story-read-row`
+   already centers the Read button; this wraps both so they sit side by
+   side, wrapping on narrow viewports. */
+.story-detail-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+/* When inside the actions row, the read button no longer needs its own
+   top margin — the row owns the spacing from the story body. */
+.story-detail-actions-row .story-read-row {
+  margin-top: 0;
+}
+
 .story-detail-back {
   background: transparent;
   border: none;

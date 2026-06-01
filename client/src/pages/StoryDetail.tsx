@@ -17,6 +17,7 @@ import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import type { Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import StoryReadButton from "../components/StoryReadButton";
+import WordsToLearnButton from "../components/WordsToLearnButton";
 import AnimatedDots from "../components/AnimatedDots";
 import "../components/StoryActions.css";
 import "./StoryDetail.css";
@@ -376,18 +377,20 @@ export default function StoryDetail() {
         </div>
       ) : (
         <>
-          <StoryDisplay
-            story={story}
-            regenerating={regenerating}
-            onRegenerationStart={() => setRegenerating(true)}
-          />
-          <StoryReadButton
-            story={story}
-            onChange={(state) => {
-              setStory((s) => (s ? { ...s, ...state } : s));
-              applyStoryUpdate(story.id, state);
-            }}
-          />
+          <StoryDisplay story={story} regenerating={regenerating} />
+          <div className="story-detail-actions-row">
+            <StoryReadButton
+              story={story}
+              onChange={(state) => {
+                setStory((s) => (s ? { ...s, ...state } : s));
+                applyStoryUpdate(story.id, state);
+              }}
+            />
+            <WordsToLearnButton
+              source={{ kind: "story", storyId: story.id }}
+              hidden={story.word_index_at === null}
+            />
+          </div>
         </>
       )}
     </div>

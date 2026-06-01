@@ -10,16 +10,8 @@ import { stripAnnotations } from "../lib/furigana";
 import { formatScore, kanjiCountsDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
 import AnimatedDots from "../components/AnimatedDots";
-import type { Chat, ChatSortMode, ReadFilter, SortDir } from "../types";
+import type { Chat, ReadFilter } from "../types";
 import "./Chats.css";
-
-// Sorts whose chip toggles asc⇄desc on re-click. The score sort is always
-// highest-first, so it isn't directional. Mirrors the Stories page.
-const DIRECTIONAL_SORTS = new Set<ChatSortMode>(["lastActivity", "lastRead"]);
-
-function sanitizeSortMode(mode: ChatSortMode | undefined): ChatSortMode {
-  return mode === "score" || mode === "lastRead" ? mode : "lastActivity";
-}
 
 function formatRelativeDate(iso: string): string {
   const then = new Date(iso).getTime();
@@ -57,10 +49,6 @@ export default function Chats() {
   const [readFilter, setReadFilter] = useState<ReadFilter>(
     saved?.readFilter ?? "all"
   );
-  const [sortMode, setSortMode] = useState<ChatSortMode>(
-    sanitizeSortMode(saved?.sortMode)
-  );
-  const [sortDir, setSortDir] = useState<SortDir>(saved?.sortDir ?? "desc");
   const navigate = useNavigate();
 
   // Skip the first effect run — that's just the initial render after
@@ -73,21 +61,9 @@ export default function Chats() {
       return;
     }
     updatePreferences({
-      chats: { readFilter, sortMode, sortDir },
+      chats: { readFilter },
     }).catch((err) => console.warn("Failed to save chat filter preferences:", err));
-  }, [readFilter, sortMode, sortDir, updatePreferences]);
-
-  // Selecting a directional sort that's already active flips its
-  // direction; any other selection activates the sort fresh at desc.
-  // Matches the handler on Stories.tsx and the Stats Browse chips.
-  const handleSort = (mode: ChatSortMode) => {
-    if (DIRECTIONAL_SORTS.has(mode) && sortMode === mode) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortMode(mode);
-      setSortDir("desc");
-    }
-  };
+  }, [readFilter, updatePreferences]);
 
   // Per-chat `+X` payout — sum of kanji + vocab deltas the next chat-
   // level Mark would award. Same shape as Stories.tsx's deltaById:
@@ -121,9 +97,6 @@ export default function Chats() {
     getWordRank,
   ]);
 
-  const scoresReady =
-    perChatPayoutLoaded && kanjiExposuresLoaded && vocabEncountersLoaded;
-
   // A chat counts as "unread" when at least one assistant message hasn't
   // been read through yet — i.e., MIN = 0 OR there's no complete
   // assistant message yet (min === null). "Read" means everyone's been
@@ -139,24 +112,9 @@ export default function Chats() {
   });
 
   const scoreFor = (c: Chat) => deltaById.get(c.id) ?? 0;
-  // asc compares low→high; desc flips it. The score sort ignores direction.
-  const dirMul = sortDir === "asc" ? 1 : -1;
-  const visibleChats =
-    sortMode === "score"
-      ? [...filtered].sort((a, b) => scoreFor(b) - scoreFor(a))
-      : sortMode === "lastRead"
-      ? [...filtered].sort((a, b) => {
-          // Never-read chats have no timestamp — treat as the earliest
-          // possible time so they trail a desc sort and lead an asc one.
-          const aT = a.last_read_at ? Date.parse(a.last_read_at) : -Infinity;
-          const bT = b.last_read_at ? Date.parse(b.last_read_at) : -Infinity;
-          return (aT - bT) * dirMul;
-        })
-      : [...filtered].sort(
-          (a, b) =>
-            (Date.parse(a.last_activity_at) - Date.parse(b.last_activity_at)) *
-            dirMul
-        );
+  const visibleChats = [...filtered].sort(
+    (a, b) => scoreFor(b) - scoreFor(a)
+  );
 
   if (!chatsLoaded) {
     return (
@@ -205,45 +163,6 @@ export default function Chats() {
                   {v.charAt(0).toUpperCase() + v.slice(1)}
                 </button>
               ))}
-            </div>
-          </div>
-          <div className="filter-row">
-            <label>Sort</label>
-            <div className="chip-group" role="radiogroup" aria-label="Sort mode">
-              {([
-                ["lastActivity", "Last Activity"],
-                ["lastRead", "Last Read"],
-                ["score", "Score"],
-              ] as const).map(([v, label]) => {
-                const scoreSort = v === "score";
-                const isDisabled = scoreSort && !scoresReady;
-                const active = sortMode === v;
-                const directional = active && DIRECTIONAL_SORTS.has(v);
-                return (
-                  <button
-                    key={v}
-                    className={`chip ${active ? "active" : ""}`}
-                    onClick={() => handleSort(v)}
-                    aria-pressed={active}
-                    disabled={isDisabled}
-                    title={isDisabled ? "Loading scores…" : undefined}
-                    aria-label={
-                      directional
-                        ? `${label}, ${
-                            sortDir === "desc" ? "descending" : "ascending"
-                          }`
-                        : label
-                    }
-                  >
-                    {label}
-                    {directional && (
-                      <span className="sort-arrow" aria-hidden="true">
-                        {sortDir === "desc" ? "▼" : "▲"}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </>

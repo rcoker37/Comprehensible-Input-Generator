@@ -207,10 +207,10 @@ h1 {
   to { transform: rotate(360deg); }
 }
 
-/* Shared tap-target token — used by StoryDisplay and ChatAssistantMessage.
- * The button is just a tap surface for the popover; we strip the browser's
- * default chrome so the Japanese text reads as plain prose. New-word
- * underline + rarity-tier colours match the WordPopover frequency badge. */
+/* Shared word-shaped span — used by StoryDisplay and ChatAssistantMessage
+ * as the unit the encounter-count / frequency-tier underline attaches to.
+ * Rendered as inert <span> elements (no tap-to-lookup); the legacy button
+ * resets are still useful for any future interactive variant. */
 .word-token {
   display: inline;
   font: inherit;
@@ -219,7 +219,6 @@ h1 {
   border: none;
   padding: 0;
   margin: 0;
-  cursor: pointer;
 }
 
 .word-token--new {

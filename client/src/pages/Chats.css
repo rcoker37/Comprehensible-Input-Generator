@@ -76,9 +76,3 @@
   color: var(--text-dim);
   min-width: 45px;
 }
-
-/* Direction caret inside an active directional Sort chip. */
-.chats-page .sort-arrow {
-  font-size: 0.7em;
-  margin-left: 0.3rem;
-}

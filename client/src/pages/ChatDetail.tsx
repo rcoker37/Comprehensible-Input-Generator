@@ -21,14 +21,13 @@ import { stripAnnotations } from "../lib/furigana";
 import { stripBold } from "../lib/text";
 import { kanjiCountsDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
-import type { FuriganaAnnotation } from "../lib/furigana";
 import AnimatedDots from "../components/AnimatedDots";
 import ChatAssistantMessage from "../components/ChatAssistantMessage";
 import ChatReadButton from "../components/ChatReadButton";
 import ChatUserBubble from "../components/ChatUserBubble";
 import ChatComposer from "../components/ChatComposer";
 import ReaderControls from "../components/ReaderControls";
-import WordPopover from "../components/WordPopover";
+import WordsToLearnButton from "../components/WordsToLearnButton";
 import type {
   ChatMessage,
   ChatMessageMarkUpdate,
@@ -36,8 +35,6 @@ import type {
   Formality,
   FontMode,
   HighlightMode,
-  SentenceTranslation,
-  StoryTranslations,
 } from "../types";
 import "./ChatDetail.css";
 
@@ -65,18 +62,6 @@ const coerceHighlightMode = (raw: unknown): HighlightMode | null => {
   if (raw === "unseen") return "encounters";
   return null;
 };
-
-interface ActiveTap {
-  messageId: number;
-  start: number;
-  end: number;
-  cleanText: string;
-  annotations: FuriganaAnnotation[];
-  lookupHeadword: string | null;
-  lookupEntryId: number | null;
-  lookupIsName: boolean;
-  lookupReading: string | null;
-}
 
 export default function ChatDetail() {
   const { id: rawId } = useParams<{ id: string }>();
@@ -114,7 +99,6 @@ export default function ChatDetail() {
   const [loadingMessages, setLoadingMessages] = useState(!isNew);
   const [error, setError] = useState<string | null>(null);
   const [resetPending, setResetPending] = useState(false);
-  const [activeTap, setActiveTap] = useState<ActiveTap | null>(null);
   // Locally-held text of a message the user just submitted but whose
   // sendChatMessage round-trip hasn't returned yet — rendered as a
   // ChatUserBubble appended to the stream so the bubble appears the moment
@@ -124,14 +108,6 @@ export default function ChatDetail() {
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [highlightMode, setHighlightMode] = useState<HighlightMode>("encounters");
   const [font, setFont] = useState<FontMode>("sans");
-
-  // Per-message translation cache. Initialized from each message's
-  // `translations` JSONB on load; updated by the popover's
-  // onTranslationUpdated callback so swapping cards stays instant after a
-  // translation lands.
-  const [translationsByMessage, setTranslationsByMessage] = useState<
-    Map<number, StoryTranslations>
-  >(new Map());
 
   // Hydrate reader prefs once.
   const readerSyncedRef = useRef(false);
@@ -187,15 +163,9 @@ export default function ChatDetail() {
     let cancelled = false;
     setLoadingMessages(true);
     Promise.all([getChat(chatId), loadChatMessages(chatId)])
-      .then(([chat, msgs]) => {
+      .then(([chat]) => {
         if (cancelled) return;
         setChatTitle(chat.title);
-        // Seed translation cache from server-owned per-message translations.
-        const next = new Map<number, StoryTranslations>();
-        for (const m of msgs) {
-          if (m.translations) next.set(m.id, m.translations);
-        }
-        setTranslationsByMessage(next);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -283,37 +253,6 @@ export default function ChatDetail() {
     }
     return null;
   }, [errorByMessage, messages, chatId]);
-
-  const popoverMessage =
-    activeTap != null
-      ? messages.find((m) => m.id === activeTap.messageId)
-      : null;
-  const popoverTranslations: StoryTranslations =
-    (activeTap && translationsByMessage.get(activeTap.messageId)) ??
-    popoverMessage?.translations ??
-    {};
-
-  const handleTranslationUpdated = (
-    rangeKey: string,
-    translation: SentenceTranslation
-  ) => {
-    if (!activeTap) return;
-    const mid = activeTap.messageId;
-    setTranslationsByMessage((prev) => {
-      const existing = prev.get(mid) ?? {};
-      const next = new Map(prev);
-      next.set(mid, { ...existing, [rangeKey]: translation });
-      return next;
-    });
-    // Also patch the cached message so the popover sees the update after
-    // close/reopen.
-    applyMessageUpdate(mid, {
-      translations: {
-        ...(popoverMessage?.translations ?? {}),
-        [rangeKey]: translation,
-      },
-    });
-  };
 
   // Batched read-state update handler used by ChatReadButton (mark and
   // undo both return an array of per-message updates). Patches each
@@ -532,60 +471,36 @@ export default function ChatDetail() {
               furiganaMode={furiganaMode}
               highlightMode={highlightMode}
               font={font}
-              translations={
-                translationsByMessage.get(m.id) ?? m.translations ?? {}
-              }
-              onTranslationUpdated={(_mid, rangeKey, translation) => {
-                setTranslationsByMessage((prev) => {
-                  const existing = prev.get(m.id) ?? {};
-                  const next = new Map(prev);
-                  next.set(m.id, { ...existing, [rangeKey]: translation });
-                  return next;
-                });
-              }}
-              onWordTap={(args) => setActiveTap(args)}
             />
           )
         )}
         {sendingText != null && <ChatUserBubble text={sendingText} />}
         {activeChat && messages.some((m) => m.role === "assistant" && m.status === "complete") && (
-          <ChatReadButton
-            chat={activeChat}
-            payoutDelta={chatPayoutDelta}
-            payoutLoaded={payoutInputsLoaded}
-            onBatchUpdate={handleReadBatch}
-            onAfterChange={refreshScoreAndPayout}
-          />
+          <div className="chat-detail-actions-row">
+            <ChatReadButton
+              chat={activeChat}
+              payoutDelta={chatPayoutDelta}
+              payoutLoaded={payoutInputsLoaded}
+              onBatchUpdate={handleReadBatch}
+              onAfterChange={refreshScoreAndPayout}
+            />
+            <WordsToLearnButton
+              source={{
+                kind: "chat",
+                messageIds: messages
+                  .filter(
+                    (m) => m.role === "assistant" && m.status === "complete"
+                  )
+                  .map((m) => m.id),
+              }}
+            />
+          </div>
         )}
       </div>
 
       <ChatComposer
         disabled={isPending || sendingText != null}
         onSend={handleSend}
-      />
-
-      <WordPopover
-        mode={{
-          kind: "tap",
-          source: {
-            kind: "chat",
-            chatMessageId: activeTap?.messageId ?? 0,
-          },
-          cleanText: activeTap?.cleanText ?? "",
-          annotations: activeTap?.annotations ?? [],
-          start: activeTap?.start ?? 0,
-          end: activeTap?.end ?? 0,
-          lookupHeadword: activeTap?.lookupHeadword ?? null,
-          lookupEntryId: activeTap?.lookupEntryId ?? null,
-          lookupIsName: activeTap?.lookupIsName ?? false,
-          lookupReading: activeTap?.lookupReading ?? null,
-          translations: popoverTranslations,
-          onTranslationUpdated: handleTranslationUpdated,
-        }}
-        open={activeTap !== null}
-        onOpenChange={(open) => {
-          if (!open) setActiveTap(null);
-        }}
       />
     </div>
   );

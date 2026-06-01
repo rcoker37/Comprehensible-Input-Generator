@@ -158,10 +158,6 @@ export interface PerChatPayoutRow {
 // Stories-page filter shapes are persisted on the profile so the page
 // reopens with the user's most recent choices.
 export type ReadFilter = "all" | "unread" | "read";
-export type SortMode = "newest" | "score" | "lastRead";
-// Direction for the directional sorts ("newest" / "lastRead"). The score
-// sort ignores it — it's always highest-first.
-export type SortDir = "asc" | "desc";
 
 export interface GeneratorPreferences {
   model: string;
@@ -174,21 +170,10 @@ export interface GeneratorPreferences {
 
 export interface StoriesPreferences {
   readFilter: ReadFilter;
-  sortMode: SortMode;
-  sortDir: SortDir;
 }
-
-// Chats-page filter + sort shape. Same skeleton as StoriesPreferences but
-// with chat-appropriate sort modes: "Last Activity" reflects the most
-// recent send/receive (already the natural default for chats), and
-// "lastRead" is MAX(last_read_at) across the chat's complete assistant
-// messages.
-export type ChatSortMode = "lastActivity" | "lastRead" | "score";
 
 export interface ChatsPreferences {
   readFilter: ReadFilter;
-  sortMode: ChatSortMode;
-  sortDir: SortDir;
 }
 
 // Per-word display modes for the StoryDisplay furigana control:
