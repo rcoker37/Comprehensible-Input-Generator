@@ -419,22 +419,13 @@ button {
 .type-tag,
 .formality-tag,
 .topic-tag,
-.score-tag,
-.unknown-tag {
+.score-tag {
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 12px;
   font-size: 0.75rem;
   background: var(--surface-2);
   color: var(--text-dim);
-}
-
-.unknown-tag {
-  color: var(--accent);
-}
-
-.unknown-tag.none {
-  color: var(--success);
 }
 
 .score-tag {

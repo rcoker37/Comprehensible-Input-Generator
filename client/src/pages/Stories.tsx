@@ -46,21 +46,6 @@ export default function Stories() {
     }).catch((err) => console.warn("Failed to save filter preferences:", err));
   }, [readFilter, updatePreferences]);
 
-  // Number of distinct headwords in the story that the user has never
-  // encountered in a read story. Returns null until both halves of the
-  // lookup (per-story occurrences + global vocab counts) have loaded so
-  // the UI doesn't flash "0 unseen" before the data arrives.
-  const unseenWordCount = (storyId: number): number | null => {
-    if (!storyOccurrencesLoaded || !vocabEncountersLoaded) return null;
-    const occMap = storyOccurrences.get(storyId);
-    if (!occMap) return 0;
-    let n = 0;
-    for (const headword of occMap.keys()) {
-      if ((vocabEncounters.get(headword) ?? 0) === 0) n += 1;
-    }
-    return n;
-  };
-
   const handleDelete = async (id: number) => {
     if (!window.confirm("Delete this composition? This cannot be undone.")) return;
     try {
@@ -77,14 +62,17 @@ export default function Stories() {
   // Score preview for unread stories only — a read story has nothing to
   // award. Wait for BOTH halves of the payout to load before computing any
   // deltas, otherwise the score tag would flash a kanji-only number for a
-  // beat while the paginated vocab RPC drains.
+  // beat while the paginated vocab RPC drains. Also skip stories whose
+  // word index hasn't been computed yet — the vocab arm would be 0 and
+  // the displayed score would jump up once the backfill indexes them.
   const deltaById = useMemo(() => {
     const m = new Map<number, number>();
     if (!vocabEncountersLoaded || !storyOccurrencesLoaded) return m;
     for (const s of stories) {
       if (s.read_count > 0) continue;
-      const kanji = readingScoreDelta(s.content, kanjiExposures);
+      if (!s.word_index_at) continue;
       const occMap = storyOccurrences.get(s.id);
+      const kanji = readingScoreDelta(s.content, kanjiExposures);
       const vocab = occMap
         ? vocabScoreDelta(occMap, vocabEncounters, getWordRank)
         : 0;
@@ -173,15 +161,6 @@ export default function Stories() {
                 <span className="date">
                   {new Date(story.created_at).toLocaleDateString()}
                 </span>
-                {(() => {
-                  const n = unseenWordCount(story.id);
-                  if (n === null) return null;
-                  return (
-                    <span className={`unknown-tag ${n === 0 ? "none" : ""}`}>
-                      {n} unseen {n === 1 ? "word" : "words"}
-                    </span>
-                  );
-                })()}
                 {(deltaById.get(story.id) ?? 0) > 0 && (
                   <span className="score-tag" title="Score gain if marked read">
                     +{formatScore(deltaById.get(story.id) ?? 0)}
