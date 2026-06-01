@@ -14,6 +14,7 @@ import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
 import { stripBold } from "../lib/text";
 import { KANJI_REGEX } from "../lib/constants";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
+import { lookupWord } from "../lib/dictionary";
 import "./WordsToLearnModal.css";
 
 // Walk text emitting plain spans and <ruby> for any annotation ranges.
@@ -199,6 +200,9 @@ export default function WordsToLearnModal({ source, open, onClose }: Props) {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeWord, setActiveWord] = useState<Row | null>(null);
+  // Per-headword English gloss, fetched lazily from JMdict once rows are
+  // visible. Mirrors KanjiInlineDetail's "Words using X" pattern.
+  const [meanings, setMeanings] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (!open) {
@@ -208,6 +212,8 @@ export default function WordsToLearnModal({ source, open, onClose }: Props) {
       setError(null);
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveWord(null);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMeanings(new Map());
       return;
     }
     let cancelled = false;
@@ -223,6 +229,46 @@ export default function WordsToLearnModal({ source, open, onClose }: Props) {
       cancelled = true;
     };
   }, [open, source]);
+
+  // Lazy-load English meanings. Prefer the JMdict entry the indexer
+  // actually chose (matched by `entryId`); fall back to `results[0]` for
+  // older rows that pre-date entry-id stamping. Senses join with "; "
+  // matching the kanji-popover "Words using X" rows.
+  useEffect(() => {
+    if (!rows || rows.length === 0) return;
+    const missing = rows.filter((r) => !meanings.has(r.headword));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      missing.map(async (r) => {
+        try {
+          const results = await lookupWord(r.headword);
+          const entry =
+            (r.entryId !== null &&
+              results.find((w) => w.id === r.entryId)) ||
+            results[0];
+          if (!entry) return [r.headword, ""] as const;
+          const gloss =
+            entry.s[0]?.g
+              .map((g: { str: string }) => g.str)
+              .join("; ") ?? "";
+          return [r.headword, gloss] as const;
+        } catch {
+          return [r.headword, ""] as const;
+        }
+      })
+    ).then((pairs) => {
+      if (cancelled) return;
+      setMeanings((prev) => {
+        const next = new Map(prev);
+        for (const [hw, gloss] of pairs) next.set(hw, gloss);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [rows, meanings]);
 
   return (
     <>
@@ -256,6 +302,11 @@ export default function WordsToLearnModal({ source, open, onClose }: Props) {
                       <span className="words-to-learn-surface">
                         {renderWithRuby(r.surface, r.surfaceAnnotations)}
                       </span>
+                      {meanings.get(r.headword) && (
+                        <span className="words-to-learn-meaning">
+                          {meanings.get(r.headword)}
+                        </span>
+                      )}
                       <span className="words-to-learn-count">
                         {r.encounters === 0
                           ? "new"
