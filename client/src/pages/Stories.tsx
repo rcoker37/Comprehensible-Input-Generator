@@ -12,24 +12,9 @@ import { stripAnnotations } from "../lib/furigana";
 import { formatScore, readingScoreDelta } from "../lib/rarity";
 import { vocabScoreDelta } from "../lib/vocabScore";
 import { MAX_READ_COUNT, isOnReadCooldown } from "../lib/readCooldown";
-import type {
-  ReadFilter,
-  SortDir,
-  SortMode,
-  Story,
-} from "../types";
+import type { ReadFilter, Story } from "../types";
 import AnimatedDots from "../components/AnimatedDots";
 import "./Stories.css";
-
-// Sorts whose chip toggles asc⇄desc on re-click. The score sort is always
-// highest-first, so it isn't directional.
-const DIRECTIONAL_SORTS = new Set<SortMode>(["newest", "lastRead"]);
-
-// "adjustedScore" was removed as a sort option; an older saved profile may
-// still carry it, so anything unrecognized falls back to "newest".
-function sanitizeSortMode(mode: SortMode | undefined): SortMode {
-  return mode === "score" || mode === "lastRead" ? mode : "newest";
-}
 
 export default function Stories() {
   const {
@@ -46,8 +31,6 @@ export default function Stories() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [readFilter, setReadFilter] = useState<ReadFilter>(saved?.readFilter ?? "all");
-  const [sortMode, setSortMode] = useState<SortMode>(sanitizeSortMode(saved?.sortMode));
-  const [sortDir, setSortDir] = useState<SortDir>(saved?.sortDir ?? "desc");
   const { kanjiExposures } = useSeenKanji();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
 
@@ -60,21 +43,9 @@ export default function Stories() {
       return;
     }
     updatePreferences({
-      stories: { readFilter, sortMode, sortDir },
+      stories: { readFilter },
     }).catch((err) => console.warn("Failed to save filter preferences:", err));
-  }, [readFilter, sortMode, sortDir, updatePreferences]);
-
-  // Selecting a directional sort that's already active flips its direction;
-  // any other selection activates the sort fresh at desc. Mirrors the Stats
-  // Browse sort chips.
-  const handleSort = (mode: SortMode) => {
-    if (DIRECTIONAL_SORTS.has(mode) && sortMode === mode) {
-      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
-    } else {
-      setSortMode(mode);
-      setSortDir("desc");
-    }
-  };
+  }, [readFilter, updatePreferences]);
 
   // Number of distinct headwords in the story that the user has never
   // encountered in a read story. Returns null until both halves of the
@@ -103,7 +74,6 @@ export default function Stories() {
 
   const error = deleteError ?? contextError;
   const loading = !storiesLoaded;
-  const scoresReady = vocabEncountersLoaded && storyOccurrencesLoaded;
 
   // Wait for BOTH halves of the payout to load before computing any
   // deltas — otherwise the score tag (and score-sort) would flash a
@@ -147,23 +117,9 @@ export default function Stories() {
 
   const scoreFor = (s: Story) => deltaById.get(s.id) ?? 0;
 
-  // asc compares low→high; desc flips it. The score sort ignores direction.
-  const dirMul = sortDir === "asc" ? 1 : -1;
-  const visibleStories =
-    sortMode === "score"
-      ? [...filtered].sort((a, b) => scoreFor(b) - scoreFor(a))
-      : sortMode === "lastRead"
-      ? [...filtered].sort((a, b) => {
-          // Never-read stories have no timestamp — treat as the earliest
-          // possible time so they trail a desc sort and lead an asc one.
-          const aT = a.last_read_at ? Date.parse(a.last_read_at) : -Infinity;
-          const bT = b.last_read_at ? Date.parse(b.last_read_at) : -Infinity;
-          return (aT - bT) * dirMul;
-        })
-      : [...filtered].sort(
-          (a, b) =>
-            (Date.parse(a.created_at) - Date.parse(b.created_at)) * dirMul
-        );
+  const visibleStories = [...filtered].sort(
+    (a, b) => scoreFor(b) - scoreFor(a)
+  );
 
   return (
     <div className="stories-page">
@@ -187,45 +143,6 @@ export default function Stories() {
                   {v.charAt(0).toUpperCase() + v.slice(1)}
                 </button>
               ))}
-            </div>
-          </div>
-          <div className="filter-row">
-            <label>Sort</label>
-            <div className="chip-group" role="radiogroup" aria-label="Sort mode">
-              {([
-                ["newest", "Created At"],
-                ["lastRead", "Last Read"],
-                ["score", "Score"],
-              ] as const).map(([v, label]) => {
-                const scoreSort = v === "score";
-                const isDisabled = scoreSort && !scoresReady;
-                const active = sortMode === v;
-                const directional = active && DIRECTIONAL_SORTS.has(v);
-                return (
-                  <button
-                    key={v}
-                    className={`chip ${active ? "active" : ""}`}
-                    onClick={() => handleSort(v)}
-                    aria-pressed={active}
-                    disabled={isDisabled}
-                    title={isDisabled ? "Loading scores…" : undefined}
-                    aria-label={
-                      directional
-                        ? `${label}, ${
-                            sortDir === "desc" ? "descending" : "ascending"
-                          }`
-                        : label
-                    }
-                  >
-                    {label}
-                    {directional && (
-                      <span className="sort-arrow" aria-hidden="true">
-                        {sortDir === "desc" ? "▼" : "▲"}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
             </div>
           </div>
         </>

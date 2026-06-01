@@ -562,7 +562,7 @@ export async function clearOpenRouterApiKey(): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-// Stories — manual overrides + content edit
+// Stories — content edit + reset overrides
 //
 // Both flows touch the same offset-keyed caches (story_word_occurrences,
 // word_lookups, stories.translations) and rely on the backfill picking the
@@ -570,35 +570,10 @@ export async function clearOpenRouterApiKey(): Promise<void> {
 // refresh the local Story state (status fields, word_index_at) and trigger
 // WordIndexBackfillContext.refresh() so the queue rehydrates.
 
-export interface WordOverride {
-  start: number;
-  end: number;
-  surface: string;
-  headword: string;
-  reading: string;
-  /**
-   * JMdict entry id picked from the override editor's candidate list.
-   * Null when the user picked the "no dictionary entry" fallback for a
-   * surface that has no JMdict hit (e.g. a misspelling like 野さい with
-   * no entry of its own — the popover still gets the override's headword
-   * but has no entry to hoist).
-   */
-  entryId: number | null;
-  /**
-   * True when the span is flagged as a proper noun (person, place, etc.)
-   * that JMdict would not match. Set either by the indexer's auto-detection
-   * of a 固有名詞 ruby block or by a "match as name" manual override. The
-   * popover renders a Name header instead of running a dictionary lookup
-   * that would only produce false matches.
-   */
-  isName: boolean;
-}
-
 /**
  * One row in `story_word_occurrences` — either an algorithm-derived span
- * stamped by the backfill or a manual row placed via the override UI.
- * Used by StoryDisplay to render tap targets directly from the index so
- * manual overrides take effect immediately without re-tokenising client-side.
+ * stamped by the backfill or a manual row left over from the (now-removed)
+ * override UI.
  */
 export interface StoryOccurrence {
   start: number;
@@ -630,43 +605,6 @@ export async function getStoryOccurrences(
     manual: r.manual,
     isName: r.is_name,
   }));
-}
-
-/**
- * Replaces every occurrence row (manual or algorithm) intersecting
- * [regionStart, regionEnd) with the supplied overrides. Each override is
- * stored with `manual = TRUE` so subsequent re-indexes preserve it.
- */
-export async function setStoryWordOverrides(
-  storyId: number,
-  regionStart: number,
-  regionEnd: number,
-  overrides: WordOverride[]
-): Promise<void> {
-  const { error } = await supabase.rpc("set_story_word_overrides", {
-    p_story_id: storyId,
-    p_region_start: regionStart,
-    p_region_end: regionEnd,
-    p_overrides: overrides,
-  });
-  if (error) throw new Error(error.message);
-}
-
-/**
- * Drops manual rows intersecting [regionStart, regionEnd) so the algorithm
- * can re-fill the gap on the next index pass.
- */
-export async function clearStoryWordOverrides(
-  storyId: number,
-  regionStart: number,
-  regionEnd: number
-): Promise<void> {
-  const { error } = await supabase.rpc("clear_story_word_overrides", {
-    p_story_id: storyId,
-    p_region_start: regionStart,
-    p_region_end: regionEnd,
-  });
-  if (error) throw new Error(error.message);
 }
 
 /**
