@@ -24,14 +24,16 @@ import { useDictionary } from "./DictionaryContext";
 import {
   getStoriesNeedingIndex,
   getChatMessagesNeedingIndex,
+  getMediaEpisodesNeedingIndex,
   indexStoryWords,
   indexChatMessageWords,
+  indexMediaEpisodeWords,
 } from "../api/client";
 import { extractWordOccurrences } from "../lib/storyWordIndex";
 
 const STORY_GAP_MS = 200;
 
-type SourceKind = "story" | "chat_message";
+type SourceKind = "story" | "chat_message" | "media_episode";
 
 interface QueuedItem {
   kind: SourceKind;
@@ -50,6 +52,8 @@ interface WordIndexBackfillContextType {
   currentStoryId: number | null;
   /** Convenience: currentSourceId when the active source is a chat message, else null. */
   currentChatMessageId: number | null;
+  /** Convenience: currentSourceId when the active source is a media episode, else null. */
+  currentMediaEpisodeId: number | null;
   error: string | null;
   refresh: () => void;
 }
@@ -90,9 +94,10 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
   const loopRunningRef = useRef(false);
 
   const loadQueue = useCallback(async (): Promise<QueuedItem[]> => {
-    const [storyRows, chatRows] = await Promise.all([
+    const [storyRows, chatRows, mediaRows] = await Promise.all([
       getStoriesNeedingIndex(),
       getChatMessagesNeedingIndex(),
+      getMediaEpisodesNeedingIndex(),
     ]);
     const items: QueuedItem[] = [
       ...storyRows.map((s) => ({ kind: "story" as const, id: s.id, content: s.content })),
@@ -100,6 +105,11 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
         kind: "chat_message" as const,
         id: m.id,
         content: m.content,
+      })),
+      ...mediaRows.map((e) => ({
+        kind: "media_episode" as const,
+        id: e.id,
+        content: e.content,
       })),
     ];
     return items;
@@ -158,8 +168,10 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
           if (runIdRef.current !== myRunId) return;
           if (item.kind === "story") {
             await indexStoryWords(item.id, occurrences);
-          } else {
+          } else if (item.kind === "chat_message") {
             await indexChatMessageWords(item.id, occurrences);
+          } else {
+            await indexMediaEpisodeWords(item.id, occurrences);
           }
         } catch (err) {
           // Per-item failures get logged and the item stays at the head
@@ -205,6 +217,8 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
     currentSourceKind === "story" ? currentSourceId : null;
   const currentChatMessageId =
     currentSourceKind === "chat_message" ? currentSourceId : null;
+  const currentMediaEpisodeId =
+    currentSourceKind === "media_episode" ? currentSourceId : null;
 
   const value = useMemo(
     () => ({
@@ -214,6 +228,7 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
       currentSourceKind,
       currentStoryId,
       currentChatMessageId,
+      currentMediaEpisodeId,
       error,
       refresh,
     }),
@@ -224,6 +239,7 @@ export function WordIndexBackfillProvider({ children }: { children: ReactNode })
       currentSourceKind,
       currentStoryId,
       currentChatMessageId,
+      currentMediaEpisodeId,
       error,
       refresh,
     ]

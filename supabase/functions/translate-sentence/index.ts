@@ -19,6 +19,7 @@ import {
   getUserFromAuthHeader,
   loadStoryForUser,
   loadChatMessageForUser,
+  loadMediaEpisodeForUser,
   supabaseAdmin,
   type SentenceTranslation,
   type StoredTranslations,
@@ -94,13 +95,20 @@ Deno.serve(async (req) => {
     const storyId = typeof body?.story_id === "number" ? body.story_id : null;
     const chatMessageId =
       typeof body?.chat_message_id === "number" ? body.chat_message_id : null;
+    const mediaEpisodeId =
+      typeof body?.media_episode_id === "number" ? body.media_episode_id : null;
     const sentenceStart = body?.sentence_start;
     const sentenceEnd = body?.sentence_end;
     const regenerate = body?.regenerate === true;
 
-    if ((storyId == null) === (chatMessageId == null)) {
+    const sourceCount =
+      (storyId != null ? 1 : 0) +
+      (chatMessageId != null ? 1 : 0) +
+      (mediaEpisodeId != null ? 1 : 0);
+    if (sourceCount !== 1) {
       return json(400, {
-        error: "Exactly one of story_id or chat_message_id must be set",
+        error:
+          "Exactly one of story_id, chat_message_id, or media_episode_id must be set",
       });
     }
     if (
@@ -115,8 +123,11 @@ Deno.serve(async (req) => {
     const source =
       storyId != null
         ? await loadStoryForUser(auth.authHeader, storyId)
-        : await loadChatMessageForUser(auth.authHeader, chatMessageId!);
-    const sourceLabel = storyId != null ? "story" : "chat-message";
+        : chatMessageId != null
+        ? await loadChatMessageForUser(auth.authHeader, chatMessageId)
+        : await loadMediaEpisodeForUser(auth.authHeader, mediaEpisodeId!);
+    const sourceLabel =
+      storyId != null ? "story" : chatMessageId != null ? "chat-message" : "media-episode";
     const content = cleanContent(source.content);
     if (sentenceEnd > content.length) {
       return json(400, { error: "Offsets out of range" });
@@ -161,7 +172,8 @@ Deno.serve(async (req) => {
       [rangeKey]: translation,
     };
 
-    const table = storyId != null ? "stories" : "chat_messages";
+    const table =
+      storyId != null ? "stories" : chatMessageId != null ? "chat_messages" : "media_episodes";
     const { error: updateErr } = await supabaseAdmin
       .from(table)
       .update({ translations: updated })

@@ -181,7 +181,8 @@ const EMPTY_TRANSLATIONS: StoryTranslations = {};
  */
 type CardSource =
   | { kind: "story"; storyId: number }
-  | { kind: "chat"; chatId: number; chatMessageId: number };
+  | { kind: "chat"; chatId: number; chatMessageId: number }
+  | { kind: "media"; mediaSeriesId: number; mediaEpisodeId: number };
 
 /**
  * One slot in the carousel — either the current tap (`current`) or a prior
@@ -221,15 +222,15 @@ type OtherCard = {
 type Card = CurrentCard | OtherCard;
 
 function sourceKey(source: CardSource): string {
-  return source.kind === "story"
-    ? `story-${source.storyId}`
-    : `chat-${source.chatMessageId}`;
+  if (source.kind === "story") return `story-${source.storyId}`;
+  if (source.kind === "chat") return `chat-${source.chatMessageId}`;
+  return `media-${source.mediaEpisodeId}`;
 }
 
 function sourceLink(source: CardSource): string {
-  return source.kind === "story"
-    ? `/stories/${source.storyId}`
-    : `/chats/${source.chatId}`;
+  if (source.kind === "story") return `/stories/${source.storyId}`;
+  if (source.kind === "chat") return `/chats/${source.chatId}`;
+  return `/media/episodes/${source.mediaEpisodeId}`;
 }
 
 function sourcesEqual(a: CardSource, b: CardSource): boolean {
@@ -237,9 +238,23 @@ function sourcesEqual(a: CardSource, b: CardSource): boolean {
   if (a.kind === "story") {
     return (b as { kind: "story"; storyId: number }).storyId === a.storyId;
   }
+  if (a.kind === "chat") {
+    return (
+      (b as { kind: "chat"; chatMessageId: number }).chatMessageId === a.chatMessageId
+    );
+  }
   return (
-    (b as { kind: "chat"; chatMessageId: number }).chatMessageId === a.chatMessageId
+    (b as { kind: "media"; mediaEpisodeId: number }).mediaEpisodeId === a.mediaEpisodeId
   );
+}
+
+// The source discriminator translateSentence / recordWordLookup expect.
+function writeSourceFor(
+  source: CardSource
+): { storyId: number } | { chatMessageId: number } | { mediaEpisodeId: number } {
+  if (source.kind === "story") return { storyId: source.storyId };
+  if (source.kind === "chat") return { chatMessageId: source.chatMessageId };
+  return { mediaEpisodeId: source.mediaEpisodeId };
 }
 
 function sentenceKey(start: number, end: number): string {
@@ -846,10 +861,16 @@ export default function WordPopover({
         const source: CardSource =
           u.sourceType === "story"
             ? { kind: "story", storyId: u.storyId! }
-            : {
+            : u.sourceType === "chat"
+            ? {
                 kind: "chat",
                 chatId: u.chatId!,
                 chatMessageId: u.chatMessageId!,
+              }
+            : {
+                kind: "media",
+                mediaSeriesId: u.mediaSeriesId!,
+                mediaEpisodeId: u.mediaEpisodeId!,
               };
         return {
           kind: "other",
@@ -1060,10 +1081,7 @@ export default function WordPopover({
     if (!translationRequested) return;
     let cancelled = false;
     const cardSource = activeCard.source;
-    const translateSource =
-      cardSource.kind === "story"
-        ? { storyId: cardSource.storyId }
-        : { chatMessageId: cardSource.chatMessageId };
+    const translateSource = writeSourceFor(cardSource);
     const start = snippet.sentenceStart;
     const end = snippet.sentenceEnd;
     const key = sentenceKey(start, end);
@@ -1103,10 +1121,7 @@ export default function WordPopover({
   const handleRegenerate = useCallback(() => {
     if (!activeCard || !snippet || translationPending) return;
     const cardSource = activeCard.source;
-    const translateSource =
-      cardSource.kind === "story"
-        ? { storyId: cardSource.storyId }
-        : { chatMessageId: cardSource.chatMessageId };
+    const translateSource = writeSourceFor(cardSource);
     const start = snippet.sentenceStart;
     const end = snippet.sentenceEnd;
     const key = sentenceKey(start, end);

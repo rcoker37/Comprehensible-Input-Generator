@@ -14,9 +14,16 @@ import type {
   ChatMessageMarkUpdate,
   ChatMessageReadState,
   ContentType,
+  EpisodeReadState,
   Formality,
+  JimakuEntry,
+  JimakuFile,
   Kanji,
+  MediaEpisode,
+  MediaKind,
+  MediaSeries,
   PerChatPayoutRow,
+  PerEpisodePayoutRow,
   Preferences,
   SentenceTranslation,
   Story,
@@ -265,7 +272,7 @@ export async function deleteStory(id: number): Promise<void> {
  * model call.
  */
 export async function translateSentence(
-  source: { storyId: number } | { chatMessageId: number },
+  source: { storyId: number } | { chatMessageId: number } | { mediaEpisodeId: number },
   sentenceStart: number,
   sentenceEnd: number,
   regenerate = false
@@ -284,6 +291,7 @@ export async function translateSentence(
     body: JSON.stringify({
       ...("storyId" in source ? { story_id: source.storyId } : {}),
       ...("chatMessageId" in source ? { chat_message_id: source.chatMessageId } : {}),
+      ...("mediaEpisodeId" in source ? { media_episode_id: source.mediaEpisodeId } : {}),
       sentence_start: sentenceStart,
       sentence_end: sentenceEnd,
       ...(regenerate && { regenerate: true }),
@@ -310,7 +318,7 @@ export async function translateSentence(
  * failure here never blocks the popover render.
  */
 export async function recordWordLookup(
-  source: { storyId: number } | { chatMessageId: number },
+  source: { storyId: number } | { chatMessageId: number } | { mediaEpisodeId: number },
   hit: LookupHit
 ): Promise<void> {
   const headword = headwordFromHit(hit);
@@ -318,6 +326,7 @@ export async function recordWordLookup(
   const { error } = await supabase.rpc("record_word_lookup", {
     p_story_id: "storyId" in source ? source.storyId : null,
     p_chat_message_id: "chatMessageId" in source ? source.chatMessageId : null,
+    p_media_episode_id: "mediaEpisodeId" in source ? source.mediaEpisodeId : null,
     p_start: hit.start,
     p_end: hit.end,
     p_surface: hit.surface,
@@ -343,6 +352,8 @@ interface WordUsageRow {
   story_id: number | null;
   chat_id: number | null;
   chat_message_id: number | null;
+  media_series_id: number | null;
+  media_episode_id: number | null;
   source_title: string;
   source_content: string;
   source_created_at: string;
@@ -366,6 +377,8 @@ export async function getWordUsages(headword: string): Promise<WordUsage[]> {
     storyId: r.story_id,
     chatId: r.chat_id,
     chatMessageId: r.chat_message_id,
+    mediaSeriesId: r.media_series_id,
+    mediaEpisodeId: r.media_episode_id,
     sourceTitle: r.source_title,
     sourceContent: r.source_content,
     sourceCreatedAt: r.source_created_at,
@@ -936,4 +949,257 @@ export async function markChatMessageFailed(
     .eq("id", id)
     .eq("status", "pending");
   if (error) throw new Error(error.message);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Media (anime / VTuber subtitles)
+//
+// A series groups episodes; an episode is the story-analog — its
+// furigana-annotated subtitle text is indexed + scored, "watched" is the
+// binary read_count. Import + annotation run through the import-media /
+// annotate-media Edge Functions; everything else is direct RLS-scoped table
+// access + the media RPCs from the 20260603000000 migration.
+// ─────────────────────────────────────────────────────────────────────────
+
+const EPISODE_SELECT =
+  "id, series_id, number, title, raw_content, content, status, error_message, translations, read_count, first_read_at, last_read_at, word_index_at, created_at";
+
+// jimaku search — proxied through import-media (the API key lives server-side).
+export async function searchMedia(
+  query: string,
+  anime = true
+): Promise<JimakuEntry[]> {
+  const { data, error } = await supabase.functions.invoke("import-media", {
+    body: { action: "search", query, anime },
+  });
+  if (error) throw new Error(error.message);
+  return ((data as { entries?: JimakuEntry[] })?.entries) ?? [];
+}
+
+export async function listMediaFiles(entryId: number): Promise<JimakuFile[]> {
+  const { data, error } = await supabase.functions.invoke("import-media", {
+    body: { action: "files", entry_id: entryId },
+  });
+  if (error) throw new Error(error.message);
+  return ((data as { files?: JimakuFile[] })?.files) ?? [];
+}
+
+// Import the selected subtitle files into a series + pending episodes. The
+// caller then kicks off annotation per pending episode (MediaGenerationContext).
+export async function importMedia(params: {
+  entryId: number;
+  title: string;
+  kind: MediaKind;
+  files: { url: string; name: string; number?: number | null }[];
+}): Promise<{ seriesId: number; episodes: { id: number; number: number | null; title: string }[] }> {
+  const { data, error } = await supabase.functions.invoke("import-media", {
+    body: {
+      action: "import",
+      entry_id: params.entryId,
+      title: params.title,
+      kind: params.kind,
+      files: params.files,
+    },
+  });
+  if (error) throw new Error(error.message);
+  const raw = data as { series_id: number; episodes: { id: number; number: number | null; title: string }[] };
+  return { seriesId: raw.series_id, episodes: raw.episodes };
+}
+
+// Kick off the background furigana annotation for one pending/failed episode.
+export async function annotateEpisode(episodeId: number): Promise<void> {
+  const { error } = await supabase.functions.invoke("annotate-media", {
+    body: { episode_id: episodeId },
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function getSeriesList(): Promise<MediaSeries[]> {
+  const { data, error } = await supabase
+    .from("media_series")
+    .select("id, title, kind, jimaku_id, created_at, last_activity_at")
+    .order("last_activity_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as MediaSeries[]) || [];
+}
+
+export async function getSeries(id: number): Promise<MediaSeries> {
+  const { data, error } = await supabase
+    .from("media_series")
+    .select("id, title, kind, jimaku_id, created_at, last_activity_at")
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+  return data as MediaSeries;
+}
+
+export async function getEpisodesForSeries(seriesId: number): Promise<MediaEpisode[]> {
+  const { data, error } = await supabase
+    .from("media_episodes")
+    .select(EPISODE_SELECT)
+    .eq("series_id", seriesId)
+    .order("number", { ascending: true, nullsFirst: false })
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as MediaEpisode[]) || [];
+}
+
+export async function getEpisode(id: number): Promise<MediaEpisode> {
+  const { data, error } = await supabase
+    .from("media_episodes")
+    .select(EPISODE_SELECT)
+    .eq("id", id)
+    .single();
+  if (error) throw new Error(error.message);
+  return data as MediaEpisode;
+}
+
+export async function markEpisodeRead(id: number): Promise<EpisodeReadState> {
+  const { data, error } = await supabase.rpc("mark_episode_read", { p_episode_id: id });
+  if (error) throw new Error(error.message);
+  const row = (data as EpisodeReadState[] | null)?.[0];
+  if (!row) throw new Error("Episode not found");
+  return row;
+}
+
+export async function undoEpisodeRead(id: number): Promise<EpisodeReadState> {
+  const { data, error } = await supabase.rpc("undo_episode_read", { p_episode_id: id });
+  if (error) throw new Error(error.message);
+  const row = (data as EpisodeReadState[] | null)?.[0];
+  if (!row) throw new Error("Episode not found");
+  return row;
+}
+
+export async function deleteSeries(id: number): Promise<void> {
+  const { error } = await supabase.rpc("delete_series", { p_series_id: id });
+  if (error) throw new Error(error.message);
+}
+
+export async function resetMediaEpisodeWordIndex(episodeId: number): Promise<void> {
+  const { error } = await supabase.rpc("reset_media_episode_word_index", {
+    p_episode_id: episodeId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+// Bulk-replace an episode's word-occurrence index. Analog of indexStoryWords /
+// indexChatMessageWords; used by the backfill.
+export async function indexMediaEpisodeWords(
+  episodeId: number,
+  occurrences: {
+    start: number;
+    end: number;
+    surface: string;
+    headword: string;
+    reading: string;
+    entryId: number | null;
+    isName: boolean;
+  }[]
+): Promise<string> {
+  const { data, error } = await supabase.rpc("index_media_episode_words", {
+    p_episode_id: episodeId,
+    p_occurrences: occurrences,
+    p_version: WORD_INDEX_VERSION,
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+// Complete episodes whose word index is missing or stale. Same criteria as
+// getStoriesNeedingIndex / getChatMessagesNeedingIndex.
+export async function getMediaEpisodesNeedingIndex(): Promise<
+  { id: number; content: string }[]
+> {
+  const { data, error } = await supabase
+    .from("media_episodes")
+    .select("id, content")
+    .eq("status", "complete")
+    .or(
+      `word_index_at.is.null,word_index_version.is.null,word_index_version.lt.${WORD_INDEX_VERSION}`
+    )
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as { id: number; content: string }[]) || [];
+}
+
+// Per-occurrence rows for one episode — used by the episode reader to render
+// tap targets directly from the index (parallels getChatMessageOccurrences).
+export async function getEpisodeOccurrences(
+  episodeId: number
+): Promise<
+  {
+    start: number;
+    end: number;
+    surface: string;
+    headword: string;
+    reading: string | null;
+    entryId: number | null;
+    isName: boolean;
+  }[]
+> {
+  const { data, error } = await supabase
+    .from("story_word_occurrences")
+    .select(
+      "start_offset, end_offset, surface, headword, reading, entry_id, is_name"
+    )
+    .eq("media_episode_id", episodeId)
+    .order("start_offset", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    start: r.start_offset,
+    end: r.end_offset,
+    surface: r.surface,
+    headword: r.headword,
+    reading: r.reading,
+    entryId: r.entry_id,
+    isName: r.is_name,
+  }));
+}
+
+// Per-occurrence encounter counts for one episode (zero-encounter underline).
+export async function getEpisodeWordEncounters(
+  episodeId: number
+): Promise<Map<string, number>> {
+  const { data, error } = await supabase.rpc("get_media_episode_word_encounters", {
+    p_episode_id: episodeId,
+  });
+  if (error) throw new Error(error.message);
+  const out = new Map<string, number>();
+  const rows =
+    (data as { start_offset: number; end_offset: number; encounters: number }[] | null) ?? [];
+  for (const r of rows) out.set(`${r.start_offset}-${r.end_offset}`, Number(r.encounters));
+  return out;
+}
+
+// Per-episode aggregated headword + kanji counts for the "+X" payout tag on
+// unwatched episodes. Analog of getPerChatPayout.
+export async function getPerEpisodePayout(): Promise<PerEpisodePayoutRow[]> {
+  const out: PerEpisodePayoutRow[] = [];
+  for (let from = 0; ; ) {
+    const { data, error } = await supabase
+      .rpc("get_per_episode_payout")
+      .order("episode_id")
+      .order("kind")
+      .order("key")
+      .range(from, from + VOCAB_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data as PerEpisodePayoutRow[] | null) ?? [];
+    if (rows.length === 0) break;
+    for (const r of rows) out.push({ ...r, count: Number(r.count) });
+    from += rows.length;
+    if (rows.length < VOCAB_PAGE_SIZE) break;
+  }
+  return out;
+}
+
+// Episodes still being annotated (pending / annotating). Used by
+// MediaGenerationContext on mount to resume polling.
+export async function getInFlightEpisodes(): Promise<MediaEpisode[]> {
+  const { data, error } = await supabase
+    .from("media_episodes")
+    .select(EPISODE_SELECT)
+    .in("status", ["pending", "annotating"])
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data as MediaEpisode[]) || [];
 }
