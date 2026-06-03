@@ -1124,19 +1124,11 @@ export async function getMediaEpisodesNeedingIndex(): Promise<
 
 // Per-occurrence rows for one episode — used by the episode reader to render
 // tap targets directly from the index (parallels getChatMessageOccurrences).
+// Returns StoryOccurrence[] (manual always false — no overrides on media) so
+// it slots directly into StoryDisplay's occurrenceLoader prop.
 export async function getEpisodeOccurrences(
   episodeId: number
-): Promise<
-  {
-    start: number;
-    end: number;
-    surface: string;
-    headword: string;
-    reading: string | null;
-    entryId: number | null;
-    isName: boolean;
-  }[]
-> {
+): Promise<StoryOccurrence[]> {
   const { data, error } = await supabase
     .from("story_word_occurrences")
     .select(
@@ -1152,6 +1144,7 @@ export async function getEpisodeOccurrences(
     headword: r.headword,
     reading: r.reading,
     entryId: r.entry_id,
+    manual: false,
     isName: r.is_name,
   }));
 }
