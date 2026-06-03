@@ -12,6 +12,9 @@ const Stories = lazy(() => import("./pages/Stories"));
 const StoryDetail = lazy(() => import("./pages/StoryDetail"));
 const Chats = lazy(() => import("./pages/Chats"));
 const ChatDetail = lazy(() => import("./pages/ChatDetail"));
+const Media = lazy(() => import("./pages/Media"));
+const SeriesDetail = lazy(() => import("./pages/SeriesDetail"));
+const EpisodeDetail = lazy(() => import("./pages/EpisodeDetail"));
 const Stats = lazy(() => import("./pages/Stats"));
 const Settings = lazy(() => import("./pages/Settings"));
 
@@ -60,6 +63,36 @@ function App() {
                   <ErrorBoundary>
                     <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
                       <ChatDetail />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/media"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                      <Media />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/media/series/:id"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                      <SeriesDetail />
+                    </Suspense>
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/media/episodes/:id"
+                element={
+                  <ErrorBoundary>
+                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                      <EpisodeDetail />
                     </Suspense>
                   </ErrorBoundary>
                 }

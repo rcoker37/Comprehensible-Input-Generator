@@ -29,9 +29,19 @@ import AnimatedDots from "./AnimatedDots";
 import type {
   DisplayMode,
   FontMode,
-  Story,
 } from "../types";
 import "./StoryDisplay.css";
+
+// The minimal source shape StoryDisplay renders. Both `Story` and
+// `MediaEpisode` satisfy it structurally, so the same reader drives stories,
+// chat passages, and anime/VTuber episodes — only the occurrence loader and
+// self-link differ (see the `occurrenceLoader` / `sourceHref` props).
+export interface DisplayableSource {
+  id: number;
+  title: string;
+  content: string;
+  word_index_at: string | null;
+}
 
 const DISPLAY_ORDER: DisplayMode[] = ["off", "unseen", "all"];
 const FONT_ORDER: FontMode[] = ["sans", "serif"];
@@ -42,8 +52,16 @@ const nextFont = (m: FontMode): FontMode =>
   FONT_ORDER[(FONT_ORDER.indexOf(m) + 1) % FONT_ORDER.length]!;
 
 interface Props {
-  story: Story;
+  story: DisplayableSource;
   showLink?: boolean;
+  /**
+   * Loads the indexed occurrence rows for this source. Defaults to the story
+   * loader; the episode reader passes `getEpisodeOccurrences` so the same
+   * component renders media-episode tap targets.
+   */
+  occurrenceLoader?: (sourceId: number) => Promise<StoryOccurrence[]>;
+  /** Self-link target for the title (when `showLink`). Defaults to the story route. */
+  sourceHref?: string;
   // True when an external action (reset overrides, content edit) has
   // nulled the word index and the backfill is re-stamping it. Adds the
   // glassy loading overlay on top of the story text so the reader sees a
@@ -60,6 +78,8 @@ interface Props {
 export default function StoryDisplay({
   story,
   showLink,
+  occurrenceLoader = getStoryOccurrences,
+  sourceHref,
   regenerating = false,
   markedHeadwords,
   onToggleMark,
@@ -221,7 +241,7 @@ export default function StoryDisplay({
       return;
     }
     let cancelled = false;
-    getStoryOccurrences(story.id)
+    occurrenceLoader(story.id)
       .then((rows) => {
         if (!cancelled) {
           setOccurrences(rows);
@@ -237,7 +257,7 @@ export default function StoryDisplay({
     return () => {
       cancelled = true;
     };
-  }, [story.id, story.word_index_at, backfillProcessing, onOccurrencesChange]);
+  }, [story.id, story.word_index_at, backfillProcessing, onOccurrencesChange, occurrenceLoader]);
 
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
@@ -499,7 +519,7 @@ export default function StoryDisplay({
         )}
       </div>
       {showLink && (
-        <a href={`/stories/${story.id}`} className="story-link">
+        <a href={sourceHref ?? `/stories/${story.id}`} className="story-link">
           View full story
         </a>
       )}

@@ -65,8 +65,9 @@ export interface StoryReadState {
  * `sourceType` discriminates which id columns are set:
  *   - `'story'` → `storyId` is set, `chatId`/`chatMessageId` are null
  *   - `'chat'`  → `chatId` + `chatMessageId` are set, `storyId` is null
+ *   - `'media'` → `mediaSeriesId` + `mediaEpisodeId` are set, others null
  */
-export type WordUsageSource = "story" | "chat";
+export type WordUsageSource = "story" | "chat" | "media";
 
 export interface WordUsage {
   occurrenceId: number;
@@ -74,6 +75,8 @@ export interface WordUsage {
   storyId: number | null;
   chatId: number | null;
   chatMessageId: number | null;
+  mediaSeriesId: number | null;
+  mediaEpisodeId: number | null;
   sourceTitle: string;
   sourceContent: string;
   sourceCreatedAt: string;
@@ -153,6 +156,70 @@ export interface PerChatPayoutRow {
   kind: "word" | "kanji";
   key: string;
   count: number;
+}
+
+// Media feature: imported anime / VTuber subtitles. A series groups episodes;
+// an episode is the story-analog — its furigana-annotated subtitle text is
+// indexed + scored, and "watched" (read_count 0/1) is the binary read state.
+export type MediaKind = "anime" | "vtuber";
+export type MediaEpisodeStatus = "pending" | "annotating" | "complete" | "failed";
+
+export interface MediaSeries {
+  id: number;
+  user_id?: string;
+  title: string;
+  kind: MediaKind;
+  jimaku_id: string | null;
+  created_at: string;
+  last_activity_at: string;
+}
+
+export interface MediaEpisode {
+  id: number;
+  series_id: number;
+  user_id?: string;
+  number: number | null;
+  title: string;
+  raw_content: string;
+  content: string;
+  status: MediaEpisodeStatus;
+  error_message: string | null;
+  translations: StoryTranslations | null;
+  read_count: number;
+  first_read_at: string | null;
+  last_read_at: string | null;
+  word_index_at: string | null;
+  created_at: string;
+}
+
+export interface EpisodeReadState {
+  read_count: number;
+  first_read_at: string | null;
+  last_read_at: string | null;
+}
+
+// One row from get_per_episode_payout (analog of PerChatPayoutRow). Drives the
+// "+X" tag and the watch-button score hint on unwatched episodes.
+export interface PerEpisodePayoutRow {
+  episode_id: number;
+  kind: "word" | "kanji";
+  key: string;
+  count: number;
+}
+
+// jimaku.cc search / file shapes surfaced by the import-media Edge Function.
+export interface JimakuEntry {
+  id: number;
+  name: string;
+  english_name?: string | null;
+  japanese_name?: string | null;
+  anilist_id?: number | null;
+}
+
+export interface JimakuFile {
+  name: string;
+  url: string;
+  size?: number;
 }
 
 // Stories-page filter shapes are persisted on the profile so the page

@@ -9,6 +9,7 @@ import { VocabProvider, useVocab } from "../contexts/VocabContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
 import { StoriesProvider } from "../contexts/StoriesContext";
+import { MediaProvider } from "../contexts/MediaContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
 import AnimatedDots from "./AnimatedDots";
@@ -66,6 +67,7 @@ export default function AppLayout() {
       <KanjiProvider>
         <VocabProvider>
           <WordIndexBackfillProvider>
+            <MediaProvider>
             <StoriesProvider>
               <ChatsProvider>
                 <ChatGenerationProvider>
@@ -75,6 +77,7 @@ export default function AppLayout() {
                       <div className="nav-links">
                         <NavLink to="/chats">Chat</NavLink>
                         <NavLink to="/stories">Read</NavLink>
+                        <NavLink to="/media">Media</NavLink>
                         <NavLink to="/stats">Stats</NavLink>
                         <NavLink to="/settings">Settings</NavLink>
                       </div>
@@ -95,6 +98,7 @@ export default function AppLayout() {
                 </ChatGenerationProvider>
               </ChatsProvider>
             </StoriesProvider>
+            </MediaProvider>
           </WordIndexBackfillProvider>
         </VocabProvider>
       </KanjiProvider>
