@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
-import { useVocab } from "../contexts/VocabContext";
 import {
   DEFAULT_PARAGRAPH_COUNT,
   PARAGRAPH_OPTIONS,
-  type UnseenWordTarget,
 } from "../lib/generation";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
@@ -15,13 +13,6 @@ import Modal from "./Modal";
 import "./GenerationModal.css";
 
 const MODEL = "anthropic/claude-opus-4.7";
-
-const UNSEEN_WORD_OPTIONS: { value: UnseenWordTarget; label: string }[] = [
-  { value: "none", label: "None" },
-  { value: "1-2", label: "1–2" },
-  { value: "3-5", label: "3–5" },
-  { value: "5-10", label: "5–10" },
-];
 
 interface Props {
   open: boolean;
@@ -31,14 +22,12 @@ interface Props {
 export default function GenerationModal({ open, onClose }: Props) {
   const { user, profile, updatePreferences } = useAuth();
   const { loading, generate } = useGeneration();
-  const { seenKanji } = useSeenKanji();
-  const { vocabEncounters } = useVocab();
+  const { seenKanji, kanjiExposures } = useSeenKanji();
   const [contentType, setContentType] = useState<ContentType>("fiction");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
   const [paragraphs, setParagraphs] = useState<number>(DEFAULT_PARAGRAPH_COUNT);
-  const [unseenWordTarget, setUnseenWordTarget] = useState<UnseenWordTarget>("none");
 
   // Sync preferences from profile once it resolves — state initializers run
   // before the profile fetch completes, so defaults would always win otherwise.
@@ -51,7 +40,6 @@ export default function GenerationModal({ open, onClose }: Props) {
        async-resolved profile; state initializers run before the fetch lands. */
     if (gen?.contentType) setContentType(gen.contentType as ContentType);
     if (gen?.formality) setFormality(gen.formality as Formality);
-    if (gen?.unseenWordTarget) setUnseenWordTarget(gen.unseenWordTarget as UnseenWordTarget);
     if (typeof gen?.paragraphs === "number" &&
         (PARAGRAPH_OPTIONS as readonly number[]).includes(gen.paragraphs)) {
       setParagraphs(gen.paragraphs);
@@ -69,8 +57,7 @@ export default function GenerationModal({ open, onClose }: Props) {
       paragraphs,
       model: MODEL,
       seenKanji,
-      unseenWordTarget,
-      seenWords: new Set(vocabEncounters.keys()),
+      kanjiExposures,
     });
     updatePreferences({
       generator: {
@@ -78,7 +65,6 @@ export default function GenerationModal({ open, onClose }: Props) {
         contentType,
         formality,
         paragraphs,
-        unseenWordTarget,
       },
     }).catch((err) => console.warn("Failed to save preferences:", err));
     onClose();
@@ -158,22 +144,6 @@ export default function GenerationModal({ open, onClose }: Props) {
                 ))}
               </select>
             </label>
-          </div>
-
-          <div className="form-group">
-            <label>Unseen common words</label>
-            <div className="chip-group" role="radiogroup" aria-label="Unseen common words target">
-              {UNSEEN_WORD_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  className={`chip ${unseenWordTarget === opt.value ? "active" : ""}`}
-                  onClick={() => setUnseenWordTarget(opt.value)}
-                  aria-pressed={unseenWordTarget === opt.value}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <button

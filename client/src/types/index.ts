@@ -165,9 +165,6 @@ export interface GeneratorPreferences {
   contentType: ContentType;
   // How many paragraphs to generate (3–10).
   paragraphs: number;
-  // How many common words the reader has never encountered to nudge the model
-  // into using (UI: "Unseen common words"). One of "none"/"1-2"/"3-5"/"5-10".
-  unseenWordTarget: string;
 }
 
 export interface StoriesPreferences {
