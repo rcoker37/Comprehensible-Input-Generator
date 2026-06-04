@@ -36,21 +36,16 @@ function sanitizeUserText(raw: string): string {
   return raw.replace(/[\n\r#`]/g, "").trim();
 }
 
-export type UnseenWordTarget = "none" | "1-2" | "3-5" | "5-10";
-
-const UNSEEN_WORD_RANGES: Record<UnseenWordTarget, [number, number] | null> = {
-  none: null,
-  "1-2": [1, 2],
-  "3-5": [3, 5],
-  "5-10": [5, 10],
-};
-
 /**
- * How many of the user's most-frequent never-encountered words to hand the
- * model as a candidate pool. The model is nudged to weave a few of them in
- * (see `UNSEEN_WORD_RANGES`); the rest of the pool is just there for choice.
+ * Prompt fragment shared between story generation and chat replies: nudges
+ * the model toward kanji the reader has rarely encountered, but only when
+ * the surrounding context already calls for them. Returns an empty string
+ * when no rare-kanji pool is available so callers can splice unconditionally.
  */
-export const UNSEEN_WORD_POOL_SIZE = 50;
+export function rareKanjiNudge(rareKanji: string[]): string {
+  if (rareKanji.length === 0) return "";
+  return `- The reader has rarely encountered these allowed kanji: ${rareKanji.join("、")}. If — and only if — a few of them naturally fit what you are writing, prefer them over commoner alternatives the reader has already seen. Do not force any in when they do not fit; the goal is exposure through natural use, not coverage of the list.`;
+}
 
 export function buildPrompt(
   contentType: ContentType,
@@ -59,41 +54,19 @@ export function buildPrompt(
   formality: Formality,
   topic?: string,
   style?: string,
-  unseenWordTarget: UnseenWordTarget = "none",
-  unseenWords: string[] = []
+  rareKanji: string[] = []
 ): string {
-  const wordRange = UNSEEN_WORD_RANGES[unseenWordTarget];
-  const hasUnseenWords = wordRange != null && unseenWords.length > 0;
-  const rules: string[] = ["Rules:"];
-
-  // Kanji scope is loosened to three groups rather than a hard "allowed list
-  // only" constraint: the allowed list, kanji carried by the unseen common
-  // words we nudge in, and kanji the chosen topic / style genuinely needs.
-  // Group 2 is only described when an unseen-words pool is actually supplied.
-  const kanjiGroups = [
-    "kanji from the allowed list above",
-    ...(hasUnseenWords
-      ? ["kanji that appear in the unseen common words listed below"]
-      : []),
-    "kanji and vocabulary that the chosen topic or writing style naturally calls for — domain-specific terms, characteristic expressions, and the words a piece on this subject genuinely lives on",
-  ];
-  rules.push(
-    `- Keep the kanji you use within these groups: ${kanjiGroups
-      .map((g, i) => `(${i + 1}) ${g}`)
-      .join("; ")}. Outside these groups, prefer simpler wording over reaching for another kanji.`,
-    "- When a topic or writing style is provided, lean into the concrete vocabulary and kanji that anchor a piece in that subject or voice — reach for the topical words rather than paraphrasing around them with generic language. Treat group (3) as an invitation, not just permission.",
+  const rules: string[] = [
+    "Rules:",
+    "- Keep the kanji you use within these groups: (1) kanji from the allowed list above; (2) kanji and vocabulary that the chosen topic or writing style naturally calls for — domain-specific terms, characteristic expressions, and the words a piece on this subject genuinely lives on. Outside these groups, prefer simpler wording over reaching for another kanji.",
+    "- When a topic or writing style is provided, lean into the concrete vocabulary and kanji that anchor a piece in that subject or voice — reach for the topical words rather than paraphrasing around them with generic language. Treat group (2) as an invitation, not just permission.",
     "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
     "- Write every word in its standard modern spelling, with every kanji that spelling uses. Do not substitute kana for a word's kanji — not the whole word when it is normally written with kanji (法律《ほうりつ》, never ほうりつ), and not part of it (法律《ほうりつ》, never 法《ほう》りつ; 医療《いりょう》, never 医《い》りょう). Ordinary okurigana — the べる of 食べる, the しい of 新しい — is part of the standard spelling, not a substitution, so keep it. When a word has more than one kanji form, use the common form rather than a rare or archaic one.",
-    "- Once you choose to use a word, all of its kanji are allowed: the kanji groups above limit which words you reach for, not how you spell a word you have already chosen."
-  );
+    "- Once you choose to use a word, all of its kanji are allowed: the kanji groups above limit which words you reach for, not how you spell a word you have already chosen.",
+  ];
 
-  if (wordRange && unseenWords.length > 0) {
-    const [min, max] = wordRange;
-    rules.push(
-      `- Naturally use ${min}–${max} of these common words the reader has not encountered yet, choosing ones that fit the topic and weaving them in normally (do not list them mechanically): ${unseenWords.join("、")}.`,
-      "- Those words are only a nudge — keep introducing plenty of other vocabulary the reader likely hasn't seen too; that list is not meant to be the only unfamiliar words in the piece."
-    );
-  }
+  const nudge = rareKanjiNudge(rareKanji);
+  if (nudge) rules.push(nudge);
 
   rules.push(
     "- For EVERY run of kanji in the output, attach its reading in hiragana immediately after using full-width angle brackets 《…》. Use strict Aozora Bunko ruby notation: the reading covers ONLY the kanji run itself, not any okurigana or particles. Examples: 二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。先生《せんせい》は学生《がくせい》に話《はな》しました。新《あたら》しい本《ほん》を読《よ》みました。Annotate every kanji run, even common ones. Do NOT use the pipe character."

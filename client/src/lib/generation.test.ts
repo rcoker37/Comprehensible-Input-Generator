@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildPrompt, FORMALITY_INSTRUCTIONS } from "./generation";
+import { buildPrompt, FORMALITY_INSTRUCTIONS, rareKanjiNudge } from "./generation";
 
 describe("buildPrompt", () => {
   const defaults = {
@@ -63,13 +63,6 @@ describe("buildPrompt", () => {
     expect(result).toContain("invitation, not just permission");
   });
 
-  it("describes the unseen-word kanji group only when unseen words are supplied", () => {
-    const without = buildPrompt("fiction", 3, "日", "polite");
-    expect(without).not.toContain("unseen common words listed below");
-    const withWords = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "3-5", ["猫"]);
-    expect(withWords).toContain("kanji that appear in the unseen common words listed below");
-  });
-
   it("tells the model to write words in their standard spelling without substituting kana for kanji", () => {
     const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).toContain("standard modern spelling");
@@ -88,32 +81,38 @@ describe("buildPrompt", () => {
     expect(result).toContain("all of its kanji are allowed");
   });
 
-  it("omits the unseen-words rule when unseenWordTarget is 'none'", () => {
-    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "none", ["猫", "犬"]);
-    expect(result).not.toContain("of these common words");
+  it("omits the rare-kanji nudge when the pool is empty", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, []);
+    expect(result).not.toContain("rarely encountered");
   });
 
-  it("omits the unseen-words rule when the word pool is empty", () => {
-    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "3-5", []);
-    expect(result).not.toContain("of these common words");
+  it("includes the rare-kanji nudge with the supplied pool", () => {
+    const result = buildPrompt(
+      "fiction",
+      3,
+      "日",
+      "polite",
+      undefined,
+      undefined,
+      ["湖", "駅", "森"]
+    );
+    expect(result).toContain("rarely encountered these allowed kanji");
+    expect(result).toContain("湖、駅、森");
   });
 
-  it("includes the unseen-words rule with the requested range and word pool", () => {
-    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "3-5", ["猫", "犬", "本"]);
-    expect(result).toContain("3–5 of these common words");
-    expect(result).toContain("猫、犬、本");
+  it("frames the rare-kanji nudge as if-and-only-if natural, not coverage", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, ["湖"]);
+    expect(result).toContain("If — and only if");
+    expect(result).toContain("not coverage of the list");
+  });
+});
+
+describe("rareKanjiNudge", () => {
+  it("returns an empty string for an empty pool", () => {
+    expect(rareKanjiNudge([])).toBe("");
   });
 
-  it("uses the matching range for each unseenWordTarget value", () => {
-    const r12 = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "1-2", ["猫"]);
-    expect(r12).toContain("1–2 of these common words");
-    const r510 = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "5-10", ["猫"]);
-    expect(r510).toContain("5–10 of these common words");
-  });
-
-  it("frames the unseen-words pool as a nudge, not the only new vocabulary", () => {
-    const result = buildPrompt("fiction", 3, "日", "polite", undefined, undefined, "3-5", ["猫"]);
-    expect(result).toContain("only a nudge");
-    expect(result).toContain("not meant to be the only unfamiliar words");
+  it("joins the pool with full-width commas", () => {
+    expect(rareKanjiNudge(["湖", "駅"])).toContain("湖、駅");
   });
 });

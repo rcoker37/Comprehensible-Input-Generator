@@ -1,10 +1,6 @@
 import { supabase } from "../lib/supabase";
-import {
-  buildPrompt,
-  UNSEEN_WORD_POOL_SIZE,
-  type UnseenWordTarget,
-} from "../lib/generation";
-import { getTopUnseenWords, loadFrequencyIndex } from "../lib/frequency";
+import { buildPrompt } from "../lib/generation";
+import { getTopRareKanji, RARE_KANJI_POOL_SIZE } from "../lib/rareKanji";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
@@ -84,10 +80,8 @@ export async function startStoryGeneration(
     paragraphs: number;
     model: string;
     seenKanji: Set<string>;
-    unseenWordTarget: UnseenWordTarget;
-    // Headwords (canonical surfaces) the user has encountered in a read
-    // story — used to filter the unseen-common-words pool.
-    seenWords: Set<string>;
+    // Per-kanji exposure counts for the user — drives the rare-kanji nudge.
+    kanjiExposures: Map<string, number>;
   }
 ): Promise<{ storyId: number }> {
   // Allowed kanji = (kanji the user has seen in any read story)
@@ -97,17 +91,20 @@ export async function startStoryGeneration(
   const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
   const allowedKanji = [...allowedSet].join("");
 
-  // Hand the model a pool of the user's most-frequent never-encountered words
-  // so it can weave a few in naturally (see buildPrompt). Best-effort: a
-  // frequency-index failure just drops the nudge and generation proceeds.
-  let unseenWords: string[] = [];
-  if (params.unseenWordTarget !== "none") {
-    try {
-      await loadFrequencyIndex();
-      unseenWords = getTopUnseenWords(params.seenWords, UNSEEN_WORD_POOL_SIZE);
-    } catch (err) {
-      console.warn("Failed to build unseen-common-words pool:", err);
-    }
+  // Hand the model a pool of the user's rarest-seen allowed kanji so it
+  // can prefer them when they naturally fit (see buildPrompt). Best-effort:
+  // a getAllKanji failure just drops the nudge and generation proceeds.
+  let rareKanji: string[] = [];
+  try {
+    const all = await getAllKanji();
+    rareKanji = getTopRareKanji(
+      all,
+      allowedSet,
+      params.kanjiExposures,
+      RARE_KANJI_POOL_SIZE
+    );
+  } catch (err) {
+    console.warn("Failed to build rare-kanji pool:", err);
   }
 
   const prompt = buildPrompt(
@@ -117,8 +114,7 @@ export async function startStoryGeneration(
     params.formality,
     params.topic,
     params.style,
-    params.unseenWordTarget,
-    unseenWords
+    rareKanji
   );
 
   const { data: sessionData } = await supabase.auth.getSession();
@@ -682,11 +678,28 @@ export async function sendChatMessage(params: {
   chatId: number | null;
   userText: string;
   seenKanji: Set<string>;
+  kanjiExposures: Map<string, number>;
   formality: Formality;
 }): Promise<SendChatMessageResult> {
   const n5 = await getJlptN5Kanji();
   const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
   const allowedKanji = [...allowedSet].join("");
+
+  // Same rare-kanji nudge the story prompt uses, computed client-side and
+  // shipped as a body field so the Edge Function can splice it in. Best-
+  // effort: a getAllKanji failure just drops the nudge and the send proceeds.
+  let rareKanji = "";
+  try {
+    const all = await getAllKanji();
+    rareKanji = getTopRareKanji(
+      all,
+      allowedSet,
+      params.kanjiExposures,
+      RARE_KANJI_POOL_SIZE
+    ).join("");
+  } catch (err) {
+    console.warn("Failed to build rare-kanji pool:", err);
+  }
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -703,6 +716,7 @@ export async function sendChatMessage(params: {
       chat_id: params.chatId,
       user_text: params.userText,
       allowed_kanji: allowedKanji,
+      rare_kanji: rareKanji,
       formality: params.formality,
     }),
   });
