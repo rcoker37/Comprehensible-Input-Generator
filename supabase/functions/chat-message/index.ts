@@ -8,7 +8,6 @@
 //     chat_id?: number | null,    // null = create new chat from this turn
 //     user_text: string,           // raw user input (Japanese or English)
 //     allowed_kanji: string,       // concatenated kanji string (same shape as stories.allowed_kanji)
-//     rare_kanji?: string,         // concatenated kanji string, rarest-seen first; nudges the model to prefer them when natural
 //     formality: 'impolite'|'casual'|'polite'|'keigo'
 //   }
 //
@@ -73,18 +72,10 @@ const FORMALITY_INSTRUCTIONS: Record<string, string> = {
 
 function buildSystemPrompt(
   allowedKanji: string,
-  rareKanji: string,
   formality: string,
 ): string {
   const formalityLine =
     FORMALITY_INSTRUCTIONS[formality] || FORMALITY_INSTRUCTIONS.polite;
-  // Same nudge wording as the story prompt (see client/src/lib/generation.ts
-  // `rareKanjiNudge`) — kept in sync manually since the Edge Function can't
-  // import client code.
-  const rareKanjiRule =
-    rareKanji.length > 0
-      ? `- The reader has rarely encountered these allowed kanji: ${[...rareKanji].join("、")}. If — and only if — a few of them naturally fit what you are writing, prefer them over commoner alternatives the reader has already seen. Do not force any in when they do not fit; the goal is exposure through natural use, not coverage of the list.`
-      : null;
   return [
     "You are a Japanese conversation partner and tutor for a language learner.",
     "Every reply MUST be entirely in Japanese — no English, no romaji, no translations, no meta-commentary.",
@@ -96,7 +87,6 @@ function buildSystemPrompt(
     "- Actively use allowed kanji throughout — do not write entirely in hiragana.",
     "- Write every word in its standard modern spelling, with every kanji that spelling uses. Do not substitute kana for a word's kanji — not the whole word when it is normally written with kanji (法律《ほうりつ》, never ほうりつ), and not part of it (法律《ほうりつ》, never 法《ほう》りつ; 医療《いりょう》, never 医《い》りょう). Ordinary okurigana — the べる of 食べる, the しい of 新しい — is part of the standard spelling, not a substitution, so keep it.",
     "- Once you choose to use a word, all of its kanji are allowed: the kanji groups above limit which words you reach for, not how you spell a word you have already chosen.",
-    ...(rareKanjiRule ? [rareKanjiRule] : []),
     "- For EVERY run of kanji in the output, attach its reading in hiragana immediately after using full-width angle brackets 《…》. Use strict Aozora Bunko ruby notation: the reading covers ONLY the kanji run itself, not any okurigana or particles. Examples: 二人《ふたり》は公園《こうえん》で行《おこな》われた大会《たいかい》を見《み》た。先生《せんせい》は学生《がくせい》に話《はな》しました。新《あたら》しい本《ほん》を読《よ》みました。Annotate every kanji run, even common ones. Do NOT use the pipe character.",
     "",
     formalityLine,
@@ -232,7 +222,6 @@ async function runGeneration(args: {
   userId: string;
   apiKey: string;
   allowedKanji: string;
-  rareKanji: string;
   formality: string;
 }) {
   const {
@@ -241,7 +230,6 @@ async function runGeneration(args: {
     userId,
     apiKey,
     allowedKanji,
-    rareKanji,
     formality,
   } = args;
   try {
@@ -250,7 +238,7 @@ async function runGeneration(args: {
     const messages: OpenRouterMessage[] = [
       {
         role: "system",
-        content: buildSystemPrompt(allowedKanji, rareKanji, formality),
+        content: buildSystemPrompt(allowedKanji, formality),
       },
       ...context.map((m) => ({ role: m.role, content: m.content })),
     ];
@@ -313,7 +301,6 @@ Deno.serve(async (req) => {
       typeof chatIdRaw === "number" && Number.isFinite(chatIdRaw) ? chatIdRaw : null;
     const userText = typeof body.user_text === "string" ? body.user_text.trim() : "";
     const allowedKanji = typeof body.allowed_kanji === "string" ? body.allowed_kanji : "";
-    const rareKanji = typeof body.rare_kanji === "string" ? body.rare_kanji : "";
     const formality = typeof body.formality === "string" ? body.formality : "polite";
     const model = typeof body.model === "string" ? body.model : CHAT_MODEL;
 
@@ -418,7 +405,6 @@ Deno.serve(async (req) => {
             userId: auth.userId,
             apiKey,
             allowedKanji,
-            rareKanji,
             formality,
           })
     );

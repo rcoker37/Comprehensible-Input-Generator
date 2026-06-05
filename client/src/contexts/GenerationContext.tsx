@@ -21,7 +21,6 @@ interface GenerateParams {
   paragraphs: number;
   model: string;
   seenKanji: Set<string>;
-  kanjiExposures: Map<string, number>;
 }
 
 interface GenerationContextType {
