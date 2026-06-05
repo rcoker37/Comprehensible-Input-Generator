@@ -83,7 +83,7 @@ export function useChatGeneration() {
 
 export function ChatGenerationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const { seenKanji, kanjiExposures } = useSeenKanji();
+  const { seenKanji } = useSeenKanji();
   const {
     addChat,
     addChatMessage,
@@ -276,7 +276,6 @@ export function ChatGenerationProvider({ children }: { children: ReactNode }) {
         chatId,
         userText,
         seenKanji,
-        kanjiExposures,
         formality,
       });
 
@@ -333,7 +332,7 @@ export function ChatGenerationProvider({ children }: { children: ReactNode }) {
       startPolling(res.assistantMessageId, res.chatId, Date.now());
       return res;
     },
-    [seenKanji, kanjiExposures, addChat, addChatMessage, startPolling]
+    [seenKanji, addChat, addChatMessage, startPolling]
   );
 
   const dismissError = useCallback(

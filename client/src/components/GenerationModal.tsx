@@ -22,7 +22,7 @@ interface Props {
 export default function GenerationModal({ open, onClose }: Props) {
   const { user, profile, updatePreferences } = useAuth();
   const { loading, generate } = useGeneration();
-  const { seenKanji, kanjiExposures } = useSeenKanji();
+  const { seenKanji } = useSeenKanji();
   const [contentType, setContentType] = useState<ContentType>("fiction");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
@@ -57,7 +57,6 @@ export default function GenerationModal({ open, onClose }: Props) {
       paragraphs,
       model: MODEL,
       seenKanji,
-      kanjiExposures,
     });
     updatePreferences({
       generator: {

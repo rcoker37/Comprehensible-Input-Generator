@@ -1,6 +1,5 @@
 import { supabase } from "../lib/supabase";
 import { buildPrompt } from "../lib/generation";
-import { getTopRareKanji, RARE_KANJI_POOL_SIZE } from "../lib/rareKanji";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
@@ -80,32 +79,13 @@ export async function startStoryGeneration(
     paragraphs: number;
     model: string;
     seenKanji: Set<string>;
-    // Per-kanji exposure counts for the user — drives the rare-kanji nudge.
-    kanjiExposures: Map<string, number>;
   }
 ): Promise<{ storyId: number }> {
   // Allowed kanji = (kanji the user has seen in any read story)
   //               ∪ (JLPT N5 baseline, so a brand-new user still has
   //                  enough kanji to produce a readable story).
   const n5 = await getJlptN5Kanji();
-  const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
-  const allowedKanji = [...allowedSet].join("");
-
-  // Hand the model a pool of the user's rarest-seen allowed kanji so it
-  // can prefer them when they naturally fit (see buildPrompt). Best-effort:
-  // a getAllKanji failure just drops the nudge and generation proceeds.
-  let rareKanji: string[] = [];
-  try {
-    const all = await getAllKanji();
-    rareKanji = getTopRareKanji(
-      all,
-      allowedSet,
-      params.kanjiExposures,
-      RARE_KANJI_POOL_SIZE
-    );
-  } catch (err) {
-    console.warn("Failed to build rare-kanji pool:", err);
-  }
+  const allowedKanji = [...new Set<string>([...params.seenKanji, ...n5])].join("");
 
   const prompt = buildPrompt(
     params.contentType,
@@ -113,8 +93,7 @@ export async function startStoryGeneration(
     allowedKanji,
     params.formality,
     params.topic,
-    params.style,
-    rareKanji
+    params.style
   );
 
   const { data: sessionData } = await supabase.auth.getSession();
@@ -678,28 +657,10 @@ export async function sendChatMessage(params: {
   chatId: number | null;
   userText: string;
   seenKanji: Set<string>;
-  kanjiExposures: Map<string, number>;
   formality: Formality;
 }): Promise<SendChatMessageResult> {
   const n5 = await getJlptN5Kanji();
-  const allowedSet = new Set<string>([...params.seenKanji, ...n5]);
-  const allowedKanji = [...allowedSet].join("");
-
-  // Same rare-kanji nudge the story prompt uses, computed client-side and
-  // shipped as a body field so the Edge Function can splice it in. Best-
-  // effort: a getAllKanji failure just drops the nudge and the send proceeds.
-  let rareKanji = "";
-  try {
-    const all = await getAllKanji();
-    rareKanji = getTopRareKanji(
-      all,
-      allowedSet,
-      params.kanjiExposures,
-      RARE_KANJI_POOL_SIZE
-    ).join("");
-  } catch (err) {
-    console.warn("Failed to build rare-kanji pool:", err);
-  }
+  const allowedKanji = [...new Set<string>([...params.seenKanji, ...n5])].join("");
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -716,7 +677,6 @@ export async function sendChatMessage(params: {
       chat_id: params.chatId,
       user_text: params.userText,
       allowed_kanji: allowedKanji,
-      rare_kanji: rareKanji,
       formality: params.formality,
     }),
   });
