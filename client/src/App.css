@@ -207,11 +207,9 @@ h1 {
   to { transform: rotate(360deg); }
 }
 
-/* Shared word-shaped span / button — used by StoryDisplay and
- * ChatAssistantMessage. A tap toggles the word's "saved lookup" mark,
- * which is what `.word-token--saved-lookup` highlights. Tappable tokens
- * are <button>s; non-word characters stay <span>s — both share these
- * resets so the prose reads as flat text regardless. */
+/* Shared word-shaped tap target — used by StoryDisplay and
+ * ChatAssistantMessage. Tapping opens a WordPopover for the span. Reset
+ * here so the <button> reads as flat prose alongside non-word <span>s. */
 .word-token {
   display: inline;
   font: inherit;
@@ -221,22 +219,6 @@ h1 {
   padding: 0;
   margin: 0;
   cursor: pointer;
-}
-
-.word-token--saved-lookup {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  border-radius: 3px;
-  /* Tiny gap so adjacent highlighted words don't visually fuse — keeps
-   * word boundaries readable in continuous Japanese. */
-  margin-right: 1px;
-}
-
-/* Active override region in the StoryDisplay editor. No effect on chat
- * (chats have no override editor), but kept here so the selector lives
- * with the rest of the .word-token rules. */
-.word-token--in-override {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border-radius: 2px;
 }
 
 .word-token:focus {

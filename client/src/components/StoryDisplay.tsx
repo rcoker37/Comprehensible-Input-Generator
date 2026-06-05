@@ -8,6 +8,7 @@ import {
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { useAuth } from "../contexts/AuthContext";
+import { useVocab } from "../contexts/VocabContext";
 import {
   getStoryOccurrences,
   type StoryOccurrence,
@@ -25,11 +26,15 @@ import {
 import { regroupWords } from "../lib/regroupWords";
 import { applyOccurrences } from "../lib/applyOccurrences";
 import ReaderControls from "./ReaderControls";
+import WordPopover from "./WordPopover";
 import AnimatedDots from "./AnimatedDots";
-import type {
-  DisplayMode,
-  FontMode,
-  Story,
+import {
+  FURIGANA_UNSEEN_THRESHOLD,
+  type DisplayMode,
+  type FontMode,
+  type SentenceTranslation,
+  type Story,
+  type StoryTranslations,
 } from "../types";
 import "./StoryDisplay.css";
 
@@ -49,34 +54,25 @@ interface Props {
   // glassy loading overlay on top of the story text so the reader sees a
   // clear "not ready" signal while spans regroup.
   regenerating?: boolean;
-  /** Headwords the user has tapped in this passage to mark for lookup. */
-  markedHeadwords: Set<string>;
-  /** Toggle a headword in the marked set. */
-  onToggleMark: (headword: string) => void;
-  /** Receives the loaded occurrence list so the parent can drive LookupsButton. */
-  onOccurrencesChange?: (rows: StoryOccurrence[]) => void;
 }
 
 export default function StoryDisplay({
   story,
   showLink,
   regenerating = false,
-  markedHeadwords,
-  onToggleMark,
-  onOccurrencesChange,
 }: Props) {
   const { state: dictState } = useDictionary();
   const { profile, updatePreferences } = useAuth();
+  const { vocabEncounters } = useVocab();
   const {
     remaining: backfillRemaining,
     processing: backfillProcessing,
   } = useWordIndexBackfill();
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
-  const [showSavedLookups, setShowSavedLookups] = useState<boolean>(true);
   const [font, setFont] = useState<FontMode>("sans");
 
-  // Hydrate the furigana / lookups / font controls from the persisted
-  // `reader` preferences section exactly once.
+  // Hydrate the furigana / font controls from the persisted `reader`
+  // preferences section exactly once.
   const readerSyncedRef = useRef(false);
   useEffect(() => {
     if (readerSyncedRef.current || !profile) return;
@@ -85,15 +81,12 @@ export default function StoryDisplay({
     /* eslint-disable react-hooks/set-state-in-effect -- one-time sync from the
        async-resolved profile; state initializers run before the fetch lands. */
     if (reader?.furigana) setFuriganaMode(reader.furigana);
-    if (typeof reader?.showSavedLookups === "boolean")
-      setShowSavedLookups(reader.showSavedLookups);
     if (reader?.font === "serif" || reader?.font === "sans") setFont(reader.font);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [profile]);
 
   const persistReader = (next: {
     furigana: DisplayMode;
-    showSavedLookups: boolean;
     font: FontMode;
   }) => {
     updatePreferences({ reader: next }).catch((err) =>
@@ -103,29 +96,17 @@ export default function StoryDisplay({
   const cycleFurigana = () => {
     setFuriganaMode((prev) => {
       const next = nextMode(prev);
-      persistReader({ furigana: next, showSavedLookups, font });
-      return next;
-    });
-  };
-  const toggleShowSavedLookups = () => {
-    setShowSavedLookups((prev) => {
-      const next = !prev;
-      persistReader({ furigana: furiganaMode, showSavedLookups: next, font });
+      persistReader({ furigana: next, font });
       return next;
     });
   };
   const cycleFont = () => {
     setFont((prev) => {
       const next = nextFont(prev);
-      persistReader({ furigana: furiganaMode, showSavedLookups, font: next });
+      persistReader({ furigana: furiganaMode, font: next });
       return next;
     });
   };
-
-  const indexUnsettled =
-    story.word_index_at === null ||
-    backfillProcessing ||
-    backfillRemaining > 0;
 
   const [hasBeenIndexed, setHasBeenIndexed] = useState(
     story.word_index_at !== null
@@ -217,27 +198,20 @@ export default function StoryDisplay({
     if (story.word_index_at === null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOccurrences(null);
-      onOccurrencesChange?.([]);
       return;
     }
     let cancelled = false;
     getStoryOccurrences(story.id)
       .then((rows) => {
-        if (!cancelled) {
-          setOccurrences(rows);
-          onOccurrencesChange?.(rows);
-        }
+        if (!cancelled) setOccurrences(rows);
       })
       .catch(() => {
-        if (!cancelled) {
-          setOccurrences(null);
-          onOccurrencesChange?.([]);
-        }
+        if (!cancelled) setOccurrences(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [story.id, story.word_index_at, backfillProcessing, onOccurrencesChange]);
+  }, [story.id, story.word_index_at, backfillProcessing]);
 
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
@@ -262,32 +236,91 @@ export default function StoryDisplay({
 
   const displayParagraphs = paragraphs ?? baseParagraphs;
 
+  // Tap → WordPopover. The carousel pulls from `story_word_occurrences`, so
+  // taps are blocked until the story is indexed and the backfill is idle —
+  // otherwise the carousel cards would be missing.
+  const popoverDisabled =
+    story.word_index_at === null ||
+    backfillProcessing ||
+    backfillRemaining > 0;
+
   const showLoadingOverlay =
     hasBeenIndexed &&
-    (paragraphs === null || regenerating || indexUnsettled);
+    (paragraphs === null || regenerating || popoverDisabled);
 
-  // Map of "start-end" → occurrence so each rendered span can resolve its
-  // headword (for tap-toggle + highlight matching). Names are excluded so
-  // they're not tappable — the popover can't show anything useful for them.
+  // Translation cache mirrored from server `stories.translations`. Local edits
+  // bubble up via `onTranslationUpdated` and are written back to the DB by
+  // WordPopover. Reset whenever the story prop changes (e.g. content edit).
+  const [translations, setTranslations] = useState<StoryTranslations>(
+    story.translations ?? {}
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTranslations(story.translations ?? {});
+  }, [story.translations]);
+  const handleTranslationUpdated = (
+    rangeKey: string,
+    translation: SentenceTranslation
+  ) => {
+    setTranslations((prev) => ({ ...prev, [rangeKey]: translation }));
+  };
+
+  // Map of "start-end" → occurrence so each tap can pass the indexer's
+  // chosen headword / entry id / name flag / reading to the popover.
   const occurrenceBySpan = useMemo(() => {
     const map = new Map<string, StoryOccurrence>();
     if (!occurrences) return map;
     for (const o of occurrences) {
-      if (o.isName || !o.headword) continue;
+      if (!o.headword) continue;
       map.set(`${o.start}-${o.end}`, o);
     }
     return map;
   }, [occurrences]);
 
-  // "unseen" used to gate on encounter counts; with the encounter highlight
-  // gone it now behaves the same as "all" — every word gets ruby. Only "off"
-  // suppresses it.
-  const showRubyForMode = furiganaMode !== "off";
+  // In "unseen" mode, ruby is gated per-word on the user's read-source
+  // encounter count for the occurrence's headword. Off / all are global.
+  // Spans with no headword (ungrouped char parts) default to showing ruby
+  // when the mode is on — those aren't tracked in vocabEncounters.
+  const showRubyForOccurrence = (start: number, end: number): boolean => {
+    if (furiganaMode === "off") return false;
+    if (furiganaMode === "all") return true;
+    const occ = occurrenceBySpan.get(`${start}-${end}`);
+    if (!occ) return true;
+    return (vocabEncounters.get(occ.headword) ?? 0) < FURIGANA_UNSEEN_THRESHOLD;
+  };
+
+  const [activeTap, setActiveTap] = useState<{
+    start: number;
+    end: number;
+    lookupHeadword: string | null;
+    lookupEntryId: number | null;
+    lookupIsName: boolean;
+    lookupReading: string | null;
+  } | null>(null);
+  // Close the popover if taps become disabled mid-view.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (popoverDisabled) setActiveTap(null);
+  }, [popoverDisabled]);
+
+  const handleWordClick = (start: number, end: number) => {
+    if (popoverDisabled) return;
+    const occ = occurrenceBySpan.get(`${start}-${end}`);
+    setActiveTap({
+      start,
+      end,
+      lookupHeadword: occ?.headword ?? null,
+      lookupEntryId: occ?.entryId ?? null,
+      lookupIsName: occ?.isName ?? false,
+      lookupReading: occ?.reading ?? null,
+    });
+  };
 
   const renderRubySegments = (
     surface: string,
     surfaceStart: number,
-    rubies: FuriganaAnnotation[]
+    rubies: FuriganaAnnotation[],
+    showRuby: boolean
   ): ReactNode[] => {
     const out: ReactNode[] = [];
     let cursor = 0;
@@ -297,7 +330,7 @@ export default function StoryDisplay({
       if (relStart > cursor) out.push(surface.slice(cursor, relStart));
       const sub = surface.slice(relStart, relEnd);
       out.push(
-        showRubyForMode ? (
+        showRuby ? (
           <ruby key={relStart}>
             {sub}
             <rt>{r.reading}</rt>
@@ -310,25 +343,6 @@ export default function StoryDisplay({
     }
     if (cursor < surface.length) out.push(surface.slice(cursor));
     return out;
-  };
-
-  const tokenClass = (start: number, end: number): string => {
-    const parts = ["word-token"];
-    const occ = occurrenceBySpan.get(`${start}-${end}`);
-    if (
-      showSavedLookups &&
-      occ &&
-      markedHeadwords.has(occ.headword)
-    ) {
-      parts.push("word-token--saved-lookup");
-    }
-    return parts.join(" ");
-  };
-
-  const handleTap = (start: number, end: number) => {
-    const occ = occurrenceBySpan.get(`${start}-${end}`);
-    if (!occ) return;
-    onToggleMark(occ.headword);
   };
 
   const renderTitlePart = (part: SegmentPart, key: number) => {
@@ -368,7 +382,8 @@ export default function StoryDisplay({
 
   const renderPart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
-      const inner = showRubyForMode ? (
+      const showRuby = showRubyForOccurrence(part.start, part.end);
+      const inner = showRuby ? (
         <ruby>
           {part.surface}
           <rt>{part.reading}</rt>
@@ -376,71 +391,51 @@ export default function StoryDisplay({
       ) : (
         part.surface
       );
-      const hasOccurrence = occurrenceBySpan.has(`${part.start}-${part.end}`);
-      if (hasOccurrence) {
-        return (
-          <button
-            type="button"
-            key={key}
-            className={tokenClass(part.start, part.end)}
-            data-offset={part.start}
-            onClick={() => handleTap(part.start, part.end)}
-          >
-            {inner}
-          </button>
-        );
-      }
       return (
-        <span
+        <button
+          type="button"
           key={key}
-          className={tokenClass(part.start, part.end)}
+          className="word-token"
           data-offset={part.start}
+          onClick={() => handleWordClick(part.start, part.end)}
         >
           {inner}
-        </span>
+        </button>
       );
     }
     if (part.kind === "word") {
+      const showRuby = showRubyForOccurrence(part.start, part.end);
       const inner =
         part.rubies && part.rubies.length > 0
-          ? renderRubySegments(part.surface, part.start, part.rubies)
+          ? renderRubySegments(part.surface, part.start, part.rubies, showRuby)
           : part.surface;
-      const hasOccurrence = occurrenceBySpan.has(`${part.start}-${part.end}`);
-      if (hasOccurrence) {
-        return (
-          <button
-            type="button"
-            key={key}
-            className={tokenClass(part.start, part.end)}
-            data-offset={part.start}
-            onClick={() => handleTap(part.start, part.end)}
-          >
-            {inner}
-          </button>
-        );
-      }
       return (
-        <span
+        <button
+          type="button"
           key={key}
-          className={tokenClass(part.start, part.end)}
+          className="word-token"
           data-offset={part.start}
+          onClick={() => handleWordClick(part.start, part.end)}
         >
           {inner}
-        </span>
+        </button>
       );
     }
-    // CharPart — never a dictionary word; render as inert text.
+    // CharPart — punctuation stays inert; other singletons are tappable so
+    // standalone kanji / kana with no merge can still open a popover.
     if (isPunctuation(part.char)) {
       return <span key={key}>{part.char}</span>;
     }
     return (
-      <span
+      <button
+        type="button"
         key={key}
-        className={tokenClass(part.offset, part.offset + 1)}
+        className="word-token"
         data-offset={part.offset}
+        onClick={() => handleWordClick(part.offset, part.offset + 1)}
       >
         {part.char}
-      </span>
+      </button>
     );
   };
 
@@ -464,10 +459,8 @@ export default function StoryDisplay({
       <div className="story-meta">
         <ReaderControls
           furigana={furiganaMode}
-          showSavedLookups={showSavedLookups}
           font={font}
           onFuriganaCycle={cycleFurigana}
-          onShowSavedLookupsToggle={toggleShowSavedLookups}
           onFontCycle={cycleFont}
         />
       </div>
@@ -498,6 +491,26 @@ export default function StoryDisplay({
           </>
         )}
       </div>
+      <WordPopover
+        mode={{
+          kind: "tap",
+          source: { kind: "story", storyId: story.id },
+          cleanText: cleanContent,
+          annotations: rubyAnnotations,
+          start: activeTap?.start ?? 0,
+          end: activeTap?.end ?? 0,
+          lookupHeadword: activeTap?.lookupHeadword ?? null,
+          lookupEntryId: activeTap?.lookupEntryId ?? null,
+          lookupIsName: activeTap?.lookupIsName ?? false,
+          lookupReading: activeTap?.lookupReading ?? null,
+          translations,
+          onTranslationUpdated: handleTranslationUpdated,
+        }}
+        open={activeTap !== null}
+        onOpenChange={(open) => {
+          if (!open) setActiveTap(null);
+        }}
+      />
       {showLink && (
         <a href={`/stories/${story.id}`} className="story-link">
           View full story

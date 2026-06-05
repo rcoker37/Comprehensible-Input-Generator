@@ -176,9 +176,14 @@ export interface ChatsPreferences {
 }
 
 // Per-word display modes for the StoryDisplay furigana control:
-// "off" never shown, "unseen" only on words new to the reader, "all" on
-// every word.
+// "off" never shown, "unseen" only on words encountered fewer than
+// FURIGANA_UNSEEN_THRESHOLD times across the user's read sources, "all"
+// on every word.
 export type DisplayMode = "off" | "unseen" | "all";
+
+// Threshold for the "unseen" furigana mode — ruby is rendered when the
+// word's read-source encounter count is strictly less than this value.
+export const FURIGANA_UNSEEN_THRESHOLD = 10;
 
 // Reading font: shared between Story reader and Chat thread. "serif" is the
 // default Noto Serif JP body; "sans" swaps to Zen Kaku Gothic New (the UI sans).
@@ -186,7 +191,6 @@ export type FontMode = "serif" | "sans";
 
 export interface ReaderPreferences {
   furigana: DisplayMode;
-  showSavedLookups: boolean;
   font: FontMode;
 }
 
