@@ -85,7 +85,6 @@ export default function ChatDetail() {
   const [sendingText, setSendingText] = useState<string | null>(null);
 
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
-  const [showSavedLookups, setShowSavedLookups] = useState<boolean>(true);
   const [font, setFont] = useState<FontMode>("sans");
 
   // Hydrate reader prefs once.
@@ -95,13 +94,11 @@ export default function ChatDetail() {
     readerSyncedRef.current = true;
     const reader = profile.preferences?.reader;
     if (reader?.furigana) setFuriganaMode(reader.furigana);
-    if (typeof reader?.showSavedLookups === "boolean")
-      setShowSavedLookups(reader.showSavedLookups);
     if (reader?.font) setFont(reader.font);
   }, [profile]);
 
   const persistReader = useCallback(
-    (next: { furigana: DisplayMode; showSavedLookups: boolean; font: FontMode }) => {
+    (next: { furigana: DisplayMode; font: FontMode }) => {
       updatePreferences({ reader: next }).catch((err) =>
         console.warn("Failed to save reader preferences:", err)
       );
@@ -112,21 +109,14 @@ export default function ChatDetail() {
   const cycleFurigana = () => {
     setFuriganaMode((prev) => {
       const next = cycle(DISPLAY_ORDER, prev);
-      persistReader({ furigana: next, showSavedLookups, font });
-      return next;
-    });
-  };
-  const toggleShowSavedLookups = () => {
-    setShowSavedLookups((prev) => {
-      const next = !prev;
-      persistReader({ furigana: furiganaMode, showSavedLookups: next, font });
+      persistReader({ furigana: next, font });
       return next;
     });
   };
   const cycleFont = () => {
     setFont((prev) => {
       const next = cycle(FONT_ORDER, prev);
-      persistReader({ furigana: furiganaMode, showSavedLookups, font: next });
+      persistReader({ furigana: furiganaMode, font: next });
       return next;
     });
   };
@@ -411,10 +401,8 @@ export default function ChatDetail() {
       <div className="chat-detail-controls">
         <ReaderControls
           furigana={furiganaMode}
-          showSavedLookups={showSavedLookups}
           font={font}
           onFuriganaCycle={cycleFurigana}
-          onShowSavedLookupsToggle={toggleShowSavedLookups}
           onFontCycle={cycleFont}
         />
       </div>
@@ -448,7 +436,6 @@ export default function ChatDetail() {
               key={m.id}
               message={m}
               furiganaMode={furiganaMode}
-              showSavedLookups={showSavedLookups}
               font={font}
             />
           )

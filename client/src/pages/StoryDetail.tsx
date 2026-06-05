@@ -6,7 +6,6 @@ import {
   getStory,
   getStoryOccurrences,
   updateStoryContent,
-  type StoryOccurrence,
 } from "../api/client";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
 import {
@@ -18,7 +17,6 @@ import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import type { Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import StoryReadButton from "../components/StoryReadButton";
-import LookupsButton from "../components/LookupsButton";
 import AnimatedDots from "../components/AnimatedDots";
 import "../components/StoryActions.css";
 import "./StoryDetail.css";
@@ -38,23 +36,6 @@ export default function StoryDetail() {
   const [editDraft, setEditDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [resettingOverrides, setResettingOverrides] = useState(false);
-  // Per-story React state — taps in the body toggle headwords here.
-  // Ephemeral by design (resets on remount); a future iteration could
-  // persist these per-(user, story).
-  const [markedHeadwords, setMarkedHeadwords] = useState<Set<string>>(
-    () => new Set()
-  );
-  const toggleMark = useCallback((headword: string) => {
-    setMarkedHeadwords((prev) => {
-      const next = new Set(prev);
-      if (next.has(headword)) next.delete(headword);
-      else next.add(headword);
-      return next;
-    });
-  }, []);
-  const [storyOccurrences, setStoryOccurrences] = useState<StoryOccurrence[]>(
-    []
-  );
   // True when an override save / content edit / reset has nulled the
   // word index and we're waiting for the backfill to re-stamp it. Set
   // eagerly in each handler so the glassy loading overlay appears the
@@ -398,9 +379,6 @@ export default function StoryDetail() {
           <StoryDisplay
             story={story}
             regenerating={regenerating}
-            markedHeadwords={markedHeadwords}
-            onToggleMark={toggleMark}
-            onOccurrencesChange={setStoryOccurrences}
           />
           <div className="story-detail-actions-row">
             <StoryReadButton
@@ -409,12 +387,6 @@ export default function StoryDetail() {
                 setStory((s) => (s ? { ...s, ...state } : s));
                 applyStoryUpdate(story.id, state);
               }}
-            />
-            <LookupsButton
-              content={story.content}
-              occurrences={storyOccurrences}
-              markedHeadwords={markedHeadwords}
-              hidden={story.word_index_at === null}
             />
           </div>
         </>

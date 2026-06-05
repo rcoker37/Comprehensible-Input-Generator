@@ -1,13 +1,9 @@
 // Renders one assistant chat message body. Words are tappable: each tap
-// toggles the headword's "saved lookup" mark, which highlights every
-// instance of that headword in this message and adds a row to the message's
-// Lookups list. Marks are React state — they don't persist across remounts.
+// opens a WordPopover anchored at the span, the same way StoryDisplay does.
 // Reuses the pure rendering lib functions (buildDisplaySegments,
-// regroupWords, applyOccurrences); chat messages don't have manual
-// overrides or per-message translation ownership.
+// regroupWords, applyOccurrences); chat messages don't have manual overrides.
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -17,6 +13,7 @@ import {
 import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { useChats } from "../contexts/ChatsContext";
+import { useVocab } from "../contexts/VocabContext";
 import {
   getChatMessage,
   getChatMessageOccurrences,
@@ -34,18 +31,20 @@ import {
 import { regroupWords } from "../lib/regroupWords";
 import { applyOccurrences } from "../lib/applyOccurrences";
 import AnimatedDots from "./AnimatedDots";
-import LookupsButton from "./LookupsButton";
-import type {
-  ChatMessage,
-  DisplayMode,
-  FontMode,
+import WordPopover from "./WordPopover";
+import {
+  FURIGANA_UNSEEN_THRESHOLD,
+  type ChatMessage,
+  type DisplayMode,
+  type FontMode,
+  type SentenceTranslation,
+  type StoryTranslations,
 } from "../types";
 import "./ChatAssistantMessage.css";
 
 interface Props {
   message: ChatMessage;
   furiganaMode: DisplayMode;
-  showSavedLookups: boolean;
   font: FontMode;
 }
 
@@ -62,28 +61,16 @@ type ChatOccurrence = {
 export default function ChatAssistantMessage({
   message,
   furiganaMode,
-  showSavedLookups,
   font,
 }: Props) {
   const { state: dictState } = useDictionary();
+  const { vocabEncounters } = useVocab();
   const {
     remaining: backfillRemaining,
     processing: backfillProcessing,
     currentChatMessageId,
   } = useWordIndexBackfill();
   const { applyMessageUpdate } = useChats();
-
-  const [markedHeadwords, setMarkedHeadwords] = useState<Set<string>>(
-    () => new Set()
-  );
-  const toggleMark = useCallback((headword: string) => {
-    setMarkedHeadwords((prev) => {
-      const next = new Set(prev);
-      if (next.has(headword)) next.delete(headword);
-      else next.add(headword);
-      return next;
-    });
-  }, []);
 
   const prevCurrentRef = useRef<number | null>(currentChatMessageId);
   useEffect(() => {
@@ -182,52 +169,88 @@ export default function ChatAssistantMessage({
 
   const displayParagraphs = paragraphs ?? baseParagraphs;
 
-  const indexUnsettled =
+  const popoverDisabled =
     message.word_index_at === null ||
     backfillProcessing ||
     backfillRemaining > 0;
   const showLoadingOverlay =
     hasBeenIndexed &&
     (paragraphs === null ||
-      indexUnsettled ||
+      popoverDisabled ||
       currentChatMessageId === message.id);
 
-  // Map of "start-end" → occurrence — drives tap-toggle + the saved-lookup
-  // highlight. Names are excluded so they're not tappable.
+  // Local translations cache mirrored from `message.translations`. Edits
+  // round-trip through `applyMessageUpdate` so the chat-list cache stays
+  // consistent.
+  const [translations, setTranslations] = useState<StoryTranslations>(
+    message.translations ?? {}
+  );
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTranslations(message.translations ?? {});
+  }, [message.translations]);
+  const handleTranslationUpdated = (
+    rangeKey: string,
+    translation: SentenceTranslation
+  ) => {
+    const next = { ...translations, [rangeKey]: translation };
+    setTranslations(next);
+    applyMessageUpdate(message.id, { translations: next });
+  };
+
+  // Map of "start-end" → occurrence — drives tap-to-popover with the
+  // indexer's chosen lemma + entry id + reading.
   const occurrenceBySpan = useMemo(() => {
     const map = new Map<string, ChatOccurrence>();
     if (!occurrences) return map;
     for (const o of occurrences) {
-      if (o.isName || !o.headword) continue;
+      if (!o.headword) continue;
       map.set(`${o.start}-${o.end}`, o);
     }
     return map;
   }, [occurrences]);
 
-  // "unseen" used to gate on encounter counts; with the encounter highlight
-  // gone it now behaves the same as "all" — every word gets ruby. Only "off"
-  // suppresses it.
-  const showRubyForMode = furiganaMode !== "off";
-
-  const tokenClass = (start: number, end: number): string => {
-    const parts = ["word-token"];
+  // In "unseen" mode, ruby is gated per-word on the user's read-source
+  // encounter count for the occurrence's headword. Off / all are global.
+  const showRubyForOccurrence = (start: number, end: number): boolean => {
+    if (furiganaMode === "off") return false;
+    if (furiganaMode === "all") return true;
     const occ = occurrenceBySpan.get(`${start}-${end}`);
-    if (showSavedLookups && occ && markedHeadwords.has(occ.headword)) {
-      parts.push("word-token--saved-lookup");
-    }
-    return parts.join(" ");
+    if (!occ) return true;
+    return (vocabEncounters.get(occ.headword) ?? 0) < FURIGANA_UNSEEN_THRESHOLD;
   };
 
-  const handleTap = (start: number, end: number) => {
+  const [activeTap, setActiveTap] = useState<{
+    start: number;
+    end: number;
+    lookupHeadword: string | null;
+    lookupEntryId: number | null;
+    lookupIsName: boolean;
+    lookupReading: string | null;
+  } | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (popoverDisabled) setActiveTap(null);
+  }, [popoverDisabled]);
+
+  const handleWordClick = (start: number, end: number) => {
+    if (popoverDisabled) return;
     const occ = occurrenceBySpan.get(`${start}-${end}`);
-    if (!occ) return;
-    toggleMark(occ.headword);
+    setActiveTap({
+      start,
+      end,
+      lookupHeadword: occ?.headword ?? null,
+      lookupEntryId: occ?.entryId ?? null,
+      lookupIsName: occ?.isName ?? false,
+      lookupReading: occ?.reading ?? null,
+    });
   };
 
   const renderRubySegments = (
     surface: string,
     surfaceStart: number,
-    rubies: FuriganaAnnotation[]
+    rubies: FuriganaAnnotation[],
+    showRuby: boolean
   ): ReactNode[] => {
     const out: ReactNode[] = [];
     let cursor = 0;
@@ -237,7 +260,7 @@ export default function ChatAssistantMessage({
       if (relStart > cursor) out.push(surface.slice(cursor, relStart));
       const sub = surface.slice(relStart, relEnd);
       out.push(
-        showRubyForMode ? (
+        showRuby ? (
           <ruby key={relStart}>
             {sub}
             <rt>{r.reading}</rt>
@@ -254,7 +277,8 @@ export default function ChatAssistantMessage({
 
   const renderPart = (part: SegmentPart, key: number) => {
     if (part.kind === "annotated") {
-      const inner = showRubyForMode ? (
+      const showRuby = showRubyForOccurrence(part.start, part.end);
+      const inner = showRuby ? (
         <ruby>
           {part.surface}
           <rt>{part.reading}</rt>
@@ -262,70 +286,49 @@ export default function ChatAssistantMessage({
       ) : (
         part.surface
       );
-      const hasOccurrence = occurrenceBySpan.has(`${part.start}-${part.end}`);
-      if (hasOccurrence) {
-        return (
-          <button
-            type="button"
-            key={key}
-            className={tokenClass(part.start, part.end)}
-            data-offset={part.start}
-            onClick={() => handleTap(part.start, part.end)}
-          >
-            {inner}
-          </button>
-        );
-      }
       return (
-        <span
+        <button
+          type="button"
           key={key}
-          className={tokenClass(part.start, part.end)}
+          className="word-token"
           data-offset={part.start}
+          onClick={() => handleWordClick(part.start, part.end)}
         >
           {inner}
-        </span>
+        </button>
       );
     }
     if (part.kind === "word") {
+      const showRuby = showRubyForOccurrence(part.start, part.end);
       const inner =
         part.rubies && part.rubies.length > 0
-          ? renderRubySegments(part.surface, part.start, part.rubies)
+          ? renderRubySegments(part.surface, part.start, part.rubies, showRuby)
           : part.surface;
-      const hasOccurrence = occurrenceBySpan.has(`${part.start}-${part.end}`);
-      if (hasOccurrence) {
-        return (
-          <button
-            type="button"
-            key={key}
-            className={tokenClass(part.start, part.end)}
-            data-offset={part.start}
-            onClick={() => handleTap(part.start, part.end)}
-          >
-            {inner}
-          </button>
-        );
-      }
       return (
-        <span
+        <button
+          type="button"
           key={key}
-          className={tokenClass(part.start, part.end)}
+          className="word-token"
           data-offset={part.start}
+          onClick={() => handleWordClick(part.start, part.end)}
         >
           {inner}
-        </span>
+        </button>
       );
     }
     if (isPunctuation(part.char)) {
       return <span key={key}>{part.char}</span>;
     }
     return (
-      <span
+      <button
+        type="button"
         key={key}
-        className={tokenClass(part.offset, part.offset + 1)}
+        className="word-token"
         data-offset={part.offset}
+        onClick={() => handleWordClick(part.offset, part.offset + 1)}
       >
         {part.char}
-      </span>
+      </button>
     );
   };
 
@@ -372,14 +375,26 @@ export default function ChatAssistantMessage({
           )}
         </div>
       </div>
-      <div className="chat-msg-actions">
-        <LookupsButton
-          content={message.content}
-          occurrences={occurrences ?? []}
-          markedHeadwords={markedHeadwords}
-          hidden={message.word_index_at === null}
-        />
-      </div>
+      <WordPopover
+        mode={{
+          kind: "tap",
+          source: { kind: "chat", chatMessageId: message.id },
+          cleanText: cleanContent,
+          annotations: rubyAnnotations,
+          start: activeTap?.start ?? 0,
+          end: activeTap?.end ?? 0,
+          lookupHeadword: activeTap?.lookupHeadword ?? null,
+          lookupEntryId: activeTap?.lookupEntryId ?? null,
+          lookupIsName: activeTap?.lookupIsName ?? false,
+          lookupReading: activeTap?.lookupReading ?? null,
+          translations,
+          onTranslationUpdated: handleTranslationUpdated,
+        }}
+        open={activeTap !== null}
+        onOpenChange={(open) => {
+          if (!open) setActiveTap(null);
+        }}
+      />
     </div>
   );
 }
