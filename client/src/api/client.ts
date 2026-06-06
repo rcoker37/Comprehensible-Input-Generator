@@ -374,6 +374,49 @@ export async function getWordEncounters(headword: string): Promise<number> {
 const VOCAB_PAGE_SIZE = 1000;
 
 /**
+ * Once-seen vocab for the Review tab. Server-side filter + sort: encounters
+ * = 1 across read sources, excluding any reviewed within the cooldown
+ * window, oldest exposure first.
+ */
+export interface ReviewQueueRow {
+  headword: string;
+  lastReadAt: string;
+}
+
+export async function getReviewQueue(
+  cooldownHours = 24
+): Promise<ReviewQueueRow[]> {
+  const out: ReviewQueueRow[] = [];
+  for (let from = 0; ; ) {
+    const { data, error } = await supabase
+      .rpc("get_review_queue", { p_cooldown_hours: cooldownHours })
+      .range(from, from + VOCAB_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const rows =
+      (data as { headword: string; last_read_at: string }[] | null) ?? [];
+    if (rows.length === 0) break;
+    for (const r of rows) {
+      out.push({ headword: r.headword, lastReadAt: r.last_read_at });
+    }
+    from += rows.length;
+    if (rows.length < VOCAB_PAGE_SIZE) break;
+  }
+  return out;
+}
+
+/**
+ * Stamp a review on `headword` for the current user — Review-tab "Next"
+ * fires this fire-and-forget. Refreshes the cooldown window so the word
+ * stays out of the queue until the window expires again.
+ */
+export async function recordWordReview(headword: string): Promise<void> {
+  const { error } = await supabase.rpc("record_word_review", {
+    p_headword: headword,
+  });
+  if (error) console.warn("recordWordReview failed:", error.message);
+}
+
+/**
  * Per-headword read-count-weighted encounter totals across the user's read
  * stories. Powers the vocab side of the header total score (see VocabContext
  * + lib/vocabScore.ts).

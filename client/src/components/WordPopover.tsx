@@ -33,6 +33,7 @@ import { lookupExactSpan, type LookupHit } from "../lib/lookupAtCursor";
 import { lookupWord } from "../lib/dictionary";
 import { baseHintAtOffset, posHintAtOffset } from "../lib/tokenizer";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
+import { renderSnippet } from "../lib/renderSnippet";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
@@ -163,6 +164,14 @@ interface WordPopoverProps {
   mode: WordPopoverMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Optional — when set, the popover renders a "Next →" button in its
+   * footer. Used by the Review tab to advance past the revealed card
+   * without making the user dismiss the popover first. The parent's
+   * handler is responsible for both closing the popover (via
+   * `onOpenChange(false)`) and advancing whatever queue it's driving.
+   */
+  onNext?: () => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
@@ -302,71 +311,6 @@ function renderSurfaceRuby(
   );
 }
 
-function renderSnippet(
-  text: string,
-  annotations: FuriganaAnnotation[],
-  surfaceStart: number,
-  surfaceEnd: number
-): ReactNode {
-  // Walk the text emitting either ruby (for annotation spans) or plain text,
-  // wrapping the portion that falls inside the surface in a <mark>. Annotations
-  // and the surface are character-aligned (offsets come from the same source).
-  // Annotations don't cross sentence boundaries; this snippet is a single
-  // sentence.
-  const out: ReactNode[] = [];
-  let cursor = 0;
-  let key = 0;
-
-  // Split [segStart, segEnd) at the surface bounds, returning one node per
-  // piece — the portion inside [surfaceStart, surfaceEnd) wrapped in <mark>,
-  // the rest in <span>. Used both for plain text and for a ruby's base text,
-  // so tapping a sub-span of a multi-kanji ruby block (山手 within
-  // 山手線《やまのてせん》) highlights just that portion rather than the whole
-  // block — or, as before the fix, nothing at all.
-  const splitBySurface = (segStart: number, segEnd: number): ReactNode[] => {
-    const pieces: ReactNode[] = [];
-    let s = segStart;
-    while (s < segEnd) {
-      const next =
-        s < surfaceStart && surfaceStart < segEnd
-          ? surfaceStart
-          : s < surfaceEnd && surfaceEnd < segEnd
-            ? surfaceEnd
-            : segEnd;
-      const content = text.slice(s, next);
-      const inSurface = s >= surfaceStart && next <= surfaceEnd;
-      pieces.push(
-        inSurface ? (
-          <mark key={key++} className="word-popover__snippet-highlight">
-            {content}
-          </mark>
-        ) : (
-          <span key={key++}>{content}</span>
-        )
-      );
-      s = next;
-    }
-    return pieces;
-  };
-
-  for (const a of annotations) {
-    if (a.start > cursor) {
-      out.push(...splitBySurface(cursor, a.start));
-    }
-    out.push(
-      <ruby key={key++}>
-        {splitBySurface(a.start, a.end)}
-        <rt>{a.reading}</rt>
-      </ruby>
-    );
-    cursor = a.end;
-  }
-  if (cursor < text.length) {
-    out.push(...splitBySurface(cursor, text.length));
-  }
-  return out;
-}
-
 function formatStoryDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
@@ -381,6 +325,7 @@ export default function WordPopover({
   mode,
   open,
   onOpenChange,
+  onNext,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
   // Narrow once so downstream code can read mode-specific fields without
@@ -1375,7 +1320,8 @@ export default function WordPopover({
                         snippet.text,
                         snippet.annotations,
                         snippet.surfaceStart,
-                        snippet.surfaceEnd
+                        snippet.surfaceEnd,
+                        "word-popover__snippet-highlight"
                       )}
                     </div>
                   )}
@@ -1440,6 +1386,17 @@ export default function WordPopover({
                 </>
               )}
             </div>
+            {onNext && (
+              <footer className="word-popover__footer">
+                <button
+                  type="button"
+                  className="word-popover__next-btn"
+                  onClick={onNext}
+                >
+                  Next →
+                </button>
+              </footer>
+            )}
           </>
         )}
       </div>

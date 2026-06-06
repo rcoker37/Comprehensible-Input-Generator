@@ -1,0 +1,123 @@
+.review-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.review-page--message {
+  align-items: flex-start;
+}
+
+.review-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.review-header h1 {
+  margin: 0;
+}
+
+.review-progress {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.review-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-dim);
+  padding: 1.75rem 1.5rem;
+  min-height: 9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.review-card__loading {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+
+.review-card__sentence {
+  font-family: var(--jp-font);
+  font-size: 1.35rem;
+  line-height: 1.9;
+  color: var(--text);
+  text-align: center;
+  word-break: break-word;
+}
+
+.review-card__sentence--missing {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 1rem;
+}
+
+.review-card__highlight {
+  background: var(--accent-soft);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.1em;
+}
+
+.review-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.review-show-btn {
+  background: var(--accent);
+  color: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 0.6rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.review-show-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.review-skip-btn {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.6rem 1.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+@media (hover: hover) {
+  .review-show-btn:hover:not(:disabled) {
+    opacity: 0.85;
+  }
+  .review-skip-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+}
+
+.review-empty {
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.review-empty-hint {
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 36rem;
+}
