@@ -8,12 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "./AuthContext";
-import { getUserWordEncounters } from "../api/client";
+import { getMasteredWords, getUserWordEncounters } from "../api/client";
 import {
   loadFrequencyIndex,
   lookupFrequencyByCanonicalSync,
   lookupFrequencySync,
 } from "../lib/frequency";
+import { ENCOUNTER_CAP } from "../lib/rarity";
 
 interface VocabContextType {
   vocabEncounters: Map<string, number>;
@@ -48,10 +49,21 @@ export function VocabProvider({ children }: { children: ReactNode }) {
 
   const prepareVocabRefresh = useCallback(async (): Promise<() => void> => {
     if (!user) return () => {};
-    const [encounters] = await Promise.all([
+    const [encounters, mastered] = await Promise.all([
       getUserWordEncounters(),
+      getMasteredWords(),
       loadFrequencyIndex(),
     ]);
+    // A Mastered (Never-forget) word is pinned to the scoring cap so it
+    // pays the curve's maximum once and only once — further encounters
+    // contribute nothing (the score is already at F_KINK), and the
+    // "<10 reads" furigana gate naturally treats it as fully seen.
+    for (const m of mastered) {
+      const actual = encounters.get(m.headword) ?? 0;
+      if (actual < ENCOUNTER_CAP) {
+        encounters.set(m.headword, ENCOUNTER_CAP);
+      }
+    }
     return () => {
       setVocabEncounters(encounters);
       setVocabEncountersLoaded(true);

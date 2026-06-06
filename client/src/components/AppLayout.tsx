@@ -76,6 +76,7 @@ export default function AppLayout() {
                         <NavLink to="/chats">Chat</NavLink>
                         <NavLink to="/stories">Read</NavLink>
                         <NavLink to="/review">Review</NavLink>
+                        <NavLink to="/mastered">Mastered</NavLink>
                         <NavLink to="/stats">Stats</NavLink>
                         <NavLink to="/settings">Settings</NavLink>
                       </div>

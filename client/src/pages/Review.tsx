@@ -5,6 +5,7 @@ import {
   recordWordReview,
   type ReviewQueueRow,
 } from "../api/client";
+import { useVocab } from "../contexts/VocabContext";
 import { parseAnnotatedText } from "../lib/furigana";
 import { renderSnippet } from "../lib/renderSnippet";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
@@ -12,6 +13,12 @@ import AnimatedDots from "../components/AnimatedDots";
 import WordPopover from "../components/WordPopover";
 import type { WordUsage } from "../types";
 import "./Review.css";
+
+// Hour values for the per-card advance actions. `null` means
+// "never eligible again" — the Never forget mark stamps eligible_at
+// to 'infinity' on the server.
+const NEXT_COOLDOWN_HOURS = 24;
+const NEVER_FORGET_COOLDOWN = null;
 
 interface CardSnippet {
   text: string;
@@ -38,6 +45,8 @@ function buildSnippet(usage: WordUsage): CardSnippet | null {
 }
 
 export default function Review() {
+  const { vocabEncountersLoaded, getWordRank, prepareVocabRefresh } =
+    useVocab();
   // Snapshot the queue once per mount — reads in other tabs during the
   // session shouldn't reshuffle the order under the user.
   const [queue, setQueue] = useState<ReviewQueueRow[] | null>(null);
@@ -64,7 +73,27 @@ export default function Review() {
     };
   }, []);
 
-  const current = queue && index < queue.length ? queue[index] : null;
+  // Client-side sort by JPDB rank ascending (most common first), tiebreak
+  // by lastReadAt ascending (oldest exposure first). Unranked words sink
+  // to the bottom. Postgres has no rank index — it lives in the client's
+  // JPDB frequency cache — so the sort can't happen server-side.
+  const sortedQueue = useMemo(() => {
+    if (!queue || !vocabEncountersLoaded) return null;
+    return [...queue].sort((a, b) => {
+      const rankA = getWordRank(a.headword);
+      const rankB = getWordRank(b.headword);
+      if (rankA === null && rankB === null) {
+        return a.lastReadAt.localeCompare(b.lastReadAt);
+      }
+      if (rankA === null) return 1;
+      if (rankB === null) return -1;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.lastReadAt.localeCompare(b.lastReadAt);
+    });
+  }, [queue, vocabEncountersLoaded, getWordRank]);
+
+  const current =
+    sortedQueue && index < sortedQueue.length ? sortedQueue[index] : null;
 
   // Fetch the usage for the active headword. For a once-seen word there's
   // exactly one row; we take the first per the spec. If the RPC returns
@@ -102,15 +131,37 @@ export default function Review() {
     [usage]
   );
 
-  const advance = useCallback(() => {
-    if (current) {
-      // Fire-and-forget — a failed upsert just means the word will reappear
-      // next session. The api wrapper already swallows the error.
-      void recordWordReview(current.headword);
-    }
-    setRevealed(false);
-    setIndex((i) => i + 1);
-  }, [current]);
+  const advance = useCallback(
+    (cooldownHours: number | null) => {
+      if (current) {
+        const headword = current.headword;
+        // Fire-and-forget — a failed upsert just means the word will reappear
+        // next session. The api wrapper already swallows the error.
+        const stamped = recordWordReview(headword, cooldownHours);
+        // Never-forget bumps the headword's effective encounter count to
+        // the scoring cap, so the nav score + furigana need to refresh.
+        // Wait until the RPC commits so prepareVocabRefresh's getMasteredWords
+        // fetch sees the new row.
+        if (cooldownHours === NEVER_FORGET_COOLDOWN) {
+          void stamped.then(() =>
+            prepareVocabRefresh().then((commit) => commit())
+          );
+        }
+      }
+      setRevealed(false);
+      setIndex((i) => i + 1);
+    },
+    [current, prepareVocabRefresh]
+  );
+
+  const handleNext = useCallback(
+    () => advance(NEXT_COOLDOWN_HOURS),
+    [advance]
+  );
+  const handleNeverForget = useCallback(
+    () => advance(NEVER_FORGET_COOLDOWN),
+    [advance]
+  );
 
   if (queueError) {
     return (
@@ -120,7 +171,7 @@ export default function Review() {
     );
   }
 
-  if (queue === null) {
+  if (queue === null || !vocabEncountersLoaded || sortedQueue === null) {
     return (
       <div className="loading">
         Loading review
@@ -129,14 +180,14 @@ export default function Review() {
     );
   }
 
-  if (queue.length === 0) {
+  if (sortedQueue.length === 0) {
     return (
       <div className="review-page review-page--message">
         <h1>Review</h1>
         <p className="review-empty">Nothing to review right now.</p>
         <p className="review-empty-hint">
-          Words you've encountered exactly once will appear here, oldest
-          first. Read a story or chat to build up your queue.
+          Words you've encountered exactly once will appear here, most
+          common first. Read a story or chat to build up your queue.
         </p>
       </div>
     );
@@ -161,7 +212,7 @@ export default function Review() {
       <header className="review-header">
         <h1>Review</h1>
         <span className="review-progress">
-          {index + 1} / {queue.length}
+          {index + 1} / {sortedQueue.length}
         </span>
       </header>
 
@@ -189,19 +240,33 @@ export default function Review() {
       </div>
 
       <div className="review-actions">
-        {!revealed && (
+        {revealed ? (
           <button
             type="button"
             className="review-show-btn"
-            onClick={() => setRevealed(true)}
-            disabled={usageLoading || !snippet}
+            onClick={handleNext}
           >
-            Show Answer
+            Next →
           </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="review-skip-btn"
+              onClick={handleNeverForget}
+            >
+              Never forget
+            </button>
+            <button
+              type="button"
+              className="review-show-btn"
+              onClick={() => setRevealed(true)}
+              disabled={usageLoading || !snippet}
+            >
+              Show Answer
+            </button>
+          </>
         )}
-        <button type="button" className="review-skip-btn" onClick={advance}>
-          {revealed ? "Next →" : "Skip →"}
-        </button>
       </div>
 
       <WordPopover
@@ -213,7 +278,7 @@ export default function Review() {
         }}
         open={revealed}
         onOpenChange={setRevealed}
-        onNext={advance}
+        onNext={handleNext}
       />
     </div>
   );
