@@ -380,6 +380,24 @@ export type Database = {
           },
         ]
       }
+      word_reviews: {
+        Row: {
+          headword: string
+          last_reviewed_at: string
+          user_id: string
+        }
+        Insert: {
+          headword: string
+          last_reviewed_at?: string
+          user_id: string
+        }
+        Update: {
+          headword?: string
+          last_reviewed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -437,6 +455,13 @@ export type Database = {
           headword: string
           occurrences: number
           story_id: number
+        }[]
+      }
+      get_review_queue: {
+        Args: { p_cooldown_hours?: number }
+        Returns: {
+          headword: string
+          last_read_at: string
         }[]
       }
       get_story_word_encounters: {
@@ -520,6 +545,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_word_review: { Args: { p_headword: string }; Returns: undefined }
       reset_chat_word_index: { Args: { p_chat_id: number }; Returns: undefined }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
       set_story_word_overrides: {
