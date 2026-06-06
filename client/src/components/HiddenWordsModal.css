@@ -1,0 +1,122 @@
+.hidden-words-modal {
+  width: min(560px, 90vw);
+  max-height: min(80vh, 700px);
+}
+
+.hidden-words-modal__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding: 1.1rem 1.1rem 1rem;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
+
+.hidden-words-modal__header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.hidden-words-modal__header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.hidden-words-modal__count {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.hidden-words-modal__hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.hidden-words-modal__error {
+  margin: 0;
+  color: var(--error-fg);
+  background: var(--error-bg);
+  border-radius: var(--radius);
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.hidden-words-modal__loading,
+.hidden-words-modal__empty {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.hidden-words-modal__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  flex: 1;
+}
+
+.hidden-words-modal__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-dim);
+}
+
+.hidden-words-modal__word {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font-family: var(--jp-font);
+  font-size: 1.05rem;
+  padding: 0.15rem 0;
+  cursor: pointer;
+}
+
+.hidden-words-modal__word:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .hidden-words-modal__word:hover:not(:disabled) {
+    color: var(--accent);
+  }
+}
+
+.hidden-words-modal__unhide {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.hidden-words-modal__unhide:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .hidden-words-modal__unhide:hover:not(:disabled) {
+    color: var(--text);
+    border-color: var(--accent);
+  }
+}

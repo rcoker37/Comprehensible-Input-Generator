@@ -1,23 +1,21 @@
 import { stripAnnotations } from "./furigana";
 import { KANJI_REGEX } from "./constants";
 
-// Per-exposure raw score saturates near ~9.43 (the curve's value at
-// ENCOUNTER_CAP) and is hard-capped there: further encounters of the
-// same kanji/word contribute nothing. SCORE_MULTIPLIER scales the
-// kanji curve before display. `vocabScore.ts` reuses the same `rawScore`
-// shape but scales independently (see VOCAB_SCALE). The Mastered tab
-// uses ENCOUNTER_CAP as the floor it pins encounter counts to so a
-// Never-forget mark always pays the curve's maximum.
+// Per-exposure raw score saturates near ~9.43 (the curve's value at c=10)
+// and is hard-capped there: further encounters of the same kanji/word
+// contribute nothing. SCORE_MULTIPLIER scales the kanji curve before
+// display. `vocabScore.ts` reuses the same `rawScore` shape but scales
+// independently (see VOCAB_SCALE).
 export const SCORE_MULTIPLIER = 1;
-export const ENCOUNTER_CAP = 10;
 
 const TAU = 3.5;
-const F_KINK = 10 * (1 - Math.exp(-ENCOUNTER_CAP / TAU));
+const KINK = 10;
+const F_KINK = 10 * (1 - Math.exp(-KINK / TAU));
 
-// f(0) = 0, strictly increasing on [0, ENCOUNTER_CAP], saturated past.
+// f(0) = 0, strictly increasing on [0, KINK], saturated past KINK.
 export function rawScore(c: number): number {
   if (c <= 0) return 0;
-  if (c >= ENCOUNTER_CAP) return F_KINK;
+  if (c >= KINK) return F_KINK;
   return 10 * (1 - Math.exp(-c / TAU));
 }
 

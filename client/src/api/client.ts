@@ -408,7 +408,8 @@ export async function getReviewQueue(): Promise<ReviewQueueRow[]> {
 /**
  * Stamp a review on `headword`. `cooldownHours` controls how long the
  * word stays out of the queue: 24 for Next (default), null for the
- * Never forget button (stored as eligible_at = 'infinity').
+ * Hide button (stored as eligible_at = 'infinity' — the word is
+ * hidden from the queue until manually unhidden).
  */
 export async function recordWordReview(
   headword: string,
@@ -421,27 +422,30 @@ export async function recordWordReview(
   if (error) console.warn("recordWordReview failed:", error.message);
 }
 
-export interface MasteredWordRow {
+export interface HiddenWordRow {
   headword: string;
-  markedAt: string;
+  hiddenAt: string;
 }
 
 /**
- * Every headword the user has marked Never forget. Powers the Mastered
- * tab; rows sort by `markedAt` desc (most recently marked first).
+ * Every headword the user has hidden. Powers the Review tab's Hidden
+ * words modal; rows sort by hiddenAt desc (most recently hidden first).
+ * (The SQL function is still named get_mastered_words for back-compat —
+ * the user-facing concept renamed from "Mastered" / "Never forget" to
+ * "Hidden" but the schema stayed the same.)
  */
-export async function getMasteredWords(): Promise<MasteredWordRow[]> {
+export async function getHiddenWords(): Promise<HiddenWordRow[]> {
   const { data, error } = await supabase.rpc("get_mastered_words");
   if (error) throw new Error(error.message);
   const rows =
     (data as { headword: string; marked_at: string }[] | null) ?? [];
-  return rows.map((r) => ({ headword: r.headword, markedAt: r.marked_at }));
+  return rows.map((r) => ({ headword: r.headword, hiddenAt: r.marked_at }));
 }
 
 /**
  * Drops the word_reviews row for `headword`, clearing both the cooldown
- * and any Never forget mark. The word becomes immediately eligible for
- * the next review pass. Used by the Mastered tab's Unmark button.
+ * and any Hidden mark. The word becomes immediately eligible for the
+ * next review pass. Used by the Hidden words modal's Unhide button.
  */
 export async function clearWordReview(headword: string): Promise<void> {
   const { error } = await supabase.rpc("clear_word_review", {
