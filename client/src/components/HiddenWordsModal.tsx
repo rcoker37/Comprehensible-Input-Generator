@@ -4,10 +4,22 @@ import {
   getHiddenWords,
   type HiddenWordRow,
 } from "../api/client";
+import { useVocab } from "../contexts/VocabContext";
+import { lookupFrequencyByCanonicalSync } from "../lib/frequency";
 import AnimatedDots from "./AnimatedDots";
 import Modal from "./Modal";
 import WordPopover from "./WordPopover";
 import "./HiddenWordsModal.css";
+
+// Resolve the JMdict canonical headword the indexer stamped (e.g. 此処,
+// the kanji form of an `uk` entry) to the JPDB-preferred display form
+// (ここ). Falls back to the canonical when the word isn't in JPDB or
+// the index isn't loaded yet. The canonical is still what the popover
+// lookup keys on — only the rendered label changes.
+function displayLabel(canonical: string, indexReady: boolean): string {
+  if (!indexReady) return canonical;
+  return lookupFrequencyByCanonicalSync(canonical)?.headword ?? canonical;
+}
 
 interface Props {
   open: boolean;
@@ -15,6 +27,7 @@ interface Props {
 }
 
 export default function HiddenWordsModal({ open, onClose }: Props) {
+  const { vocabEncountersLoaded } = useVocab();
   const [words, setWords] = useState<HiddenWordRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeHeadword, setActiveHeadword] = useState<string | null>(null);
@@ -103,6 +116,7 @@ export default function HiddenWordsModal({ open, onClose }: Props) {
             <ul className="hidden-words-modal__list">
               {words.map((w) => {
                 const isPending = pending.has(w.headword);
+                const label = displayLabel(w.headword, vocabEncountersLoaded);
                 return (
                   <li key={w.headword} className="hidden-words-modal__row">
                     <button
@@ -111,7 +125,7 @@ export default function HiddenWordsModal({ open, onClose }: Props) {
                       onClick={() => setActiveHeadword(w.headword)}
                       disabled={isPending}
                     >
-                      {w.headword}
+                      {label}
                     </button>
                     <button
                       type="button"
