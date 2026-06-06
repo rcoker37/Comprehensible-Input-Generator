@@ -5,13 +5,20 @@ import {
   recordWordReview,
   type ReviewQueueRow,
 } from "../api/client";
+import { useVocab } from "../contexts/VocabContext";
 import { parseAnnotatedText } from "../lib/furigana";
 import { renderSnippet } from "../lib/renderSnippet";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import AnimatedDots from "../components/AnimatedDots";
+import HiddenWordsModal from "../components/HiddenWordsModal";
 import WordPopover from "../components/WordPopover";
 import type { WordUsage } from "../types";
 import "./Review.css";
+
+// Cooldowns passed to record_word_review. `null` means hide the word
+// forever — server stores eligible_at = 'infinity'.
+const NEXT_COOLDOWN_HOURS = 24;
+const HIDE_COOLDOWN = null;
 
 interface CardSnippet {
   text: string;
@@ -38,6 +45,7 @@ function buildSnippet(usage: WordUsage): CardSnippet | null {
 }
 
 export default function Review() {
+  const { vocabEncountersLoaded, getWordRank } = useVocab();
   // Snapshot the queue once per mount — reads in other tabs during the
   // session shouldn't reshuffle the order under the user.
   const [queue, setQueue] = useState<ReviewQueueRow[] | null>(null);
@@ -46,6 +54,7 @@ export default function Review() {
   const [revealed, setRevealed] = useState(false);
   const [usage, setUsage] = useState<WordUsage | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,7 +73,27 @@ export default function Review() {
     };
   }, []);
 
-  const current = queue && index < queue.length ? queue[index] : null;
+  // Client-side sort by JPDB rank ascending (most common first), tiebreak
+  // by lastReadAt ascending (oldest exposure first). Unranked words sink
+  // to the bottom. Postgres has no rank index — it lives in the client's
+  // JPDB frequency cache — so the sort can't happen server-side.
+  const sortedQueue = useMemo(() => {
+    if (!queue || !vocabEncountersLoaded) return null;
+    return [...queue].sort((a, b) => {
+      const rankA = getWordRank(a.headword);
+      const rankB = getWordRank(b.headword);
+      if (rankA === null && rankB === null) {
+        return a.lastReadAt.localeCompare(b.lastReadAt);
+      }
+      if (rankA === null) return 1;
+      if (rankB === null) return -1;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.lastReadAt.localeCompare(b.lastReadAt);
+    });
+  }, [queue, vocabEncountersLoaded, getWordRank]);
+
+  const current =
+    sortedQueue && index < sortedQueue.length ? sortedQueue[index] : null;
 
   // Fetch the usage for the active headword. For a once-seen word there's
   // exactly one row; we take the first per the spec. If the RPC returns
@@ -102,15 +131,26 @@ export default function Review() {
     [usage]
   );
 
-  const advance = useCallback(() => {
-    if (current) {
-      // Fire-and-forget — a failed upsert just means the word will reappear
-      // next session. The api wrapper already swallows the error.
-      void recordWordReview(current.headword);
-    }
-    setRevealed(false);
-    setIndex((i) => i + 1);
-  }, [current]);
+  const advance = useCallback(
+    (cooldownHours: number | null) => {
+      if (current) {
+        // Fire-and-forget — a failed upsert just means the word will
+        // reappear next session. The api wrapper swallows the error.
+        // Scoring is independent of review state so no vocab refresh
+        // is needed here.
+        void recordWordReview(current.headword, cooldownHours);
+      }
+      setRevealed(false);
+      setIndex((i) => i + 1);
+    },
+    [current]
+  );
+
+  const handleNext = useCallback(
+    () => advance(NEXT_COOLDOWN_HOURS),
+    [advance]
+  );
+  const handleHide = useCallback(() => advance(HIDE_COOLDOWN), [advance]);
 
   if (queueError) {
     return (
@@ -120,7 +160,7 @@ export default function Review() {
     );
   }
 
-  if (queue === null) {
+  if (queue === null || !vocabEncountersLoaded || sortedQueue === null) {
     return (
       <div className="loading">
         Loading review
@@ -129,15 +169,39 @@ export default function Review() {
     );
   }
 
-  if (queue.length === 0) {
+  // Always render the Hidden words affordance in the header — even on
+  // empty / caught-up screens — so the user can still get to the list.
+  const header = (
+    <header className="review-header">
+      <h1>Review</h1>
+      <button
+        type="button"
+        className="review-hidden-link"
+        onClick={() => setShowHidden(true)}
+      >
+        Hidden words
+      </button>
+      {sortedQueue.length > 0 && current && (
+        <span className="review-progress">
+          {index + 1} / {sortedQueue.length}
+        </span>
+      )}
+    </header>
+  );
+
+  if (sortedQueue.length === 0) {
     return (
       <div className="review-page review-page--message">
-        <h1>Review</h1>
+        {header}
         <p className="review-empty">Nothing to review right now.</p>
         <p className="review-empty-hint">
-          Words you've encountered exactly once will appear here, oldest
-          first. Read a story or chat to build up your queue.
+          Words you've encountered exactly once will appear here, most
+          common first. Read a story or chat to build up your queue.
         </p>
+        <HiddenWordsModal
+          open={showHidden}
+          onClose={() => setShowHidden(false)}
+        />
       </div>
     );
   }
@@ -145,25 +209,24 @@ export default function Review() {
   if (!current) {
     return (
       <div className="review-page review-page--message">
-        <h1>Review</h1>
+        {header}
         <p className="review-empty">All caught up ✓</p>
         <p className="review-empty-hint">
           You've reviewed every once-seen word in the queue. Come back
-          later — new exposures and words coming off cooldown will show up
-          here.
+          later — new exposures and words coming off cooldown will show
+          up here.
         </p>
+        <HiddenWordsModal
+          open={showHidden}
+          onClose={() => setShowHidden(false)}
+        />
       </div>
     );
   }
 
   return (
     <div className="review-page">
-      <header className="review-header">
-        <h1>Review</h1>
-        <span className="review-progress">
-          {index + 1} / {queue.length}
-        </span>
-      </header>
+      {header}
 
       <div className="review-card">
         {usageLoading ? (
@@ -189,19 +252,33 @@ export default function Review() {
       </div>
 
       <div className="review-actions">
-        {!revealed && (
+        {revealed ? (
           <button
             type="button"
             className="review-show-btn"
-            onClick={() => setRevealed(true)}
-            disabled={usageLoading || !snippet}
+            onClick={handleNext}
           >
-            Show Answer
+            Next →
           </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="review-skip-btn"
+              onClick={handleHide}
+            >
+              Hide
+            </button>
+            <button
+              type="button"
+              className="review-show-btn"
+              onClick={() => setRevealed(true)}
+              disabled={usageLoading || !snippet}
+            >
+              Show Answer
+            </button>
+          </>
         )}
-        <button type="button" className="review-skip-btn" onClick={advance}>
-          {revealed ? "Next →" : "Skip →"}
-        </button>
       </div>
 
       <WordPopover
@@ -213,7 +290,12 @@ export default function Review() {
         }}
         open={revealed}
         onOpenChange={setRevealed}
-        onNext={advance}
+        onNext={handleNext}
+      />
+
+      <HiddenWordsModal
+        open={showHidden}
+        onClose={() => setShowHidden(false)}
       />
     </div>
   );

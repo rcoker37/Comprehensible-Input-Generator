@@ -382,16 +382,19 @@ export type Database = {
       }
       word_reviews: {
         Row: {
+          eligible_at: string
           headword: string
           last_reviewed_at: string
           user_id: string
         }
         Insert: {
+          eligible_at?: string
           headword: string
           last_reviewed_at?: string
           user_id: string
         }
         Update: {
+          eligible_at?: string
           headword?: string
           last_reviewed_at?: string
           user_id?: string
@@ -416,6 +419,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      clear_word_review: { Args: { p_headword: string }; Returns: undefined }
       delete_chat: { Args: { p_chat_id: number }; Returns: undefined }
       get_chat_message_word_encounters: {
         Args: { p_message_id: number }
@@ -434,6 +438,13 @@ export type Database = {
           last_read_at: string
           min_assistant_read_count: number
           title: string
+        }[]
+      }
+      get_mastered_words: {
+        Args: never
+        Returns: {
+          headword: string
+          marked_at: string
         }[]
       }
       get_openrouter_api_key_for_user: {
@@ -458,7 +469,7 @@ export type Database = {
         }[]
       }
       get_review_queue: {
-        Args: { p_cooldown_hours?: number }
+        Args: never
         Returns: {
           headword: string
           last_read_at: string
@@ -545,7 +556,10 @@ export type Database = {
         }
         Returns: undefined
       }
-      record_word_review: { Args: { p_headword: string }; Returns: undefined }
+      record_word_review: {
+        Args: { p_cooldown_hours?: number; p_headword: string }
+        Returns: undefined
+      }
       reset_chat_word_index: { Args: { p_chat_id: number }; Returns: undefined }
       set_openrouter_api_key: { Args: { p_key: string }; Returns: undefined }
       set_story_word_overrides: {

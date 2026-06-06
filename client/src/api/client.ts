@@ -374,22 +374,23 @@ export async function getWordEncounters(headword: string): Promise<number> {
 const VOCAB_PAGE_SIZE = 1000;
 
 /**
- * Once-seen vocab for the Review tab. Server-side filter + sort: encounters
- * = 1 across read sources, excluding any reviewed within the cooldown
- * window, oldest exposure first.
+ * Once-seen vocab for the Review tab. Server-side filter: encounters = 1
+ * across read sources, excluding any reviewed within their per-row
+ * cooldown window (or marked Never forget). The client sorts the
+ * returned rows by JPDB frequency rank — Postgres doesn't know about
+ * the rank index, which is a client-side asset.
  */
 export interface ReviewQueueRow {
   headword: string;
   lastReadAt: string;
 }
 
-export async function getReviewQueue(
-  cooldownHours = 24
-): Promise<ReviewQueueRow[]> {
+export async function getReviewQueue(): Promise<ReviewQueueRow[]> {
   const out: ReviewQueueRow[] = [];
   for (let from = 0; ; ) {
     const { data, error } = await supabase
-      .rpc("get_review_queue", { p_cooldown_hours: cooldownHours })
+      .rpc("get_review_queue")
+      .order("headword")
       .range(from, from + VOCAB_PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const rows =
@@ -405,15 +406,52 @@ export async function getReviewQueue(
 }
 
 /**
- * Stamp a review on `headword` for the current user — Review-tab "Next"
- * fires this fire-and-forget. Refreshes the cooldown window so the word
- * stays out of the queue until the window expires again.
+ * Stamp a review on `headword`. `cooldownHours` controls how long the
+ * word stays out of the queue: 24 for Next (default), null for the
+ * Hide button (stored as eligible_at = 'infinity' — the word is
+ * hidden from the queue until manually unhidden).
  */
-export async function recordWordReview(headword: string): Promise<void> {
+export async function recordWordReview(
+  headword: string,
+  cooldownHours: number | null = 24
+): Promise<void> {
   const { error } = await supabase.rpc("record_word_review", {
     p_headword: headword,
+    p_cooldown_hours: cooldownHours,
   });
   if (error) console.warn("recordWordReview failed:", error.message);
+}
+
+export interface HiddenWordRow {
+  headword: string;
+  hiddenAt: string;
+}
+
+/**
+ * Every headword the user has hidden. Powers the Review tab's Hidden
+ * words modal; rows sort by hiddenAt desc (most recently hidden first).
+ * (The SQL function is still named get_mastered_words for back-compat —
+ * the user-facing concept renamed from "Mastered" / "Never forget" to
+ * "Hidden" but the schema stayed the same.)
+ */
+export async function getHiddenWords(): Promise<HiddenWordRow[]> {
+  const { data, error } = await supabase.rpc("get_mastered_words");
+  if (error) throw new Error(error.message);
+  const rows =
+    (data as { headword: string; marked_at: string }[] | null) ?? [];
+  return rows.map((r) => ({ headword: r.headword, hiddenAt: r.marked_at }));
+}
+
+/**
+ * Drops the word_reviews row for `headword`, clearing both the cooldown
+ * and any Hidden mark. The word becomes immediately eligible for the
+ * next review pass. Used by the Hidden words modal's Unhide button.
+ */
+export async function clearWordReview(headword: string): Promise<void> {
+  const { error } = await supabase.rpc("clear_word_review", {
+    p_headword: headword,
+  });
+  if (error) throw new Error(error.message);
 }
 
 /**
