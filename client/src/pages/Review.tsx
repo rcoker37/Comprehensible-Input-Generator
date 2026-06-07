@@ -22,7 +22,6 @@ const HIDE_COOLDOWN = null;
 
 interface CardSnippet {
   text: string;
-  annotations: ReturnType<typeof parseAnnotatedText>["annotations"];
   surfaceStart: number;
   surfaceEnd: number;
 }
@@ -38,7 +37,6 @@ function buildSnippet(usage: WordUsage): CardSnippet | null {
   if (!snippet) return null;
   return {
     text: snippet.text,
-    annotations: snippet.annotations,
     surfaceStart: snippet.surfaceStart,
     surfaceEnd: snippet.surfaceEnd,
   };
@@ -238,7 +236,7 @@ export default function Review() {
           <div className="review-card__sentence">
             {renderSnippet(
               snippet.text,
-              snippet.annotations,
+              [],
               snippet.surfaceStart,
               snippet.surfaceEnd,
               "review-card__highlight"
