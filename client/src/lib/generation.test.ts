@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildPrompt, FORMALITY_INSTRUCTIONS } from "./generation";
+import {
+  buildLearnWordPrompt,
+  buildPrompt,
+  FORMALITY_INSTRUCTIONS,
+} from "./generation";
 
 describe("buildPrompt", () => {
   const defaults = {
@@ -79,5 +83,60 @@ describe("buildPrompt", () => {
   it("tells the model a chosen word's kanji are all allowed", () => {
     const result = buildPrompt("fiction", 3, "日", "polite");
     expect(result).toContain("all of its kanji are allowed");
+  });
+});
+
+describe("buildLearnWordPrompt", () => {
+  it("names the target word and the allowed kanji list", () => {
+    const result = buildLearnWordPrompt("約束", 3, "日本語", "polite");
+    expect(result).toContain("The word to teach: 「約束」");
+    expect(result).toContain("Allowed kanji: 日本語");
+  });
+
+  it("asks for meaning, usage, and example sentences", () => {
+    const result = buildLearnWordPrompt("約束", 3, "日", "polite");
+    expect(result).toContain("Explain what 「約束」 means");
+    expect(result).toContain("example sentences");
+  });
+
+  it("restricts kanji to the allowed list plus the target word, with no topical group", () => {
+    const result = buildLearnWordPrompt("約束", 3, "日", "polite");
+    expect(result).toContain("(2) the kanji of 「約束」 itself");
+    expect(result).toContain("This restriction is strict");
+    expect(result).not.toContain("topic or writing style naturally calls for");
+  });
+
+  it("keeps the shared spelling and ruby rules", () => {
+    const result = buildLearnWordPrompt("約束", 3, "日", "polite");
+    expect(result).toContain("standard modern spelling");
+    expect(result).toContain("Aozora Bunko ruby notation");
+    expect(result).toContain("all of its kanji are allowed");
+  });
+
+  it("includes formality, paragraph count, and the output footer", () => {
+    const result = buildLearnWordPrompt("約束", 4, "日", "keigo");
+    expect(result).toContain(FORMALITY_INSTRUCTIONS.keigo);
+    expect(result).toContain("Write exactly 4 paragraphs");
+    expect(result).toContain("Output ONLY the final content in Japanese");
+    expect(result).toContain("title on the first line should contain 「約束」");
+  });
+
+  it("sanitizes newlines and markdown control characters out of the word", () => {
+    const result = buildLearnWordPrompt("約束\n#`", 3, "日", "polite");
+    expect(result).toContain("The word to teach: 「約束」");
+  });
+
+  it("pins the homograph with a reading note when a reading is supplied", () => {
+    const result = buildLearnWordPrompt("辛い", 3, "日", "polite", "からい");
+    expect(result).toContain("The word to teach: 「辛い」（からい）");
+  });
+
+  it("omits the reading note for kana-only headwords and missing readings", () => {
+    expect(buildLearnWordPrompt("あなた", 3, "日", "polite", "あなた")).toContain(
+      "The word to teach: 「あなた」\n"
+    );
+    expect(buildLearnWordPrompt("約束", 3, "日", "polite", null)).toContain(
+      "The word to teach: 「約束」\n"
+    );
   });
 });

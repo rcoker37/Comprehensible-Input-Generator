@@ -4,11 +4,13 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { Link } from "react-router-dom";
 import Modal from "./Modal";
+import { useAuth } from "../contexts/AuthContext";
 import { useDictionary } from "../contexts/DictionaryContext";
+import { useGeneration } from "../contexts/GenerationContext";
+import { useSeenKanji } from "../contexts/KanjiContext";
 import {
   getWordEncounters,
   getWordUsages,
@@ -22,6 +24,11 @@ import {
   type FuriganaAnnotation,
 } from "../lib/furigana";
 import { stripBold } from "../lib/text";
+import {
+  DEFAULT_PARAGRAPH_COUNT,
+  GENERATION_MODEL,
+  PARAGRAPH_OPTIONS,
+} from "../lib/generation";
 import { headwordFromHit } from "../lib/headword";
 import {
   lookupBestFrequency,
@@ -34,6 +41,7 @@ import { lookupWord } from "../lib/dictionary";
 import { baseHintAtOffset, posHintAtOffset } from "../lib/tokenizer";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import { renderSnippet } from "../lib/renderSnippet";
+import { renderSurfaceRuby } from "../lib/renderSurfaceRuby";
 import { supabase } from "../lib/supabase";
 import AnimatedDots from "./AnimatedDots";
 import KanjiInlineDetail, { type KanjiRow } from "./KanjiInlineDetail";
@@ -255,62 +263,6 @@ function sentenceKey(start: number, end: number): string {
   return `${start}-${end}`;
 }
 
-// Wrap only the kanji middle of `surface` in <ruby>, stripping matching
-// leading/trailing kana so the furigana sits over the actual kanji glyphs
-// rather than smearing the whole reading across the kana parts too:
-//   大切にする (たいせつにする) → 大切《たいせつ》にする
-//   食べる (たべる)             → 食《た》べる
-//   お父さん (おとうさん)        → お 父《とう》 さん
-//   中 (うち)                   → 中《うち》
-//   うち (うち) / pure kana     → plain text (no ruby)
-function renderSurfaceRuby(
-  surface: string,
-  reading: string | null
-): ReactNode {
-  if (!reading || surface === reading) return surface;
-  const chars = [...surface];
-  const readingChars = [...reading];
-  let leadLen = 0;
-  while (
-    leadLen < chars.length &&
-    leadLen < readingChars.length &&
-    !KANJI_REGEX.test(chars[leadLen]!) &&
-    chars[leadLen] === readingChars[leadLen]
-  ) {
-    leadLen++;
-  }
-  let trailLen = 0;
-  while (
-    trailLen < chars.length - leadLen &&
-    trailLen < readingChars.length - leadLen &&
-    !KANJI_REGEX.test(chars[chars.length - 1 - trailLen]!) &&
-    chars[chars.length - 1 - trailLen] ===
-      readingChars[readingChars.length - 1 - trailLen]
-  ) {
-    trailLen++;
-  }
-  const leading = chars.slice(0, leadLen).join("");
-  const trailing = chars.slice(chars.length - trailLen).join("");
-  const middleBase = chars.slice(leadLen, chars.length - trailLen).join("");
-  const middleReading = readingChars
-    .slice(leadLen, readingChars.length - trailLen)
-    .join("");
-  if (!middleBase || !middleReading || middleBase === middleReading)
-    return surface;
-  // Nothing to gloss if the middle has no kanji — bail to plain text.
-  if (![...middleBase].some((ch) => KANJI_REGEX.test(ch))) return surface;
-  return (
-    <>
-      {leading}
-      <ruby>
-        {middleBase}
-        <rt>{middleReading}</rt>
-      </ruby>
-      {trailing}
-    </>
-  );
-}
-
 function formatStoryDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
@@ -328,6 +280,9 @@ export default function WordPopover({
   onNext,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
+  const { user, profile } = useAuth();
+  const { loading: generationInFlight, generate } = useGeneration();
+  const { seenKanji } = useSeenKanji();
   // Narrow once so downstream code can read mode-specific fields without
   // re-narrowing. Tap-only fields default to null in headword mode.
   const isTap = mode.kind === "tap";
@@ -391,6 +346,11 @@ export default function WordPopover({
 
   const [frequency, setFrequency] = useState<BestFrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
+
+  // "Explain Word" kicks off a fire-and-forget learn_word generation for the
+  // active headword (the lesson lands on the Compositions page). Tracks
+  // whether this word view already started one so the button can't double-fire.
+  const [explainStarted, setExplainStarted] = useState(false);
 
   // In-popover navigation stack. Tapping a kanji chip pushes a "kanji" frame
   // (showing KanjiInlineDetail); clicking a word row inside that detail pushes
@@ -464,6 +424,7 @@ export default function WordPopover({
     setTranslationRequested(false);
     setFrequency(null);
     setEncounters(null);
+    setExplainStarted(false);
     setUsagesLoading(true);
     setEncountersLoading(true);
     setFrequencyLoading(true);
@@ -1073,6 +1034,37 @@ export default function WordPopover({
       });
   }, [activeCard, snippet, translationPending, storeTranslation]);
 
+  // Kick off a "Learn Word" generation for the active headword. Generation
+  // is fire-and-forget (the finished lesson shows up on the Compositions
+  // page); formality/paragraphs come from the user's saved generator
+  // preferences, same as the Generator modal's defaults.
+  const handleExplainWord = useCallback(() => {
+    if (!user || !headword || generationInFlight || explainStarted) return;
+    const gen = profile?.preferences?.generator;
+    generate(user.id, {
+      contentType: "learn_word",
+      targetWord: headword.headword,
+      targetWordReading: headword.reading,
+      formality: gen?.formality ?? "polite",
+      paragraphs:
+        typeof gen?.paragraphs === "number" &&
+        (PARAGRAPH_OPTIONS as readonly number[]).includes(gen.paragraphs)
+          ? gen.paragraphs
+          : DEFAULT_PARAGRAPH_COUNT,
+      model: GENERATION_MODEL,
+      seenKanji,
+    });
+    setExplainStarted(true);
+  }, [
+    user,
+    profile,
+    headword,
+    generationInFlight,
+    explainStarted,
+    generate,
+    seenKanji,
+  ]);
+
   // Reset card scroll + per-card translation state when navigating. Each
   // card requires its own opt-in click before a translation is fetched.
   useEffect(() => {
@@ -1245,6 +1237,27 @@ export default function WordPopover({
                   ))}
                 </section>
               )}
+              {!lookupIsName &&
+                headword &&
+                (profile?.has_openrouter_api_key ?? false) && (
+                  <div className="word-popover__explain-row">
+                    <button
+                      type="button"
+                      className="word-popover__translate-btn"
+                      onClick={handleExplainWord}
+                      disabled={generationInFlight || explainStarted}
+                      title={
+                        explainStarted
+                          ? "The lesson will appear in Compositions when ready"
+                          : generationInFlight
+                            ? "A generation is already in progress"
+                            : "Generate a short Japanese lesson explaining this word"
+                      }
+                    >
+                      {explainStarted ? "✓ Lesson on the way" : "Explain Word"}
+                    </button>
+                  </div>
+                )}
             </div>
 
             {showCarouselNav && activeCard && (

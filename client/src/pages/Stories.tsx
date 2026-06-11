@@ -166,7 +166,7 @@ export default function Stories() {
                     +{formatScore(deltaById.get(story.id) ?? 0)}
                   </span>
                 )}
-                <span className="type-tag">{story.content_type ?? "fiction"}</span>
+                <span className="type-tag">{(story.content_type ?? "fiction").replace("_", " ")}</span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}
               </div>

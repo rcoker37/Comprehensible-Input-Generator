@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabase";
-import { buildPrompt } from "../lib/generation";
+import { buildLearnWordPrompt, buildPrompt } from "../lib/generation";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
@@ -75,6 +75,10 @@ export async function startStoryGeneration(
     contentType: ContentType;
     topic?: string;
     style?: string;
+    /** Required when contentType is "learn_word" — the word the lesson teaches. */
+    targetWord?: string;
+    /** Optional reading for the target word — pins the right homograph. */
+    targetWordReading?: string | null;
     formality: Formality;
     paragraphs: number;
     model: string;
@@ -87,14 +91,30 @@ export async function startStoryGeneration(
   const n5 = await getJlptN5Kanji();
   const allowedKanji = [...new Set<string>([...params.seenKanji, ...n5])].join("");
 
-  const prompt = buildPrompt(
-    params.contentType,
-    params.paragraphs,
-    allowedKanji,
-    params.formality,
-    params.topic,
-    params.style
-  );
+  let prompt: string;
+  // Learn-word generations store the target word in the `topic` column so it
+  // shows up as the story card's topic tag without any schema change.
+  let topic = params.topic;
+  if (params.contentType === "learn_word") {
+    if (!params.targetWord) throw new Error("No word selected to learn");
+    prompt = buildLearnWordPrompt(
+      params.targetWord,
+      params.paragraphs,
+      allowedKanji,
+      params.formality,
+      params.targetWordReading
+    );
+    topic = params.targetWord;
+  } else {
+    prompt = buildPrompt(
+      params.contentType,
+      params.paragraphs,
+      allowedKanji,
+      params.formality,
+      params.topic,
+      params.style
+    );
+  }
 
   const { data: sessionData } = await supabase.auth.getSession();
   const accessToken = sessionData.session?.access_token;
@@ -111,7 +131,7 @@ export async function startStoryGeneration(
       prompt,
       model: params.model,
       contentType: params.contentType,
-      topic: params.topic || null,
+      topic: topic || null,
       formality: params.formality,
       paragraphs: params.paragraphs,
       allowedKanji,

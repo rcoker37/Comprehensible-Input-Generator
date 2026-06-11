@@ -93,10 +93,10 @@ export default function Review() {
   const current =
     sortedQueue && index < sortedQueue.length ? sortedQueue[index] : null;
 
-  // Fetch the usage for the active headword. For a once-seen word there's
-  // exactly one row; we take the first per the spec. If the RPC returns
-  // empty (shouldn't happen — the queue is built from indexed occurrences)
-  // we just leave usage null and the card shows a fallback message.
+  // Fetch the usage for the active headword and take the first row (newest
+  // story first, per get_word_usages ordering). If the RPC returns empty
+  // (shouldn't happen — the queue is built from indexed occurrences) we just
+  // leave usage null and the card shows a fallback message.
   useEffect(() => {
     if (!current) {
       /* eslint-disable react-hooks/set-state-in-effect -- clear stale usage at end-of-queue */
@@ -193,8 +193,8 @@ export default function Review() {
         {header}
         <p className="review-empty">Nothing to review right now.</p>
         <p className="review-empty-hint">
-          Words you've encountered exactly once will appear here, most
-          common first. Read a story or chat to build up your queue.
+          Words you've encountered fewer than 10 times will appear here,
+          most common first. Read a story or chat to build up your queue.
         </p>
         <HiddenWordsModal
           open={showHidden}
@@ -210,9 +210,8 @@ export default function Review() {
         {header}
         <p className="review-empty">All caught up ✓</p>
         <p className="review-empty-hint">
-          You've reviewed every once-seen word in the queue. Come back
-          later — new exposures and words coming off cooldown will show
-          up here.
+          You've reviewed every word in the queue. Come back later —
+          new exposures and words coming off cooldown will show up here.
         </p>
         <HiddenWordsModal
           open={showHidden}
