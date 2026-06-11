@@ -28,6 +28,49 @@
   font-size: 0.8rem;
 }
 
+.learn-word-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.3rem;
+}
+
+.learn-word-row--empty {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.learn-word-word {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.learn-word-reroll {
+  padding: 0.2rem 0.55rem;
+  background: none;
+  border: 1px solid var(--border, var(--text-dim));
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.learn-word-reroll:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.learn-word-reroll:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.learn-word-hint {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
 .generate-btn {
   padding: 0.75rem 2rem;
   background: var(--accent);

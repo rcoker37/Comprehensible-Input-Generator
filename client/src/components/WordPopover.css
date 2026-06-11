@@ -470,6 +470,19 @@
   cursor: not-allowed;
 }
 
+.word-popover__explain-row {
+  display: flex;
+  padding-top: 0.5rem;
+}
+
+/* The Explain Word button reuses .word-popover__translate-btn so the two
+   actions look identical; translate never disables, so the disabled state
+   only ever shows on Explain Word. */
+.word-popover__translate-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .word-popover__override-row {
   display: flex;
   justify-content: flex-end;

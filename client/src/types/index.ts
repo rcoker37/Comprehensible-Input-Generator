@@ -9,7 +9,14 @@ export interface Kanji {
 
 export type Formality = "impolite" | "casual" | "polite" | "keigo";
 
-export type ContentType = "fiction" | "nonfiction";
+export type ContentType = "fiction" | "nonfiction" | "learn_word";
+
+/**
+ * The two free-form composition types. "learn_word" generations go through
+ * their own prompt builder (the target word takes the place of topic/style),
+ * so the topic-and-style prompt tables are keyed on this narrower union.
+ */
+export type StoryContentType = Exclude<ContentType, "learn_word">;
 
 export interface DifficultyEstimate {
   uniqueKanji: number;

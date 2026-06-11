@@ -17,6 +17,10 @@ interface GenerateParams {
   contentType: ContentType;
   topic?: string;
   style?: string;
+  /** Required when contentType is "learn_word" — the word the lesson teaches. */
+  targetWord?: string;
+  /** Optional reading for the target word — pins the right homograph. */
+  targetWordReading?: string | null;
   formality: Formality;
   paragraphs: number;
   model: string;
