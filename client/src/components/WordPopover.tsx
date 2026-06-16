@@ -172,14 +172,6 @@ interface WordPopoverProps {
   mode: WordPopoverMode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /**
-   * Optional — when set, the popover renders a "Next →" button in its
-   * footer. Used by the Review tab to advance past the revealed card
-   * without making the user dismiss the popover first. The parent's
-   * handler is responsible for both closing the popover (via
-   * `onOpenChange(false)`) and advancing whatever queue it's driving.
-   */
-  onNext?: () => void;
 }
 
 const MAX_SENSES_COLLAPSED = 3;
@@ -277,7 +269,6 @@ export default function WordPopover({
   mode,
   open,
   onOpenChange,
-  onNext,
 }: WordPopoverProps) {
   const { state: dictState } = useDictionary();
   const { user, profile } = useAuth();
@@ -1399,17 +1390,6 @@ export default function WordPopover({
                 </>
               )}
             </div>
-            {onNext && (
-              <footer className="word-popover__footer">
-                <button
-                  type="button"
-                  className="word-popover__next-btn"
-                  onClick={onNext}
-                >
-                  Next →
-                </button>
-              </footer>
-            )}
           </>
         )}
       </div>

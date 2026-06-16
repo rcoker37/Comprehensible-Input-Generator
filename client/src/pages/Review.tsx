@@ -6,12 +6,12 @@ import {
   type ReviewQueueRow,
 } from "../api/client";
 import { useVocab } from "../contexts/VocabContext";
-import { parseAnnotatedText } from "../lib/furigana";
+import { KANJI_REGEX } from "../lib/constants";
+import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
 import { renderSnippet } from "../lib/renderSnippet";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import AnimatedDots from "../components/AnimatedDots";
 import HiddenWordsModal from "../components/HiddenWordsModal";
-import WordPopover from "../components/WordPopover";
 import type { WordUsage } from "../types";
 import "./Review.css";
 
@@ -22,6 +22,7 @@ const HIDE_COOLDOWN = null;
 
 interface CardSnippet {
   text: string;
+  annotations: FuriganaAnnotation[];
   surfaceStart: number;
   surfaceEnd: number;
 }
@@ -37,6 +38,7 @@ function buildSnippet(usage: WordUsage): CardSnippet | null {
   if (!snippet) return null;
   return {
     text: snippet.text,
+    annotations: snippet.annotations,
     surfaceStart: snippet.surfaceStart,
     surfaceEnd: snippet.surfaceEnd,
   };
@@ -93,10 +95,14 @@ export default function Review() {
   const current =
     sortedQueue && index < sortedQueue.length ? sortedQueue[index] : null;
 
-  // Fetch the usage for the active headword and take the first row (newest
-  // story first, per get_word_usages ordering). If the RPC returns empty
-  // (shouldn't happen — the queue is built from indexed occurrences) we just
-  // leave usage null and the card shows a fallback message.
+  // Fetch the usage for the active headword and show the first example whose
+  // surface actually contains kanji. The queue qualifies a headword when
+  // *some* surface carries a rare kanji, but get_word_usages orders
+  // newest-first, so rows[0] can be a bare-kana spelling (来た stamped from
+  // the surface きた) — and revealing furigana over kana is pointless. The
+  // queue's rare-kanji gate guarantees a kanji-bearing surface exists among
+  // these rows (same read-source set as the queue), so the find succeeds for
+  // any queued word; `?? null` is only a defensive fallback.
   useEffect(() => {
     if (!current) {
       /* eslint-disable react-hooks/set-state-in-effect -- clear stale usage at end-of-queue */
@@ -110,7 +116,7 @@ export default function Review() {
     getWordUsages(current.headword)
       .then((rows) => {
         if (cancelled) return;
-        setUsage(rows[0] ?? null);
+        setUsage(rows.find((r) => KANJI_REGEX.test(r.surface)) ?? null);
       })
       .catch(() => {
         if (cancelled) return;
@@ -128,6 +134,31 @@ export default function Review() {
     () => (usage ? buildSnippet(usage) : null),
     [usage]
   );
+
+  // Show Answer reveals the reading as furigana over the highlighted word
+  // only — the rest of the sentence stays bare so the card still tests
+  // recall of just the target word. Annotations are character-level, so the
+  // ones inside the surface span are exactly the target word's readings.
+  // When the source had no ruby on the target (malformed LLM output), fall
+  // back to one ruby spanning the whole surface, using the indexer's stored
+  // reading, so Show Answer always reveals something.
+  const revealedAnnotations = useMemo<FuriganaAnnotation[]>(() => {
+    if (!snippet) return [];
+    const within = snippet.annotations.filter(
+      (a) => a.start >= snippet.surfaceStart && a.end <= snippet.surfaceEnd
+    );
+    if (within.length > 0) return within;
+    if (usage?.reading) {
+      return [
+        {
+          start: snippet.surfaceStart,
+          end: snippet.surfaceEnd,
+          reading: usage.reading,
+        },
+      ];
+    }
+    return [];
+  }, [snippet, usage]);
 
   const advance = useCallback(
     (cooldownHours: number | null) => {
@@ -235,7 +266,7 @@ export default function Review() {
           <div className="review-card__sentence">
             {renderSnippet(
               snippet.text,
-              [],
+              revealed ? revealedAnnotations : [],
               snippet.surfaceStart,
               snippet.surfaceEnd,
               "review-card__highlight"
@@ -277,18 +308,6 @@ export default function Review() {
           </>
         )}
       </div>
-
-      <WordPopover
-        mode={{
-          kind: "headword",
-          headword: current.headword,
-          entryId: null,
-          reading: null,
-        }}
-        open={revealed}
-        onOpenChange={setRevealed}
-        onNext={handleNext}
-      />
 
       <HiddenWordsModal
         open={showHidden}
