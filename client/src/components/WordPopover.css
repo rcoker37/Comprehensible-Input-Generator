@@ -505,29 +505,3 @@
   color: var(--accent);
 }
 
-.word-popover__footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.6rem 1rem;
-  border-top: 1px solid var(--border);
-  background: var(--bg-dim);
-}
-
-.word-popover__next-btn {
-  background: var(--accent);
-  color: var(--bg);
-  border: 1px solid var(--accent);
-  border-radius: var(--radius);
-  padding: 0.45rem 1.1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-@media (hover: hover) {
-  .word-popover__next-btn:hover {
-    opacity: 0.85;
-  }
-}
