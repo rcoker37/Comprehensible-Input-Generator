@@ -426,52 +426,22 @@ export async function getReviewQueue(): Promise<ReviewQueueRow[]> {
 }
 
 /**
- * Stamp a review on `headword`. `cooldownHours` controls how long the
- * word stays out of the queue: 24 for Next (default), null for the
- * Hide button (stored as eligible_at = 'infinity' — the word is
- * hidden from the queue until manually unhidden).
+ * Stamp a pass/fail review on `headword`. The server walks the Leitner
+ * ladder (see the record_word_review migration): a pass advances one box
+ * so the next interval grows, a fail resets to box 0 (due in a day), and
+ * eligible_at is recomputed from the new box. Best-effort — a failed
+ * upsert just means the word reappears next session. Scoring is
+ * independent of review state, so no vocab refresh is needed.
  */
 export async function recordWordReview(
   headword: string,
-  cooldownHours: number | null = 24
+  passed: boolean
 ): Promise<void> {
   const { error } = await supabase.rpc("record_word_review", {
     p_headword: headword,
-    p_cooldown_hours: cooldownHours,
+    p_passed: passed,
   });
   if (error) console.warn("recordWordReview failed:", error.message);
-}
-
-export interface HiddenWordRow {
-  headword: string;
-  hiddenAt: string;
-}
-
-/**
- * Every headword the user has hidden. Powers the Review tab's Hidden
- * words modal; rows sort by hiddenAt desc (most recently hidden first).
- * (The SQL function is still named get_mastered_words for back-compat —
- * the user-facing concept renamed from "Mastered" / "Never forget" to
- * "Hidden" but the schema stayed the same.)
- */
-export async function getHiddenWords(): Promise<HiddenWordRow[]> {
-  const { data, error } = await supabase.rpc("get_mastered_words");
-  if (error) throw new Error(error.message);
-  const rows =
-    (data as { headword: string; marked_at: string }[] | null) ?? [];
-  return rows.map((r) => ({ headword: r.headword, hiddenAt: r.marked_at }));
-}
-
-/**
- * Drops the word_reviews row for `headword`, clearing both the cooldown
- * and any Hidden mark. The word becomes immediately eligible for the
- * next review pass. Used by the Hidden words modal's Unhide button.
- */
-export async function clearWordReview(headword: string): Promise<void> {
-  const { error } = await supabase.rpc("clear_word_review", {
-    p_headword: headword,
-  });
-  if (error) throw new Error(error.message);
 }
 
 /**

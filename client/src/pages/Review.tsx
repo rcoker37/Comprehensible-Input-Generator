@@ -11,14 +11,8 @@ import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
 import { renderSnippet } from "../lib/renderSnippet";
 import { extractSentenceSnippet } from "../lib/sentenceSnippet";
 import AnimatedDots from "../components/AnimatedDots";
-import HiddenWordsModal from "../components/HiddenWordsModal";
 import type { WordUsage } from "../types";
 import "./Review.css";
-
-// Cooldowns passed to record_word_review. `null` means hide the word
-// forever — server stores eligible_at = 'infinity'.
-const NEXT_COOLDOWN_HOURS = 24;
-const HIDE_COOLDOWN = null;
 
 interface CardSnippet {
   text: string;
@@ -54,7 +48,6 @@ export default function Review() {
   const [revealed, setRevealed] = useState(false);
   const [usage, setUsage] = useState<WordUsage | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
-  const [showHidden, setShowHidden] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,13 +154,13 @@ export default function Review() {
   }, [snippet, usage]);
 
   const advance = useCallback(
-    (cooldownHours: number | null) => {
+    (passed: boolean) => {
       if (current) {
         // Fire-and-forget — a failed upsert just means the word will
         // reappear next session. The api wrapper swallows the error.
         // Scoring is independent of review state so no vocab refresh
         // is needed here.
-        void recordWordReview(current.headword, cooldownHours);
+        void recordWordReview(current.headword, passed);
       }
       setRevealed(false);
       setIndex((i) => i + 1);
@@ -175,11 +168,8 @@ export default function Review() {
     [current]
   );
 
-  const handleNext = useCallback(
-    () => advance(NEXT_COOLDOWN_HOURS),
-    [advance]
-  );
-  const handleHide = useCallback(() => advance(HIDE_COOLDOWN), [advance]);
+  const handlePass = useCallback(() => advance(true), [advance]);
+  const handleFail = useCallback(() => advance(false), [advance]);
 
   if (queueError) {
     return (
@@ -198,18 +188,9 @@ export default function Review() {
     );
   }
 
-  // Always render the Hidden words affordance in the header — even on
-  // empty / caught-up screens — so the user can still get to the list.
   const header = (
     <header className="review-header">
       <h1>Review</h1>
-      <button
-        type="button"
-        className="review-hidden-link"
-        onClick={() => setShowHidden(true)}
-      >
-        Hidden words
-      </button>
       {sortedQueue.length > 0 && current && (
         <span className="review-progress">
           {index + 1} / {sortedQueue.length}
@@ -227,10 +208,6 @@ export default function Review() {
           Words you've encountered fewer than 10 times will appear here,
           most common first. Read a story or chat to build up your queue.
         </p>
-        <HiddenWordsModal
-          open={showHidden}
-          onClose={() => setShowHidden(false)}
-        />
       </div>
     );
   }
@@ -244,10 +221,6 @@ export default function Review() {
           You've reviewed every word in the queue. Come back later —
           new exposures and words coming off cooldown will show up here.
         </p>
-        <HiddenWordsModal
-          open={showHidden}
-          onClose={() => setShowHidden(false)}
-        />
       </div>
     );
   }
@@ -281,38 +254,33 @@ export default function Review() {
 
       <div className="review-actions">
         {revealed ? (
-          <button
-            type="button"
-            className="review-show-btn"
-            onClick={handleNext}
-          >
-            Next →
-          </button>
-        ) : (
           <>
             <button
               type="button"
-              className="review-skip-btn"
-              onClick={handleHide}
+              className="review-fail-btn"
+              onClick={handleFail}
             >
-              Hide
+              Fail
             </button>
             <button
               type="button"
-              className="review-show-btn"
-              onClick={() => setRevealed(true)}
-              disabled={usageLoading || !snippet}
+              className="review-pass-btn"
+              onClick={handlePass}
             >
-              Show Answer
+              Pass
             </button>
           </>
+        ) : (
+          <button
+            type="button"
+            className="review-show-btn"
+            onClick={() => setRevealed(true)}
+            disabled={usageLoading || !snippet}
+          >
+            Show Answer
+          </button>
         )}
       </div>
-
-      <HiddenWordsModal
-        open={showHidden}
-        onClose={() => setShowHidden(false)}
-      />
     </div>
   );
 }
