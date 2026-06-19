@@ -57,10 +57,6 @@ export default function Settings() {
           <label>Email</label>
           <span>{user?.email}</span>
         </div>
-        <div className="settings-field">
-          <label>Display Name</label>
-          <span>{profile?.display_name || "—"}</span>
-        </div>
       </div>
 
       <div className="settings-section">
