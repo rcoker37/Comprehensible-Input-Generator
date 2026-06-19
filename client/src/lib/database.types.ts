@@ -1,39 +1,3 @@
-Connecting to db 5432
-Unable to find image 'public.ecr.aws/supabase/postgres-meta:v0.96.1' locally
-v0.96.1: Pulling from supabase/postgres-meta
-19351e083594: Pulling fs layer
-649294d53040: Pulling fs layer
-eb04ef52de3a: Pulling fs layer
-3aa96371cb05: Pulling fs layer
-9b590c83e93c: Pulling fs layer
-1061a5258f4e: Pulling fs layer
-7f0469884eb9: Pulling fs layer
-b1f4bffa7894: Pulling fs layer
-4f6e2095427e: Pulling fs layer
-036bd28688ee: Pulling fs layer
-649294d53040: Download complete
-3aa96371cb05: Download complete
-7f0469884eb9: Download complete
-19351e083594: Download complete
-036bd28688ee: Download complete
-d8cd7fa11bac: Download complete
-1061a5258f4e: Download complete
-9b590c83e93c: Download complete
-b1f4bffa7894: Download complete
-eb04ef52de3a: Download complete
-3aa96371cb05: Pull complete
-eb04ef52de3a: Pull complete
-4f6e2095427e: Download complete
-649294d53040: Pull complete
-1061a5258f4e: Pull complete
-9b590c83e93c: Pull complete
-7f0469884eb9: Pull complete
-b1f4bffa7894: Pull complete
-19351e083594: Pull complete
-036bd28688ee: Pull complete
-4f6e2095427e: Pull complete
-Digest: sha256:2559d20aaa50f2eb86a6cb2e5af4e847e87139673bc214b4655c126d96c160b2
-Status: Downloaded newer image for public.ecr.aws/supabase/postgres-meta:v0.96.1
 export type Json =
   | string
   | number
