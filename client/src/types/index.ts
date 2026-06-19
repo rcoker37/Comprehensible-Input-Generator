@@ -210,7 +210,6 @@ export interface Preferences {
 
 export interface Profile {
   user_id: string;
-  display_name: string | null;
   has_openrouter_api_key: boolean;
   preferences: Preferences;
   created_at: string;

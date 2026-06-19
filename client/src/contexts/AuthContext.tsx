@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "user_id, display_name, preferences, created_at, openrouter_api_key_secret_id"
+          "user_id, preferences, created_at, openrouter_api_key_secret_id"
         )
         .eq("user_id", userId)
         .single();
