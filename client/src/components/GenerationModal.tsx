@@ -11,6 +11,7 @@ import {
   LEARN_WORD_MAX_ENCOUNTERS,
   PARAGRAPH_OPTIONS,
 } from "../lib/generation";
+import { KANJI_REGEX } from "../lib/constants";
 import {
   lookupFrequencyByCanonicalSync,
   lookupFrequencySync,
@@ -54,7 +55,10 @@ export default function GenerationModal({ open, onClose }: Props) {
   // and deduped on it, keeping the best rank when two canonicals share a
   // display surface. Unranked headwords are skipped — "most frequent" is
   // meaningless without a rank, and the long tail is a poor fit for a
-  // dedicated lesson anyway. The sync frequency lookups are safe behind
+  // dedicated lesson anyway. Kana-only display surfaces (ありがとう, an uk
+  // headword like あなた) are skipped too — a Learn Word lesson exists to
+  // teach the kanji in a word, so a word with no kanji isn't a useful
+  // target. The sync frequency lookups are safe behind
   // vocabEncountersLoaded, which awaits loadFrequencyIndex().
   const candidates = useMemo(() => {
     if (!vocabEncountersLoaded) return [];
@@ -66,6 +70,7 @@ export default function GenerationModal({ open, onClose }: Props) {
       if (count >= LEARN_WORD_MAX_ENCOUNTERS) continue;
       const entry = lookupFrequencyByCanonicalSync(canonical);
       const word = entry?.headword ?? canonical;
+      if (!KANJI_REGEX.test(word)) continue;
       const rank = entry?.rank ?? lookupFrequencySync(canonical, null).rank;
       if (rank === null) continue;
       const existing = byWord.get(word);
