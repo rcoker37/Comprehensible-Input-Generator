@@ -3,6 +3,15 @@
   flex-direction: column;
   gap: 1rem;
   padding: 2rem 1.5rem 1.5rem;
+  /* Promote the modal body to its own compositing layer. The Modal's
+   * top-layer ::backdrop uses backdrop-filter: blur() (Modal.css), which on
+   * Chromium/WebKit fails to invalidate the blurred region when content
+   * inside the dialog shifts — leaving stale "ghost" copies. The Learn Word
+   * reroll button moves horizontally every reroll (the word to its left
+   * changes width), so it visibly duplicates. Forcing a composited layer here
+   * keeps that movement repainting above the backdrop instead of smearing
+   * into it. */
+  transform: translateZ(0);
 }
 
 .generation-modal-content .warning {
