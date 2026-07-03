@@ -14,16 +14,6 @@ export const DEFAULT_PARAGRAPH_COUNT = 3;
  */
 export const GENERATION_MODEL = "anthropic/claude-fable-5";
 
-/**
- * Learn Word candidate selection: a word is eligible while the user has
- * encountered it fewer than this many times, and the Generator modal offers
- * the top `LEARN_WORD_CANDIDATE_POOL` of those by JPDB rank (most common
- * first). The threshold deliberately matches FURIGANA_UNSEEN_THRESHOLD —
- * "still shows furigana" and "worth a dedicated lesson" are the same idea.
- */
-export const LEARN_WORD_MAX_ENCOUNTERS = 10;
-export const LEARN_WORD_CANDIDATE_POOL = 50;
-
 export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
   impolite:
     "Use casual/rough speech (タメ口, ぞ/ぜ sentence endings, masculine rough style).",
