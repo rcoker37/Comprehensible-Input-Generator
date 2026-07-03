@@ -27,7 +27,6 @@ import { stripBold } from "../lib/text";
 import {
   DEFAULT_PARAGRAPH_COUNT,
   GENERATION_MODEL,
-  PARAGRAPH_OPTIONS,
 } from "../lib/generation";
 import { headwordFromHit } from "../lib/headword";
 import {
@@ -1027,8 +1026,10 @@ export default function WordPopover({
 
   // Kick off a "Learn Word" generation for the active headword. Generation
   // is fire-and-forget (the finished lesson shows up on the Compositions
-  // page); formality/paragraphs come from the user's saved generator
-  // preferences, same as the Generator modal's defaults.
+  // page); formality comes from the user's saved generator preferences, but
+  // the paragraph count is fixed at DEFAULT_PARAGRAPH_COUNT — a word lesson
+  // wants a consistent short length, not whatever the user last picked for a
+  // full story.
   const handleExplainWord = useCallback(() => {
     if (!user || !headword || generationInFlight || explainStarted) return;
     const gen = profile?.preferences?.generator;
@@ -1037,11 +1038,7 @@ export default function WordPopover({
       targetWord: headword.headword,
       targetWordReading: headword.reading,
       formality: gen?.formality ?? "polite",
-      paragraphs:
-        typeof gen?.paragraphs === "number" &&
-        (PARAGRAPH_OPTIONS as readonly number[]).includes(gen.paragraphs)
-          ? gen.paragraphs
-          : DEFAULT_PARAGRAPH_COUNT,
+      paragraphs: DEFAULT_PARAGRAPH_COUNT,
       model: GENERATION_MODEL,
       seenKanji,
     });
