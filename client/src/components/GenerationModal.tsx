@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useGeneration } from "../contexts/GenerationContext";
@@ -7,16 +7,9 @@ import { useVocab } from "../contexts/VocabContext";
 import {
   DEFAULT_PARAGRAPH_COUNT,
   GENERATION_MODEL,
-  LEARN_WORD_CANDIDATE_POOL,
-  LEARN_WORD_MAX_ENCOUNTERS,
   PARAGRAPH_OPTIONS,
 } from "../lib/generation";
-import { KANJI_REGEX } from "../lib/constants";
-import {
-  lookupFrequencyByCanonicalSync,
-  lookupFrequencySync,
-} from "../lib/frequency";
-import { renderSurfaceRuby } from "../lib/renderSurfaceRuby";
+import { lookupFrequencyByCanonicalSync } from "../lib/frequency";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
 import Modal from "./Modal";
@@ -39,76 +32,13 @@ export default function GenerationModal({ open, onClose }: Props) {
   const { user, profile, updatePreferences } = useAuth();
   const { loading, generate } = useGeneration();
   const { seenKanji } = useSeenKanji();
-  const { vocabEncounters, vocabEncountersLoaded } = useVocab();
+  const { vocabEncountersLoaded } = useVocab();
   const [contentType, setContentType] = useState<ContentType>("fiction");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
   const [formality, setFormality] = useState<Formality>("polite");
   const [paragraphs, setParagraphs] = useState<number>(DEFAULT_PARAGRAPH_COUNT);
-  const [targetWord, setTargetWord] = useState<string | null>(null);
-
-  // Learn Word candidate pool: the user's most frequent (JPDB rank ASC)
-  // headwords still encountered fewer than LEARN_WORD_MAX_ENCOUNTERS times.
-  // Encounter stamps are JMdict canonicals; each is resolved through the
-  // by-entry index to the JPDB display variant + reading — the same surface
-  // the Browse cards and popover show (a 貴方 stamp displays as あなた) —
-  // and deduped on it, keeping the best rank when two canonicals share a
-  // display surface. Unranked headwords are skipped — "most frequent" is
-  // meaningless without a rank, and the long tail is a poor fit for a
-  // dedicated lesson anyway. Kana-only display surfaces (ありがとう, an uk
-  // headword like あなた) are skipped too — a Learn Word lesson exists to
-  // teach the kanji in a word, so a word with no kanji isn't a useful
-  // target. The sync frequency lookups are safe behind
-  // vocabEncountersLoaded, which awaits loadFrequencyIndex().
-  const candidates = useMemo(() => {
-    if (!vocabEncountersLoaded) return [];
-    const byWord = new Map<
-      string,
-      { word: string; reading: string | null; rank: number }
-    >();
-    for (const [canonical, count] of vocabEncounters) {
-      if (count >= LEARN_WORD_MAX_ENCOUNTERS) continue;
-      const entry = lookupFrequencyByCanonicalSync(canonical);
-      const word = entry?.headword ?? canonical;
-      if (!KANJI_REGEX.test(word)) continue;
-      const rank = entry?.rank ?? lookupFrequencySync(canonical, null).rank;
-      if (rank === null) continue;
-      const existing = byWord.get(word);
-      if (!existing || rank < existing.rank) {
-        byWord.set(word, { word, reading: entry?.reading ?? null, rank });
-      }
-    }
-    return [...byWord.values()]
-      .sort((a, b) => a.rank - b.rank)
-      .slice(0, LEARN_WORD_CANDIDATE_POOL);
-  }, [vocabEncounters, vocabEncountersLoaded]);
-
-  // Auto-pick a word whenever Learn Word is active and no (still-valid)
-  // pick exists yet.
-  useEffect(() => {
-    if (contentType !== "learn_word" || candidates.length === 0) return;
-    /* eslint-disable react-hooks/set-state-in-effect -- async-resolved
-       candidate pool; there's no event to hang the initial pick on. */
-    setTargetWord((current) =>
-      current && candidates.some((c) => c.word === current)
-        ? current
-        : candidates[Math.floor(Math.random() * candidates.length)]!.word
-    );
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [contentType, candidates]);
-
-  const targetCandidate =
-    candidates.find((c) => c.word === targetWord) ?? null;
-
-  const rerollWord = () => {
-    if (candidates.length === 0) return;
-    if (candidates.length === 1) {
-      setTargetWord(candidates[0]!.word);
-      return;
-    }
-    const pool = candidates.filter((c) => c.word !== targetWord);
-    setTargetWord(pool[Math.floor(Math.random() * pool.length)]!.word);
-  };
+  const [targetWord, setTargetWord] = useState("");
 
   // Sync preferences from profile once it resolves — state initializers run
   // before the profile fetch completes, so defaults would always win otherwise.
@@ -131,18 +61,26 @@ export default function GenerationModal({ open, onClose }: Props) {
   }, [profile]);
 
   const isLearnWord = contentType === "learn_word";
+  const trimmedTargetWord = targetWord.trim();
 
   const handleGenerate = () => {
     if (!profile?.has_openrouter_api_key) return;
-    if (isLearnWord && !targetWord) return;
+    if (isLearnWord && !trimmedTargetWord) return;
+    // Resolve the typed word's JPDB reading so the prompt can pin the right
+    // homograph. Best-effort: gated on vocabEncountersLoaded (which awaits
+    // loadFrequencyIndex), and undefined when the word isn't a canonical
+    // surface in the by-entry index.
+    let targetWordReading: string | undefined;
+    if (isLearnWord && vocabEncountersLoaded) {
+      targetWordReading =
+        lookupFrequencyByCanonicalSync(trimmedTargetWord)?.reading ?? undefined;
+    }
     generate(user!.id, {
       contentType,
       topic: isLearnWord ? undefined : topic.trim() || undefined,
       style: isLearnWord ? undefined : style.trim() || undefined,
-      targetWord: isLearnWord ? targetWord ?? undefined : undefined,
-      targetWordReading: isLearnWord
-        ? targetCandidate?.reading ?? undefined
-        : undefined,
+      targetWord: isLearnWord ? trimmedTargetWord : undefined,
+      targetWordReading: isLearnWord ? targetWordReading : undefined,
       formality,
       paragraphs,
       model: GENERATION_MODEL,
@@ -191,41 +129,19 @@ export default function GenerationModal({ open, onClose }: Props) {
 
           {isLearnWord ? (
             <div className="form-group">
-              <label>Word</label>
-              {!vocabEncountersLoaded ? (
-                <div className="learn-word-row learn-word-row--empty">
-                  Loading your vocabulary<AnimatedDots />
-                </div>
-              ) : candidates.length === 0 ? (
-                <div className="learn-word-row learn-word-row--empty">
-                  No eligible words yet — read a story or chat first.
-                </div>
-              ) : (
-                <div className="learn-word-row">
-                  <span className="learn-word-word" lang="ja">
-                    {targetCandidate
-                      ? renderSurfaceRuby(
-                          targetCandidate.word,
-                          targetCandidate.reading
-                        )
-                      : targetWord}
-                  </span>
-                  <button
-                    type="button"
-                    className="learn-word-reroll"
-                    onClick={rerollWord}
-                    disabled={candidates.length <= 1}
-                    title="Pick a different word"
-                    aria-label="Pick a different word"
-                  >
-                    ↻
-                  </button>
-                </div>
-              )}
+              <label>
+                <span>Word</span>
+                <input
+                  type="text"
+                  lang="ja"
+                  value={targetWord}
+                  onChange={(e) => setTargetWord(e.target.value)}
+                  placeholder="例：勉強"
+                />
+              </label>
               <p className="learn-word-hint">
-                Picked from your {LEARN_WORD_CANDIDATE_POOL} most common words
-                seen fewer than {LEARN_WORD_MAX_ENCOUNTERS} times. The lesson
-                explains its meaning and usage in Japanese.
+                Enter a Japanese word — the lesson explains its meaning and
+                usage in Japanese.
               </p>
             </div>
           ) : (
@@ -281,7 +197,7 @@ export default function GenerationModal({ open, onClose }: Props) {
           <button
             className="generate-btn"
             onClick={handleGenerate}
-            disabled={loading || !hasKey || (isLearnWord && !targetWord)}
+            disabled={loading || !hasKey || (isLearnWord && !trimmedTargetWord)}
             title={!hasKey ? "Add an OpenRouter API key in Settings first" : undefined}
           >
             {!loading

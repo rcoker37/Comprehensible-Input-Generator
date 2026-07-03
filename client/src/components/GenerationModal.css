@@ -6,11 +6,10 @@
   /* Promote the modal body to its own compositing layer. The Modal's
    * top-layer ::backdrop uses backdrop-filter: blur() (Modal.css), which on
    * Chromium/WebKit fails to invalidate the blurred region when content
-   * inside the dialog shifts — leaving stale "ghost" copies. The Learn Word
-   * reroll button moves horizontally every reroll (the word to its left
-   * changes width), so it visibly duplicates. Forcing a composited layer here
-   * keeps that movement repainting above the backdrop instead of smearing
-   * into it. */
+   * inside the dialog shifts (e.g. switching content types swaps the Word
+   * input for the Topic/Style fields, changing the body height) — leaving
+   * stale "ghost" copies. Forcing a composited layer here keeps that movement
+   * repainting above the backdrop instead of smearing into it. */
   transform: translateZ(0);
 }
 
@@ -35,43 +34,6 @@
 .optional {
   color: var(--text-dim);
   font-size: 0.8rem;
-}
-
-.learn-word-row {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin-top: 0.3rem;
-}
-
-.learn-word-row--empty {
-  font-size: 0.85rem;
-  color: var(--text-dim);
-}
-
-.learn-word-word {
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.learn-word-reroll {
-  padding: 0.2rem 0.55rem;
-  background: none;
-  border: 1px solid var(--border, var(--text-dim));
-  border-radius: var(--radius);
-  color: var(--text-dim);
-  font-size: 1rem;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.learn-word-reroll:hover:not(:disabled) {
-  opacity: 0.8;
-}
-
-.learn-word-reroll:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .learn-word-hint {
