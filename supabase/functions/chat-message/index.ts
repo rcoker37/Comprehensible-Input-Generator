@@ -35,7 +35,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const CHAT_MODEL = "anthropic/claude-opus-4.7";
+const CHAT_MODEL = "anthropic/claude-fable-5";
 const ALLOWED_MODELS = new Set([CHAT_MODEL]);
 
 const MAX_TOKENS_CHAT = 4000;

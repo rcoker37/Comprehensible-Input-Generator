@@ -18,7 +18,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_MODELS = new Set([
-  "anthropic/claude-opus-4.7",
+  "anthropic/claude-fable-5",
 ]);
 
 const THINKING_BUDGET = 6000;

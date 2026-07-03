@@ -35,7 +35,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const TRANSLATE_MODEL = "anthropic/claude-sonnet-4.6";
+const TRANSLATE_MODEL = "anthropic/claude-sonnet-5";
 const MAX_TOKENS_TRANSLATE = 800;
 const MAX_SENTENCE_LEN = 2000;
 
