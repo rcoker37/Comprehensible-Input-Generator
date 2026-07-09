@@ -276,17 +276,34 @@ export default function WordPopover({
   // Narrow once so downstream code can read mode-specific fields without
   // re-narrowing. Tap-only fields default to null in headword mode.
   const isTap = mode.kind === "tap";
-  const tapSource: CardSource | null =
-    mode.kind === "tap"
-      ? mode.source.kind === "story"
-        ? { kind: "story", storyId: mode.source.storyId }
-        : // We don't know chatId here — the popover only needs `chatMessageId`
-          // for writes (recordWordLookup, indexed-message translate). chatId
-          // is only used for the "go to source" link, which the current card
-          // doesn't render (you're already there). Default to 0 — it's never
-          // read for the current card.
-          { kind: "chat", chatId: 0, chatMessageId: mode.source.chatMessageId }
+  // Derive the tap source as PRIMITIVES first, then memoize the object so its
+  // identity is stable across renders. `mode` is a fresh object literal every
+  // render (the parent rebuilds it), so constructing tapSource inline handed
+  // every downstream hook — the usages/lookup effect, the `cards` memo,
+  // `storeTranslation`, the translation fetch — a new identity each render,
+  // making them re-run on unrelated re-renders (e.g. GenerationContext's 3s
+  // poll), which re-fired network calls and re-recorded lookups needlessly.
+  const tapSourceKind: CardSource["kind"] | null =
+    mode.kind === "tap" ? mode.source.kind : null;
+  const tapSourceStoryId =
+    mode.kind === "tap" && mode.source.kind === "story"
+      ? mode.source.storyId
       : null;
+  const tapSourceChatMessageId =
+    mode.kind === "tap" && mode.source.kind === "chat"
+      ? mode.source.chatMessageId
+      : null;
+  const tapSource: CardSource | null = useMemo(() => {
+    if (tapSourceKind === null) return null;
+    // We don't know chatId here — the popover only needs `chatMessageId` for
+    // writes (recordWordLookup, indexed-message translate). chatId is only
+    // used for the "go to source" link, which the current card doesn't render
+    // (you're already there). Default to 0 — it's never read for the current
+    // card.
+    return tapSourceKind === "story"
+      ? { kind: "story", storyId: tapSourceStoryId! }
+      : { kind: "chat", chatId: 0, chatMessageId: tapSourceChatMessageId! };
+  }, [tapSourceKind, tapSourceStoryId, tapSourceChatMessageId]);
   const tapStart = mode.kind === "tap" ? mode.start : null;
   const tapEnd = mode.kind === "tap" ? mode.end : null;
   const tapCleanText = mode.kind === "tap" ? mode.cleanText : "";
@@ -945,30 +962,55 @@ export default function WordPopover({
     [isTap, tapSource, onTranslationUpdated]
   );
 
+  // The translation fetch must key off STABLE values, not the identities of
+  // activeCard / snippet / storeTranslation. `tapSource` is rebuilt as a
+  // fresh object every render and the parent's `onTranslationUpdated` is a
+  // fresh function every render, so all three churn identity on any
+  // incidental re-render — e.g. GenerationContext's 3s poll while a story or
+  // "Explain Word" lesson generates, or the word-index backfill draining.
+  // When the effect depended on those identities, each such re-render
+  // cancelled the in-flight request and started a new one; a translation that
+  // took longer than the poll interval was cancelled before it could resolve,
+  // so `translationPending` never cleared and the spinner spun forever. Read
+  // the live objects through refs and depend only on stable primitives.
+  const activeCardRef = useRef(activeCard);
+  activeCardRef.current = activeCard;
+  const storeTranslationRef = useRef(storeTranslation);
+  storeTranslationRef.current = storeTranslation;
+  const activeSourceKey = activeCard ? sourceKey(activeCard.source) : null;
+  const activeSentenceStart = snippet?.sentenceStart ?? null;
+  const activeSentenceEnd = snippet?.sentenceEnd ?? null;
+  const hasCachedTranslation = cachedTranslation !== null;
+
   // Lazy-fetch the translation only after the user explicitly requests it
   // via the "AI Translation" button. Bails on cache hit so navigating among
-  // already-translated cards is instant. Cancels in-flight requests when
-  // the card changes mid-fetch so a slow card-0 response doesn't overwrite
-  // card-1's state.
+  // already-translated cards is instant. Cancels the in-flight request only
+  // when the active sentence itself changes (card navigation) — never on an
+  // unrelated re-render — so a slow response isn't perpetually restarted.
   useEffect(() => {
-    if (!open || !activeCard || !snippet) return;
-    if (cachedTranslation) return;
-    if (!translationRequested) return;
+    if (!open || !translationRequested) return;
+    if (
+      activeSourceKey === null ||
+      activeSentenceStart === null ||
+      activeSentenceEnd === null
+    )
+      return;
+    if (hasCachedTranslation) return;
+    const card = activeCardRef.current;
+    if (!card) return;
     let cancelled = false;
-    const cardSource = activeCard.source;
+    const cardSource = card.source;
     const translateSource =
       cardSource.kind === "story"
         ? { storyId: cardSource.storyId }
         : { chatMessageId: cardSource.chatMessageId };
-    const start = snippet.sentenceStart;
-    const end = snippet.sentenceEnd;
-    const key = sentenceKey(start, end);
+    const key = sentenceKey(activeSentenceStart, activeSentenceEnd);
     setTranslationPending(true);
     setTranslationError(null);
-    void translateSentence(translateSource, start, end)
+    void translateSentence(translateSource, activeSentenceStart, activeSentenceEnd)
       .then((t) => {
         if (cancelled) return;
-        storeTranslation(cardSource, key, t);
+        storeTranslationRef.current(cardSource, key, t);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -984,11 +1026,11 @@ export default function WordPopover({
     };
   }, [
     open,
-    activeCard,
-    snippet,
-    cachedTranslation,
-    storeTranslation,
     translationRequested,
+    activeSourceKey,
+    activeSentenceStart,
+    activeSentenceEnd,
+    hasCachedTranslation,
   ]);
 
   const handleTranslate = useCallback(() => {
@@ -1058,6 +1100,7 @@ export default function WordPopover({
   useEffect(() => {
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
     setTranslationError(null);
+    setTranslationPending(false);
     setTranslationRequested(false);
   }, [cardIndex]);
 
