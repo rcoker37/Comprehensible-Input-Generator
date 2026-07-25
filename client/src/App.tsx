@@ -6,6 +6,7 @@ import AppLayout from "./components/AppLayout";
 import AnimatedDots from "./components/AnimatedDots";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Login from "./pages/Login";
+import { CHATS_ENABLED } from "./lib/constants";
 import "./App.css";
 
 const Stories = lazy(() => import("./pages/Stories"));
@@ -45,26 +46,30 @@ function App() {
                   </ErrorBoundary>
                 }
               />
-              <Route
-                path="/chats"
-                element={
-                  <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
-                      <Chats />
-                    </Suspense>
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/chats/:id"
-                element={
-                  <ErrorBoundary>
-                    <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
-                      <ChatDetail />
-                    </Suspense>
-                  </ErrorBoundary>
-                }
-              />
+              {CHATS_ENABLED && (
+                <>
+                  <Route
+                    path="/chats"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                          <Chats />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
+                  <Route
+                    path="/chats/:id"
+                    element={
+                      <ErrorBoundary>
+                        <Suspense fallback={<div className="loading">Loading<AnimatedDots /></div>}>
+                          <ChatDetail />
+                        </Suspense>
+                      </ErrorBoundary>
+                    }
+                  />
+                </>
+              )}
               <Route
                 path="/stats"
                 element={

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { GenerationProvider } from "../contexts/GenerationContext";
@@ -10,9 +10,17 @@ import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
 import { StoriesProvider } from "../contexts/StoriesContext";
 import { RefinementProvider } from "../contexts/RefinementContext";
+import { CHATS_ENABLED } from "../lib/constants";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
 import AnimatedDots from "./AnimatedDots";
+
+// Chats are gated behind CHATS_ENABLED. When off, swap the chat providers for a
+// passthrough so no chat data is fetched and nothing chat-related mounts; the
+// providers (and all chat code) stay in the repo for easy revival.
+const Passthrough = ({ children }: { children: ReactNode }) => <>{children}</>;
+const ChatsWrap = CHATS_ENABLED ? ChatsProvider : Passthrough;
+const ChatGenerationWrap = CHATS_ENABLED ? ChatGenerationProvider : Passthrough;
 
 function DictionaryStatusChip() {
   const { state, error } = useDictionary();
@@ -69,14 +77,14 @@ export default function AppLayout() {
           <WordIndexBackfillProvider>
             <StoriesProvider>
               <RefinementProvider>
-              <ChatsProvider>
-                <ChatGenerationProvider>
+              <ChatsWrap>
+                <ChatGenerationWrap>
                   <div className="app">
                     <nav className="nav">
                       <div className="nav-brand">読む練習</div>
                       <div className="nav-links">
                         <NavLink to="/stories">Read</NavLink>
-                        <NavLink to="/chats">Chat</NavLink>
+                        {CHATS_ENABLED && <NavLink to="/chats">Chat</NavLink>}
                         <NavLink to="/review">Review</NavLink>
                         <NavLink to="/stats">Stats</NavLink>
                         <NavLink to="/settings">Settings</NavLink>
@@ -95,8 +103,8 @@ export default function AppLayout() {
                       </GenerationProvider>
                     </main>
                   </div>
-                </ChatGenerationProvider>
-              </ChatsProvider>
+                </ChatGenerationWrap>
+              </ChatsWrap>
               </RefinementProvider>
             </StoriesProvider>
           </WordIndexBackfillProvider>
