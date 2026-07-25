@@ -17,11 +17,12 @@
 -- TO REVIVE CHATS: flip `CHATS_ENABLED` back to true AND add a migration that
 -- restores the chat UNION arm to each function below. The with-chats versions
 -- are the immediately-preceding definitions in git history:
---   get_user_word_encounters / get_chat_message_word_encounters  → 20260531120000
---   user_underused_kanji                                         → 20260601200000
---   get_review_queue                                             → 20260611000000
---   get_word_encounters / get_story_word_encounters              → 20260601100000
---   get_word_usages                                              → 20260527000000
+--   get_user_word_encounters / get_word_encounters /
+--     get_story_word_encounters                                 → 20260601100000
+--   user_underused_kanji                                        → 20260601200000
+--   get_review_queue                                            → 20260611000000
+--   get_word_usages                                             → 20260527000000
+--   (get_chat_message_word_encounters, the chat-only mirror,    → 20260531120000)
 --
 -- CREATE OR REPLACE preserves each function's existing grants, so no re-GRANT
 -- is needed.
@@ -40,7 +41,7 @@ LANGUAGE sql STABLE SECURITY INVOKER AS $$
     COALESCE(SUM(contribution), 0)::NUMERIC AS encounters,
     MAX(last_read_at) AS last_read_at
   FROM (
-    SELECT swo.headword, read_weight(s.read_count) AS contribution, s.last_read_at
+    SELECT swo.headword, 1::NUMERIC AS contribution, s.last_read_at
     FROM story_word_occurrences swo
     JOIN stories s ON s.id = swo.story_id
     WHERE swo.user_id = auth.uid()
