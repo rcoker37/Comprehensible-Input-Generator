@@ -14,6 +14,7 @@ import {
 } from "../lib/wordIndexFixture";
 import { useStories } from "../contexts/StoriesContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
+import { useRefinement } from "../contexts/RefinementContext";
 import type { Story } from "../types";
 import StoryDisplay from "../components/StoryDisplay";
 import StoryReadButton from "../components/StoryReadButton";
@@ -29,6 +30,7 @@ export default function StoryDetail() {
     refresh: refreshBackfill,
     currentStoryId: backfillCurrentStoryId,
   } = useWordIndexBackfill();
+  const { currentStoryId: refinementCurrentStoryId } = useRefinement();
   const [story, setStory] = useState<Story | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,6 +81,19 @@ export default function StoryDetail() {
       refetchStory().then(() => setRegenerating(false));
     }
   }, [backfillCurrentStoryId, story, refetchStory]);
+
+  // Same for the comprehensibility refinement loop: when it finishes
+  // scoring/revising our story, refetch so the reader sees the settled
+  // content and the final comprehensibility metrics.
+  const prevRefiningRef = useRef<number | null>(refinementCurrentStoryId);
+  useEffect(() => {
+    const prev = prevRefiningRef.current;
+    prevRefiningRef.current = refinementCurrentStoryId;
+    if (!story) return;
+    if (prev === story.id && refinementCurrentStoryId !== story.id) {
+      refetchStory();
+    }
+  }, [refinementCurrentStoryId, story, refetchStory]);
 
   // Safety net: if the backfill never picks the story up (dict not
   // ready, queue stalled, etc.), drop the regenerating flag after 15s
@@ -378,7 +393,11 @@ export default function StoryDetail() {
         <>
           <StoryDisplay
             story={story}
-            regenerating={regenerating}
+            regenerating={
+              regenerating ||
+              refinementCurrentStoryId === story.id ||
+              story.refine_state === "refining"
+            }
           />
           <div className="story-detail-actions-row">
             <StoryReadButton

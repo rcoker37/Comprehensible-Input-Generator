@@ -166,6 +166,29 @@ export default function Stories() {
                     +{formatScore(deltaById.get(story.id) ?? 0)}
                   </span>
                 )}
+                {story.comprehensibility && (
+                  <span
+                    className="comprehensibility-tag"
+                    title={
+                      `${story.comprehensibility.problemCount} unfamiliar word${
+                        story.comprehensibility.problemCount === 1 ? "" : "s"
+                      } still beyond your level` +
+                      (typeof story.comprehensibility.newWords === "number"
+                        ? ` · ${story.comprehensibility.newWords} new word${
+                            story.comprehensibility.newWords === 1 ? "" : "s"
+                          } to learn`
+                        : "") +
+                      (story.comprehensibility.pass > 0
+                        ? ` · simplified ${story.comprehensibility.pass}×`
+                        : "")
+                    }
+                  >
+                    ≈{Math.round(story.comprehensibility.fraction * 100)}% familiar
+                    {typeof story.comprehensibility.newWords === "number"
+                      ? ` · ${story.comprehensibility.newWords} new`
+                      : ""}
+                  </span>
+                )}
                 <span className="type-tag">{(story.content_type ?? "fiction").replace("_", " ")}</span>
                 <span className="formality-tag">{story.formality}</span>
                 {story.topic && <span className="topic-tag">{story.topic}</span>}

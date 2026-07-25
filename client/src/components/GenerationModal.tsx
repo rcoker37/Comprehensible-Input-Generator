@@ -10,6 +10,7 @@ import {
   PARAGRAPH_OPTIONS,
 } from "../lib/generation";
 import { lookupFrequencyByCanonicalSync } from "../lib/frequency";
+import { vocabLevel } from "../lib/comprehensibility";
 import type { ContentType, Formality } from "../types";
 import AnimatedDots from "./AnimatedDots";
 import Modal from "./Modal";
@@ -32,7 +33,7 @@ export default function GenerationModal({ open, onClose }: Props) {
   const { user, profile, updatePreferences } = useAuth();
   const { loading, generate } = useGeneration();
   const { seenKanji } = useSeenKanji();
-  const { vocabEncountersLoaded } = useVocab();
+  const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
   const [contentType, setContentType] = useState<ContentType>("fiction");
   const [topic, setTopic] = useState("");
   const [style, setStyle] = useState("");
@@ -75,6 +76,13 @@ export default function GenerationModal({ open, onClose }: Props) {
       targetWordReading =
         lookupFrequencyByCanonicalSync(trimmedTargetWord)?.reading ?? undefined;
     }
+    // Aim the first draft near the reader's demonstrated vocabulary level so
+    // the refinement loop has less to repair. Only for fiction/nonfiction, and
+    // only once the vocab index is loaded (same gate as targetWordReading).
+    const level =
+      !isLearnWord && vocabEncountersLoaded
+        ? vocabLevel(vocabEncounters, getWordRank)
+        : undefined;
     generate(user!.id, {
       contentType,
       topic: isLearnWord ? undefined : topic.trim() || undefined,
@@ -85,6 +93,7 @@ export default function GenerationModal({ open, onClose }: Props) {
       paragraphs,
       model: GENERATION_MODEL,
       seenKanji,
+      vocabLevel: level,
     });
     updatePreferences({
       generator: {

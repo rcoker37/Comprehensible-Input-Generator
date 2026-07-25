@@ -171,6 +171,7 @@ export type Database = {
       stories: {
         Row: {
           allowed_kanji: string
+          comprehensibility: Json | null
           content: string
           content_type: string
           created_at: string
@@ -183,6 +184,8 @@ export type Database = {
           last_read_at: string | null
           paragraphs: number
           read_count: number
+          refine_pass: number
+          refine_state: string | null
           status: string
           title: string
           topic: string | null
@@ -193,6 +196,7 @@ export type Database = {
         }
         Insert: {
           allowed_kanji: string
+          comprehensibility?: Json | null
           content: string
           content_type?: string
           created_at?: string
@@ -205,6 +209,8 @@ export type Database = {
           last_read_at?: string | null
           paragraphs: number
           read_count?: number
+          refine_pass?: number
+          refine_state?: string | null
           status?: string
           title: string
           topic?: string | null
@@ -215,6 +221,7 @@ export type Database = {
         }
         Update: {
           allowed_kanji?: string
+          comprehensibility?: Json | null
           content?: string
           content_type?: string
           created_at?: string
@@ -227,6 +234,8 @@ export type Database = {
           last_read_at?: string | null
           paragraphs?: number
           read_count?: number
+          refine_pass?: number
+          refine_state?: string | null
           status?: string
           title?: string
           topic?: string | null
@@ -470,6 +479,14 @@ export type Database = {
           last_read_at: string
         }[]
       }
+      get_stories_needing_refinement: {
+        Args: never
+        Returns: {
+          content: string
+          id: number
+          refine_pass: number
+        }[]
+      }
       get_story_word_encounters: {
         Args: { p_story_id: number }
         Returns: {
@@ -564,6 +581,10 @@ export type Database = {
           p_region_start: number
           p_story_id: number
         }
+        Returns: undefined
+      }
+      settle_story_refinement: {
+        Args: { p_metrics: Json; p_story_id: number }
         Returns: undefined
       }
       strip_ruby: { Args: { t: string }; Returns: string }

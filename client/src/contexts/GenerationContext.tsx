@@ -7,8 +7,10 @@ import {
   deleteStory,
 } from "../api/client";
 import type { ContentType, Formality } from "../types";
+import type { VocabLevel } from "../lib/comprehensibility";
 import { useWordIndexBackfill } from "./WordIndexBackfillContext";
 import { useStories } from "./StoriesContext";
+import { useRefinement } from "./RefinementContext";
 
 const POLL_INTERVAL_MS = 3000;
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
@@ -25,6 +27,9 @@ interface GenerateParams {
   paragraphs: number;
   model: string;
   seenKanji: Set<string>;
+  /** Reader's computed vocabulary level — soft first-draft comprehensibility
+   *  nudge (fiction/nonfiction). Undefined before the vocab index loads. */
+  vocabLevel?: VocabLevel;
 }
 
 interface GenerationContextType {
@@ -47,17 +52,20 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const { refresh: refreshBackfill } = useWordIndexBackfill();
+  const { refresh: refreshRefinement } = useRefinement();
   const { addStory, removeStory } = useStories();
   // Mirror in refs so the polling tick (captured inside a useCallback with
   // empty deps) reads the latest fns without rebuilding the callback.
   const refreshBackfillRef = useRef(refreshBackfill);
+  const refreshRefinementRef = useRef(refreshRefinement);
   const addStoryRef = useRef(addStory);
   const removeStoryRef = useRef(removeStory);
   useEffect(() => {
     refreshBackfillRef.current = refreshBackfill;
+    refreshRefinementRef.current = refreshRefinement;
     addStoryRef.current = addStory;
     removeStoryRef.current = removeStory;
-  }, [refreshBackfill, addStory, removeStory]);
+  }, [refreshBackfill, refreshRefinement, addStory, removeStory]);
   // The id of the failed row, so dismissError() / generate() retry can clean
   // it up from the DB.
   const failedIdRef = useRef<number | null>(null);
@@ -112,6 +120,9 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
           // queue is hydrated on auth-ready and wouldn't otherwise see this
           // row until next session.
           refreshBackfillRef.current();
+          // Same for the comprehensibility refinement queue, so the
+          // measure-then-repair loop runs on the new story immediately.
+          refreshRefinementRef.current();
           return;
         }
         if (fresh.status === "failed") {
