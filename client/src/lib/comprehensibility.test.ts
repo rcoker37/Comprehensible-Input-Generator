@@ -15,7 +15,6 @@ import {
   WELL_KNOWN_MIN,
   RESIDUAL_OK,
   MAX_REFINE_PASSES,
-  COMPREHENSIBLE_THRESHOLD,
   NEW_WORD_FLOOR_MIN,
   NEW_WORD_FLOOR_MAX,
   type ComprehensibilityScore,
@@ -152,9 +151,10 @@ describe("scoreComprehensibility", () => {
     // Only 普通 counts as a content token.
     expect(s.contentTokens).toBe(1);
     expect(s.problemWords).toHaveLength(0);
-    // 普通 is unseen (not in enc) so it is still new material, even though it
-    // is common enough not to be a problem. Names/punctuation never count.
-    expect(s.newWords).toBe(1);
+    // 普通 is unseen but common (rank ≤ frontier), so it's treated as known via
+    // the frequency prior — not new material. Names/punctuation never count.
+    expect(s.newWords).toBe(0);
+    expect(s.fraction).toBe(1);
   });
 
   it("flags unseen words that are rare or unranked, not seen or common ones", () => {
@@ -168,11 +168,11 @@ describe("scoreComprehensibility", () => {
     expect(s.contentTokens).toBe(4);
     expect(s.problemTokens).toBe(2);
     expect(s.problemWords.map((p) => p.headword)).toEqual(["稀語", "難解"]); // rarest (null) first
+    // Known % = the 2 known tokens (食べる seen 12×, 普通 common) of 4.
     expect(s.fraction).toBeCloseTo(0.5, 6);
-    // New material = every unseen word: 普通 (common) + 難解 + 稀語. The seen
-    // 食べる doesn't count. So more new words than problem words — the common
-    // unseen one is the i+1 sweet spot.
-    expect(s.newWords).toBe(3);
+    // New-to-learn = unseen AND not already-common: 難解 + 稀語. The common 普通
+    // is assumed known (frequency prior), not new; seen 食べる doesn't count.
+    expect(s.newWords).toBe(2);
   });
 
   it("keeps unseen words within the reach band as teachable, not problems", () => {
@@ -198,9 +198,10 @@ describe("scoreComprehensibility", () => {
     expect(s.problemTokens).toBe(2);
     expect(s.problemWords).toHaveLength(1);
     expect(s.contentTokens).toBe(3);
-    expect(s.fraction).toBeCloseTo(1 - 2 / 3, 6);
-    // Distinct new headwords: 難解 + 普通 (repeated 難解 counts once).
-    expect(s.newWords).toBe(2);
+    // Known % = just 普通 (common) of 3 tokens.
+    expect(s.fraction).toBeCloseTo(1 / 3, 6);
+    // New-to-learn = 難解 only (repeated, counts once); 普通 is common → known.
+    expect(s.newWords).toBe(1);
   });
 
   it("returns fraction 1 for an empty story", () => {
@@ -220,6 +221,41 @@ describe("scoreComprehensibility", () => {
       rank: 25000,
     });
   });
+
+  it("counts a word as known only after WELL_KNOWN_MIN exposures, not a few", () => {
+    const r = ranker({ 半端: 20000, 頑張る: 20000 }); // rare — no frequency free pass
+    // Seen below the bar → still "learning": not known, not new (has a
+    // foothold), never simplified. The fix — a handful of exposures isn't known.
+    const learning = scoreComprehensibility(
+      [occ("半端", "半端")],
+      new Map([["半端", WELL_KNOWN_MIN - 1]]),
+      r,
+      5000
+    );
+    expect(learning.fraction).toBe(0);
+    expect(learning.newWords).toBe(0);
+    expect(learning.problemWords).toHaveLength(0);
+    // Seen WELL_KNOWN_MIN times → known.
+    const known = scoreComprehensibility(
+      [occ("頑張る", "頑張る")],
+      new Map([["頑張る", WELL_KNOWN_MIN]]),
+      r,
+      5000
+    );
+    expect(known.fraction).toBe(1);
+    expect(known.newWords).toBe(0);
+  });
+
+  it("treats an unseen but common word as known via the frequency prior", () => {
+    const s = scoreComprehensibility(
+      [occ("普通", "普通")],
+      new Map(),
+      ranker({ 普通: 800 }),
+      5000
+    );
+    expect(s.fraction).toBe(1); // rank ≤ frontier → assumed known
+    expect(s.newWords).toBe(0);
+  });
 });
 
 describe("shouldSettle", () => {
@@ -238,10 +274,10 @@ describe("shouldSettle", () => {
     newWords: 25,
   };
 
-  it("settles when comprehensible enough", () => {
-    expect(
-      shouldSettle({ ...base, fraction: COMPREHENSIBLE_THRESHOLD }, 0, Infinity)
-    ).toBe(true);
+  it("settles when few too-hard tokens remain (comprehensible density, not known %)", () => {
+    // shouldSettle keys on 1 - problemTokens/contentTokens, independent of the
+    // known % now in `fraction`. 2/100 too-hard = 0.98 comprehensible.
+    expect(shouldSettle({ ...base, problemTokens: 2 }, 0, Infinity)).toBe(true);
   });
 
   it("settles when only a residual few problems remain", () => {

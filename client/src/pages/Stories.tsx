@@ -166,7 +166,7 @@ export default function Stories() {
                     +{formatScore(deltaById.get(story.id) ?? 0)}
                   </span>
                 )}
-                {story.comprehensibility && (
+                {story.read_count === 0 && story.comprehensibility && (
                   <span
                     className="comprehensibility-tag"
                     title={
@@ -183,7 +183,7 @@ export default function Stories() {
                         : "")
                     }
                   >
-                    ≈{Math.round(story.comprehensibility.fraction * 100)}% familiar
+                    ≈{Math.round(story.comprehensibility.fraction * 100)}% known
                     {typeof story.comprehensibility.newWords === "number"
                       ? ` · ${story.comprehensibility.newWords} new`
                       : ""}

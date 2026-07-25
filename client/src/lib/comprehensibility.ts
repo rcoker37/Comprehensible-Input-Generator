@@ -12,16 +12,18 @@
 // runs in unit tests against synthetic occurrences.
 
 import type { WordOccurrence } from "./storyWordIndex";
+import { KNOWN_ENCOUNTERS } from "../types";
 
 // ── Frontier tuning ────────────────────────────────────────────────────────
 // The reader's vocabulary "frontier" is a JPDB rank: the rarer edge of the
 // vocabulary they demonstrably know. Words rarer than this that they've never
 // seen are the ones worth simplifying.
 
-/** Min encounters for a headword to count toward the frontier estimate. Below
- *  the app's "known" boundary (FURIGANA_UNSEEN_THRESHOLD = 10) on purpose, so
- *  the sample isn't starved, but high enough to exclude one-off exposures. */
-export const WELL_KNOWN_MIN = 5;
+/** The "known" bar for the frontier sample and the known-% exposure bar. Aliases
+ *  the shared `KNOWN_ENCOUNTERS` (types), which the furigana "unseen" cutoff also
+ *  derives from, so all three move together. A word seen once or twice isn't
+ *  known; five excludes one-off exposures without starving the frontier sample. */
+export const WELL_KNOWN_MIN = KNOWN_ENCOUNTERS;
 /** Need at least this many ranked, well-known words before trusting a computed
  *  frontier; below it we fall back to DEFAULT_FRONTIER (cold-start). */
 export const MIN_SAMPLE = 30;
@@ -56,7 +58,7 @@ export function reachRank(frontierRank: number): number {
 // ── Loop tuning ──────────────────────────────────────────────────────────
 /** Hard cap on repair passes per story (balanced: up to 2). */
 export const MAX_REFINE_PASSES = 2;
-/** Stop once at least this share of content tokens are familiar. */
+/** Stop once at least this share of content tokens are not too hard. */
 export const COMPREHENSIBLE_THRESHOLD = 0.97;
 /** Stop once this few distinct problem words remain (residual is acceptable —
  *  the furigana-unseen rendering handles the last few gracefully). */
@@ -102,16 +104,19 @@ export interface ComprehensibilityScore {
   contentTokens: number;
   /** Tokens that are unseen AND too hard — rarer than the reach ceiling. */
   problemTokens: number;
-  /** 0–1 share of content tokens that are not too hard (readable). */
+  /** 0–1 share of content tokens the reader KNOWS — seen ≥ WELL_KNOWN_MIN times,
+   *  or as common as words already at their level (rank ≤ frontier). This is the
+   *  "≈NN% known" badge; a word seen only once or twice does NOT count. */
   fraction: number;
   /** Distinct too-hard headwords (unseen + beyond reach), rarest first (null
    *  rank = rarest) — the only words the repair loop simplifies. */
   problemWords: ProblemWord[];
   /**
-   * Distinct headwords the reader has never encountered (any rank) — the
-   * story's new material. The i+1 signal: `newWords - problemWords.length` is
-   * the count of new-but-within-reach words. A story with 0 new words teaches
-   * nothing; the pass-1 prompt targets `newWordTarget(paragraphs)`.
+   * Distinct headwords that are genuinely new to learn: never seen AND not
+   * already-common (rank > frontier, or unranked). The i+1 material —
+   * `newWords - problemWords.length` are the new-but-within-reach stretch words
+   * the loop keeps. A story with 0 new words teaches nothing; the pass-1 prompt
+   * targets `newWordTarget(paragraphs)`.
    */
   newWords: number;
 }
@@ -199,15 +204,18 @@ export function vocabLevel(
 }
 
 /**
- * Score one story's word occurrences against the reader's vocabulary. A
- * content token is a non-name occurrence whose surface contains Japanese.
- *
- * A *problem* token is one that is both unseen (`vocabEncounters` count === 0)
- * and rarer than the reader's **reach ceiling** (`reachRank(frontierRank)`), or
- * unranked — i.e. genuinely too hard. Unseen words within reach
- * (`frontier < rank ≤ reach`) are the desirable i+1 stretch: they count as
- * `newWords` (new material) but are NOT problems, so the repair loop leaves
- * them in the story instead of sanding it down to only-already-known vocabulary.
+ * Score one story's word occurrences against the reader's vocabulary. A content
+ * token is a non-name occurrence whose surface contains Japanese. Each token
+ * falls into one bucket:
+ *   - **known** — seen ≥ `WELL_KNOWN_MIN` times, OR as common as the reader's
+ *     own vocabulary (rank ≤ frontier). Counts toward `fraction` (the known %).
+ *     Seeing a word once or twice is NOT knowing it.
+ *   - **new** — never seen AND not already-common (rank > frontier / unranked):
+ *     genuine i+1 material, counted in `newWords`.
+ *   - **problem** — the subset of new that is also too hard (rarer than the
+ *     reach ceiling): the only words the repair loop simplifies.
+ *   - **learning** — seen 1..WELL_KNOWN_MIN-1 and not common: the reader has a
+ *     foothold, so it's not known, not new, and never simplified.
  */
 export function scoreComprehensibility(
   occurrences: WordOccurrence[],
@@ -217,6 +225,7 @@ export function scoreComprehensibility(
 ): ComprehensibilityScore {
   const reach = reachRank(frontierRank);
   let contentTokens = 0;
+  let knownTokens = 0;
   let problemTokens = 0;
   const problems = new Map<string, ProblemWord>();
   const newHeadwords = new Set<string>();
@@ -227,22 +236,33 @@ export function scoreComprehensibility(
     contentTokens++;
 
     const seen = vocabEncounters.get(o.headword) ?? 0;
-    if (seen > 0) continue;
-    // Any unseen content word is new material (i+1), whether common or rare.
-    newHeadwords.add(o.headword);
     const rank = getWordRank(o.headword);
-    // Within reach → a teachable stretch, keep it. Only past the reach ceiling
-    // (or unranked) is it too hard and worth simplifying.
-    if (rank !== null && rank <= reach) continue;
+    // As common as words the reader already knows → prior knowledge (from
+    // outside the app) is a safe bet even without a logged exposure.
+    const commonEnough = rank !== null && rank <= frontierRank;
 
-    problemTokens++;
-    if (!problems.has(o.headword)) {
-      problems.set(o.headword, {
-        surface: o.surface,
-        headword: o.headword,
-        reading: o.reading,
-        rank,
-      });
+    if (seen >= WELL_KNOWN_MIN || commonEnough) {
+      knownTokens++;
+      continue; // known → neither new material nor a problem
+    }
+    // Seen 1..WELL_KNOWN_MIN-1 (and not common) → "learning": the reader has a
+    // foothold, so it isn't new and is never simplified.
+    if (seen > 0) continue;
+
+    // Unseen AND not already-common → genuinely new material to learn.
+    newHeadwords.add(o.headword);
+    // Only the too-hard subset (rarer than the reach ceiling, or unranked) is a
+    // problem the loop simplifies; the reach-band stretch words are kept.
+    if (rank === null || rank > reach) {
+      problemTokens++;
+      if (!problems.has(o.headword)) {
+        problems.set(o.headword, {
+          surface: o.surface,
+          headword: o.headword,
+          reading: o.reading,
+          rank,
+        });
+      }
     }
   }
 
@@ -251,8 +271,7 @@ export function scoreComprehensibility(
     (a, b) =>
       (b.rank ?? Number.POSITIVE_INFINITY) - (a.rank ?? Number.POSITIVE_INFINITY)
   );
-  const fraction =
-    contentTokens === 0 ? 1 : 1 - problemTokens / contentTokens;
+  const fraction = contentTokens === 0 ? 1 : knownTokens / contentTokens;
 
   return {
     contentTokens,
@@ -269,13 +288,23 @@ export function scoreComprehensibility(
  * cap is hit, or a pass failed to reduce the distinct problem count
  * (anti-oscillation — a repair can introduce new rare words). `prevProblemCount`
  * is the distinct problem count from before this pass (Infinity on first eval).
+ *
+ * The comprehensibility test here is the share of tokens that are NOT too hard
+ * (`1 - problemTokens / contentTokens`) — deliberately separate from
+ * `score.fraction`, which is now the *known* % (a display metric). The loop
+ * cares about removing too-hard words, not about how much the reader already
+ * knows, so its stop behaviour is unchanged by the known-% redefinition.
  */
 export function shouldSettle(
   score: ComprehensibilityScore,
   pass: number,
   prevProblemCount: number
 ): boolean {
-  if (score.fraction >= COMPREHENSIBLE_THRESHOLD) return true;
+  const comprehensible =
+    score.contentTokens === 0
+      ? 1
+      : 1 - score.problemTokens / score.contentTokens;
+  if (comprehensible >= COMPREHENSIBLE_THRESHOLD) return true;
   if (score.problemWords.length <= RESIDUAL_OK) return true;
   if (pass >= MAX_REFINE_PASSES) return true;
   if (score.problemWords.length >= prevProblemCount) return true;

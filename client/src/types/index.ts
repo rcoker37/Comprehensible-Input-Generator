@@ -49,11 +49,13 @@ export type RefineState = "refining" | "settled" | "failed" | null;
 
 /**
  * Measured word-level comprehensibility of a story, stamped when refinement
- * settles. `fraction` is the share of content tokens the reader is familiar
- * with (0–1); `problemCount` is the distinct unseen-and-rare headwords still
- * present; `newWords` is the distinct new-to-the-reader headwords (any rarity)
- * — the i+1 material the pass-1 floor targets; `pass` is how many repair
- * passes ran. Drives the Compositions "≈NN% familiar · N new" badge.
+ * settles. `fraction` is the share of content tokens the reader KNOWS (0–1) —
+ * seen enough times to have consolidated it (WELL_KNOWN_MIN), or as common as
+ * words already at their level; a word seen only once or twice does not count. `problemCount` is the distinct
+ * unseen-and-rare headwords still present; `newWords` is the distinct
+ * new-to-learn headwords (unseen and not already-common) — the i+1 material the
+ * pass-1 floor targets; `pass` is how many repair passes ran. Drives the
+ * Compositions "≈NN% known · N new" badge.
  */
 export interface Comprehensibility {
   fraction: number;
@@ -217,9 +219,17 @@ export interface ChatsPreferences {
 // on every word.
 export type DisplayMode = "off" | "unseen" | "all";
 
-// Threshold for the "unseen" furigana mode — ruby is rendered when the
-// word's read-source encounter count is strictly less than this value.
-export const FURIGANA_UNSEEN_THRESHOLD = 10;
+// The app's single "known" bar (encounters) — the one source of truth. A word
+// seen this many times counts as known everywhere it matters: it drops out of
+// the "unseen" furigana mode, it feeds the vocab frontier estimate, and it
+// counts toward the "% known" badge. comprehensibility's WELL_KNOWN_MIN and the
+// furigana threshold below both derive from this, so they can't drift.
+export const KNOWN_ENCOUNTERS = 5;
+
+// Threshold for the "unseen" furigana mode — ruby is rendered when the word's
+// read-source encounter count is strictly less than this. The same "known" bar
+// as everything else.
+export const FURIGANA_UNSEEN_THRESHOLD = KNOWN_ENCOUNTERS;
 
 // Reading font: shared between Story reader and Chat thread. "serif" is the
 // default Noto Serif JP body; "sans" swaps to Zen Kaku Gothic New (the UI sans).
