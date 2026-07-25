@@ -36,7 +36,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const REVISE_MODEL = "anthropic/claude-fable-5";
+const REVISE_MODEL = "anthropic/claude-opus-5";
 const MAX_TOKENS_REVISE = 12000;
 const OPENROUTER_TIMEOUT_MS = 180_000;
 

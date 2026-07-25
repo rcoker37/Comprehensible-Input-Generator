@@ -35,6 +35,24 @@ export const DEFAULT_FRONTIER = 6000;
 export const FRONTIER_MIN = 4000;
 export const FRONTIER_MAX = 40000;
 
+// ── Reach band (the i+1 "keep" zone) ─────────────────────────────────────────
+// Not every unseen word rarer than the frontier is "too hard". There's a band
+// just beyond the frontier where a new word is a *teachable stretch* — rare
+// enough to be worth learning, close enough to infer from context. Those are
+// exactly the words a story should teach, so the repair loop must NOT strip
+// them. Only unseen words rarer than this reach ceiling (or unranked) are
+// flagged as problems to simplify. Multiplicative because rank is Zipfian
+// (log-scaled), so "3× rarer than your comfortable edge" is a fixed stretch
+// across ability levels.
+export const REACH_MULTIPLIER = 3;
+
+/** The rarity ceiling for a *teachable* new word, given the reader's frontier.
+ *  Unseen words at or below this are i+1 material the loop leaves alone; unseen
+ *  words rarer than this (or unranked) are the too-hard "problems" it simplifies. */
+export function reachRank(frontierRank: number): number {
+  return frontierRank * REACH_MULTIPLIER;
+}
+
 // ── Loop tuning ──────────────────────────────────────────────────────────
 /** Hard cap on repair passes per story (balanced: up to 2). */
 export const MAX_REFINE_PASSES = 2;
@@ -82,11 +100,12 @@ export interface ProblemWord {
 export interface ComprehensibilityScore {
   /** Non-name Japanese word tokens considered. */
   contentTokens: number;
-  /** Tokens that are unseen AND rarer than the frontier. */
+  /** Tokens that are unseen AND too hard — rarer than the reach ceiling. */
   problemTokens: number;
-  /** 0–1 share of content tokens the reader is familiar with. */
+  /** 0–1 share of content tokens that are not too hard (readable). */
   fraction: number;
-  /** Distinct problem headwords, rarest first (null rank = rarest). */
+  /** Distinct too-hard headwords (unseen + beyond reach), rarest first (null
+   *  rank = rarest) — the only words the repair loop simplifies. */
   problemWords: ProblemWord[];
   /**
    * Distinct headwords the reader has never encountered (any rank) — the
@@ -181,9 +200,14 @@ export function vocabLevel(
 
 /**
  * Score one story's word occurrences against the reader's vocabulary. A
- * content token is a non-name occurrence whose surface contains Japanese; a
- * *problem* token is a content token that is both unseen
- * (`vocabEncounters` count === 0) and rarer than `frontierRank` (or unranked).
+ * content token is a non-name occurrence whose surface contains Japanese.
+ *
+ * A *problem* token is one that is both unseen (`vocabEncounters` count === 0)
+ * and rarer than the reader's **reach ceiling** (`reachRank(frontierRank)`), or
+ * unranked — i.e. genuinely too hard. Unseen words within reach
+ * (`frontier < rank ≤ reach`) are the desirable i+1 stretch: they count as
+ * `newWords` (new material) but are NOT problems, so the repair loop leaves
+ * them in the story instead of sanding it down to only-already-known vocabulary.
  */
 export function scoreComprehensibility(
   occurrences: WordOccurrence[],
@@ -191,6 +215,7 @@ export function scoreComprehensibility(
   getWordRank: RankLookup,
   frontierRank: number
 ): ComprehensibilityScore {
+  const reach = reachRank(frontierRank);
   let contentTokens = 0;
   let problemTokens = 0;
   const problems = new Map<string, ProblemWord>();
@@ -206,7 +231,9 @@ export function scoreComprehensibility(
     // Any unseen content word is new material (i+1), whether common or rare.
     newHeadwords.add(o.headword);
     const rank = getWordRank(o.headword);
-    if (rank !== null && rank <= frontierRank) continue;
+    // Within reach → a teachable stretch, keep it. Only past the reach ceiling
+    // (or unranked) is it too hard and worth simplifying.
+    if (rank !== null && rank <= reach) continue;
 
     problemTokens++;
     if (!problems.has(o.headword)) {
