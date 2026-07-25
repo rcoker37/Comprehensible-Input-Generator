@@ -6,6 +6,8 @@ import {
   scoreComprehensibility,
   shouldSettle,
   newWordTarget,
+  reachRank,
+  REACH_MULTIPLIER,
   DEFAULT_FRONTIER,
   FRONTIER_MIN,
   FRONTIER_MAX,
@@ -119,6 +121,13 @@ describe("newWordTarget", () => {
   });
 });
 
+describe("reachRank", () => {
+  it("sits above the frontier so there is a teachable band", () => {
+    expect(reachRank(5000)).toBe(5000 * REACH_MULTIPLIER);
+    expect(reachRank(5000)).toBeGreaterThan(5000);
+  });
+});
+
 describe("scoreComprehensibility", () => {
   const frontier = 5000;
   const enc = new Map<string, number>([
@@ -164,6 +173,23 @@ describe("scoreComprehensibility", () => {
     // 食べる doesn't count. So more new words than problem words — the common
     // unseen one is the i+1 sweet spot.
     expect(s.newWords).toBe(3);
+  });
+
+  it("keeps unseen words within the reach band as teachable, not problems", () => {
+    const front = 5000;
+    const reach = reachRank(front); // 15000 at REACH_MULTIPLIER 3
+    const r = ranker({
+      中級: front + 1000, // just past the frontier, inside reach -> teachable
+      難読: reach + 5000, // past the reach ceiling -> too hard
+    });
+    const occs = [occ("中級", "中級"), occ("難読", "難読")];
+    const s = scoreComprehensibility(occs, new Map(), r, front);
+    // Both are new material the reader has never seen...
+    expect(s.newWords).toBe(2);
+    // ...but only the beyond-reach word is a problem the loop would strip; the
+    // reach-band stretch word stays in so the story actually teaches it.
+    expect(s.problemWords.map((p) => p.headword)).toEqual(["難読"]);
+    expect(s.problemTokens).toBe(1);
   });
 
   it("dedupes repeated problem words but counts every occurrence in tokens", () => {

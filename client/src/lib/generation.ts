@@ -13,7 +13,7 @@ export const DEFAULT_PARAGRAPH_COUNT = 3;
  * The model every client-initiated generation requests. Must stay within the
  * `ALLOWED_MODELS` allow-list in `supabase/functions/generate-story/index.ts`.
  */
-export const GENERATION_MODEL = "anthropic/claude-fable-5";
+export const GENERATION_MODEL = "anthropic/claude-opus-5";
 
 export const FORMALITY_INSTRUCTIONS: Record<Formality, string> = {
   impolite:
