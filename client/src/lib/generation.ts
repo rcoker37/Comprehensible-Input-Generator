@@ -1,4 +1,5 @@
 import type { Formality, StoryContentType } from "../types";
+import { newWordTarget, type VocabLevel } from "./comprehensibility";
 
 /**
  * Paragraph count options surfaced in the Generator modal. 3 is the default;
@@ -58,8 +59,26 @@ export function buildPrompt(
   kanjiList: string,
   formality: Formality,
   topic?: string,
-  style?: string
+  style?: string,
+  vocabLevel?: VocabLevel
 ): string {
+  // Word-level comprehensibility framing derived from the reader's own history
+  // (see lib/comprehensibility.ts). Two-sided: keep the bulk familiar (the
+  // measure-then-repair loop enforces the ceiling), but also guarantee an i+1
+  // floor of genuinely-new words so the story actually teaches something — a
+  // simplify-only loop can't add newness, so this is where it comes from.
+  // Omitted (identical to prior behaviour) when the caller has no vocab level
+  // yet (cold-start / index not loaded).
+  const vocabRule = vocabLevel
+    ? [
+        "",
+        `Reader vocabulary level: ${vocabLevel.label} — write for ${vocabLevel.blurb}.`,
+        "- Keep the BULK of the passage in words this reader already knows at that level, so it reads smoothly.",
+        `- It must also teach: deliberately work in at least ${newWordTarget(paragraphs)} words that are new to this reader — words just beyond their current level — spread through the passage, and make each one understandable from context (surround it with familiar words, restate the idea plainly nearby, or make its meaning obvious from the situation). Do not cluster the new words together. A passage the reader already knows entirely teaches nothing.`,
+        "- These guide which words to reach for; they do not relax the kanji or spelling rules above.",
+      ]
+    : [];
+
   const parts = [
     CONTENT_TYPE_PREAMBLE[contentType],
     "",
@@ -71,6 +90,7 @@ export function buildPrompt(
     RULE_STANDARD_SPELLING,
     RULE_CHOSEN_WORD_KANJI,
     RULE_RUBY,
+    ...vocabRule,
     "",
     FORMALITY_INSTRUCTIONS[formality],
   ];

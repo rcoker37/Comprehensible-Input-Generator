@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase";
 import { buildLearnWordPrompt, buildPrompt } from "../lib/generation";
+import type { VocabLevel } from "../lib/comprehensibility";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
@@ -8,6 +9,7 @@ import type {
   ChatMessage,
   ChatMessageMarkUpdate,
   ChatMessageReadState,
+  Comprehensibility,
   ContentType,
   Formality,
   Kanji,
@@ -83,6 +85,12 @@ export async function startStoryGeneration(
     paragraphs: number;
     model: string;
     seenKanji: Set<string>;
+    /**
+     * The reader's computed vocabulary level (fiction/nonfiction only). Soft
+     * comprehensibility nudge for the first draft; undefined until the vocab
+     * index has loaded, in which case the prompt omits the block.
+     */
+    vocabLevel?: VocabLevel;
   }
 ): Promise<{ storyId: number }> {
   // Allowed kanji = (kanji the user has seen in any read story)
@@ -112,7 +120,8 @@ export async function startStoryGeneration(
       allowedKanji,
       params.formality,
       params.topic,
-      params.style
+      params.style,
+      params.vocabLevel
     );
   }
 
@@ -177,7 +186,7 @@ export async function getStories(): Promise<Story[]> {
   const { data, error } = await supabase
     .from("stories")
     .select(
-      "id, title, content, content_type, topic, formality, difficulty, translations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, created_at"
+      "id, title, content, content_type, topic, formality, difficulty, translations, read_count, first_read_at, last_read_at, status, error_message, word_index_at, refine_pass, refine_state, comprehensibility, created_at"
     )
     .eq("status", "complete")
     .order("created_at", { ascending: false });
@@ -661,6 +670,91 @@ export async function updateStoryContent(
     p_content: content,
   });
   if (error) throw new Error(error.message);
+}
+
+// Stories — comprehensibility refinement loop
+//
+// After a story completes, RefinementContext measures its word-level
+// comprehensibility client-side and, when too many words are unseen-and-rare,
+// asks the `revise-story` Edge Function to swap the offenders for simpler
+// ones. These three calls drive that loop; the measurement itself is pure
+// (see lib/comprehensibility.ts).
+
+/**
+ * Stories still needing a comprehensibility pass — complete, non-learn_word,
+ * `refine_state IS NULL` (freshly generated or just revised). `content` comes
+ * along so the client scorer can tokenize without a second fetch. Analog of
+ * `getStoriesNeedingIndex`.
+ */
+export async function getStoriesNeedingRefinement(): Promise<
+  { id: number; content: string; refinePass: number }[]
+> {
+  const { data, error } = await supabase.rpc("get_stories_needing_refinement");
+  if (error) throw new Error(error.message);
+  const rows =
+    (data as { id: number; content: string; refine_pass: number }[] | null) ??
+    [];
+  return rows.map((r) => ({
+    id: r.id,
+    content: r.content,
+    refinePass: r.refine_pass,
+  }));
+}
+
+/**
+ * Terminal write for the loop: mark the story settled and stamp the final
+ * measured metrics (drives the Compositions "≈NN% familiar" badge).
+ */
+export async function settleRefinement(
+  storyId: number,
+  metrics: Comprehensibility
+): Promise<void> {
+  const { error } = await supabase.rpc("settle_story_refinement", {
+    p_story_id: storyId,
+    p_metrics: metrics,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Kick off a targeted repair pass via the `revise-story` Edge Function. The
+ * function claims the story (refine_state → 'refining') synchronously, returns
+ * 202, then rewrites it in the background and flips refine_state off
+ * 'refining' when done — poll `getStory(id)` to observe completion. A 409
+ * means another tab already claimed it.
+ */
+export async function reviseStory(
+  storyId: number,
+  flaggedWords: { surface: string; reading: string | null }[],
+  levelBlurb: string
+): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/revise-story`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      story_id: storyId,
+      flagged_words: flaggedWords.map((w) => ({
+        surface: w.surface,
+        ...(w.reading ? { reading: w.reading } : {}),
+      })),
+      level_blurb: levelBlurb,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response
+      .json()
+      .catch(() => ({ error: "Revision failed" }));
+    throw new Error(body.error || `HTTP ${response.status}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────

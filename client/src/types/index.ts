@@ -36,6 +36,32 @@ export type StoryTranslations = Record<string, SentenceTranslation>;
 
 export type StoryStatus = "generating" | "complete" | "failed";
 
+/**
+ * Lifecycle state for the client-orchestrated comprehensibility refinement
+ * loop (see RefinementContext / the `revise-story` Edge Function).
+ *   - `null`       → needs evaluation (freshly generated, or just revised)
+ *   - `"refining"` → a repair pass is in flight
+ *   - `"settled"`  → the loop is done (met threshold, hit the pass cap, or
+ *                    stopped making progress)
+ *   - `"failed"`   → a repair pass errored
+ */
+export type RefineState = "refining" | "settled" | "failed" | null;
+
+/**
+ * Measured word-level comprehensibility of a story, stamped when refinement
+ * settles. `fraction` is the share of content tokens the reader is familiar
+ * with (0–1); `problemCount` is the distinct unseen-and-rare headwords still
+ * present; `newWords` is the distinct new-to-the-reader headwords (any rarity)
+ * — the i+1 material the pass-1 floor targets; `pass` is how many repair
+ * passes ran. Drives the Compositions "≈NN% familiar · N new" badge.
+ */
+export interface Comprehensibility {
+  fraction: number;
+  problemCount: number;
+  newWords: number;
+  pass: number;
+}
+
 export interface Story {
   id: number;
   user_id?: string;
@@ -52,6 +78,9 @@ export interface Story {
   status: StoryStatus;
   error_message: string | null;
   word_index_at: string | null;
+  refine_pass: number;
+  refine_state: RefineState;
+  comprehensibility: Comprehensibility | null;
   created_at: string;
 }
 

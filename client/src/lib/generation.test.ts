@@ -4,6 +4,7 @@ import {
   buildPrompt,
   FORMALITY_INSTRUCTIONS,
 } from "./generation";
+import { newWordTarget } from "./comprehensibility";
 
 describe("buildPrompt", () => {
   const defaults = {
@@ -15,6 +16,24 @@ describe("buildPrompt", () => {
   it("includes the allowed kanji list", () => {
     const result = buildPrompt("fiction", defaults.paragraphs, defaults.kanjiList, defaults.formality);
     expect(result).toContain("Allowed kanji: 日本語");
+  });
+
+  it("omits the reader-level block when no vocabLevel is given", () => {
+    const result = buildPrompt("fiction", 3, "日", "polite");
+    expect(result).not.toContain("Reader vocabulary level");
+  });
+
+  it("injects the reader level and an i+1 new-word floor for a vocabLevel", () => {
+    const level = {
+      label: "upper-beginner (around JLPT N4)",
+      blurb: "an upper-beginner reader",
+    };
+    const result = buildPrompt("fiction", 5, "日", "polite", undefined, undefined, level);
+    expect(result).toContain(
+      "Reader vocabulary level: upper-beginner (around JLPT N4)"
+    );
+    // The floor scales with paragraph count (5 -> 10).
+    expect(result).toContain(`at least ${newWordTarget(5)} words that are new`);
   });
 
   it("includes story preamble for story type", () => {

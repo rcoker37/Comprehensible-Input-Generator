@@ -401,6 +401,7 @@ button {
 .type-tag,
 .formality-tag,
 .topic-tag,
+.comprehensibility-tag,
 .score-tag {
   display: inline-block;
   padding: 0.2rem 0.6rem;
@@ -412,6 +413,11 @@ button {
 
 .score-tag {
   color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.comprehensibility-tag {
+  color: var(--success);
   font-variant-numeric: tabular-nums;
 }
 

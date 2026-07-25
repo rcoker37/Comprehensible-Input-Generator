@@ -9,6 +9,7 @@ import { VocabProvider, useVocab } from "../contexts/VocabContext";
 import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext";
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
 import { StoriesProvider } from "../contexts/StoriesContext";
+import { RefinementProvider } from "../contexts/RefinementContext";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
 import AnimatedDots from "./AnimatedDots";
@@ -67,6 +68,7 @@ export default function AppLayout() {
         <VocabProvider>
           <WordIndexBackfillProvider>
             <StoriesProvider>
+              <RefinementProvider>
               <ChatsProvider>
                 <ChatGenerationProvider>
                   <div className="app">
@@ -95,6 +97,7 @@ export default function AppLayout() {
                   </div>
                 </ChatGenerationProvider>
               </ChatsProvider>
+              </RefinementProvider>
             </StoriesProvider>
           </WordIndexBackfillProvider>
         </VocabProvider>
