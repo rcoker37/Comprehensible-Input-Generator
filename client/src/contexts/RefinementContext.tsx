@@ -30,6 +30,7 @@ import { useAuth } from "./AuthContext";
 import { useDictionary } from "./DictionaryContext";
 import { useVocab } from "./VocabContext";
 import { useStories } from "./StoriesContext";
+import { useWordIndexBackfill } from "./WordIndexBackfillContext";
 import {
   getStoriesNeedingRefinement,
   settleRefinement,
@@ -86,6 +87,7 @@ export function RefinementProvider({ children }: { children: ReactNode }) {
   const { state: dictState } = useDictionary();
   const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
   const { applyStoryUpdate } = useStories();
+  const { refresh: refreshBackfill } = useWordIndexBackfill();
 
   const [remaining, setRemaining] = useState(0);
   const [processing, setProcessing] = useState(false);
@@ -97,11 +99,13 @@ export function RefinementProvider({ children }: { children: ReactNode }) {
   const vocabRef = useRef(vocabEncounters);
   const getWordRankRef = useRef(getWordRank);
   const applyStoryUpdateRef = useRef(applyStoryUpdate);
+  const refreshBackfillRef = useRef(refreshBackfill);
   useEffect(() => {
     vocabRef.current = vocabEncounters;
     getWordRankRef.current = getWordRank;
     applyStoryUpdateRef.current = applyStoryUpdate;
-  }, [vocabEncounters, getWordRank, applyStoryUpdate]);
+    refreshBackfillRef.current = refreshBackfill;
+  }, [vocabEncounters, getWordRank, applyStoryUpdate, refreshBackfill]);
 
   const queueRef = useRef<QueuedStory[]>([]);
   const runIdRef = useRef(0);
@@ -214,6 +218,12 @@ export function RefinementProvider({ children }: { children: ReactNode }) {
         } catch (err) {
           console.warn("Refinement failed for story", item.id, err);
         }
+        // A repair pass rewrites the story and nulls word_index_at server-side.
+        // Nothing else re-queues the backfill for it, so without this kick the
+        // story stays un-indexed — StoryDisplay shows its reflow overlay stuck
+        // until the next app load. Re-query so the (possibly-rewritten) story is
+        // re-indexed promptly; a no-op when the pass made no changes.
+        refreshBackfillRef.current();
         if (runIdRef.current !== myRunId) return;
         queueRef.current.shift();
         setRemaining(queueRef.current.length);
