@@ -64,10 +64,7 @@ export default function StoryDisplay({
   const { state: dictState } = useDictionary();
   const { profile, updatePreferences } = useAuth();
   const { vocabEncounters } = useVocab();
-  const {
-    remaining: backfillRemaining,
-    processing: backfillProcessing,
-  } = useWordIndexBackfill();
+  const { currentStoryId: backfillCurrentStoryId } = useWordIndexBackfill();
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [font, setFont] = useState<FontMode>("sans");
 
@@ -211,7 +208,7 @@ export default function StoryDisplay({
     return () => {
       cancelled = true;
     };
-  }, [story.id, story.word_index_at, backfillProcessing]);
+  }, [story.id, story.word_index_at, backfillCurrentStoryId]);
 
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
@@ -237,12 +234,13 @@ export default function StoryDisplay({
   const displayParagraphs = paragraphs ?? baseParagraphs;
 
   // Tap → WordPopover. The carousel pulls from `story_word_occurrences`, so
-  // taps are blocked until the story is indexed and the backfill is idle —
-  // otherwise the carousel cards would be missing.
+  // taps are blocked while *this* story is (re-)indexing — either it hasn't been
+  // indexed yet (word_index_at null) or the backfill is actively processing it.
+  // A different story being indexed elsewhere in the queue must NOT block reading
+  // here: this story's spans aren't going to reflow, so the carousel is complete.
   const popoverDisabled =
     story.word_index_at === null ||
-    backfillProcessing ||
-    backfillRemaining > 0;
+    backfillCurrentStoryId === story.id;
 
   const showLoadingOverlay =
     hasBeenIndexed &&
