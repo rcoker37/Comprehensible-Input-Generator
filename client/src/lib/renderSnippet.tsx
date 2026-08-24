@@ -67,3 +67,37 @@ export function renderSnippet(
   }
   return out;
 }
+
+// Ruby-only render: every annotation becomes a <ruby>, with no highlight and
+// no surface span. Used by the Review card, where the sentence is the unit and
+// no word is special — passing sentinel offsets to renderSnippet would work by
+// accident, but this says what it means.
+//
+// Like renderSnippet, the annotations argument doubles as the reveal control:
+// the card's front passes [] (bare Japanese) and its back passes the card's
+// full annotation list.
+export function renderRuby(
+  text: string,
+  annotations: FuriganaAnnotation[]
+): ReactNode {
+  const out: ReactNode[] = [];
+  let cursor = 0;
+  let key = 0;
+
+  for (const a of annotations) {
+    if (a.start > cursor) {
+      out.push(<span key={key++}>{text.slice(cursor, a.start)}</span>);
+    }
+    out.push(
+      <ruby key={key++}>
+        {text.slice(a.start, a.end)}
+        <rt>{a.reading}</rt>
+      </ruby>
+    );
+    cursor = a.end;
+  }
+  if (cursor < text.length) {
+    out.push(<span key={key++}>{text.slice(cursor)}</span>);
+  }
+  return out;
+}

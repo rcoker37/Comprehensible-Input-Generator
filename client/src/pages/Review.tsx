@@ -1,57 +1,29 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  getReviewQueue,
-  getWordUsages,
-  recordWordReview,
-  type ReviewQueueRow,
+  deleteSentenceCard,
+  getSentenceCardQueue,
+  recordSentenceCardReview,
 } from "../api/client";
-import { useVocab } from "../contexts/VocabContext";
-import { KANJI_REGEX } from "../lib/constants";
-import { parseAnnotatedText, type FuriganaAnnotation } from "../lib/furigana";
-import { renderSnippet } from "../lib/renderSnippet";
-import { extractSentenceSnippet } from "../lib/sentenceSnippet";
+import { renderRuby } from "../lib/renderSnippet";
+import { sentenceCardKeyFromIds } from "../lib/sentenceCardKey";
+import { useSentenceCards } from "../contexts/SentenceCardsContext";
 import AnimatedDots from "../components/AnimatedDots";
-import type { WordUsage } from "../types";
+import type { SentenceCard } from "../types";
 import "./Review.css";
 
-interface CardSnippet {
-  text: string;
-  annotations: FuriganaAnnotation[];
-  surfaceStart: number;
-  surfaceEnd: number;
-}
-
-function buildSnippet(usage: WordUsage): CardSnippet | null {
-  const { cleanText, annotations } = parseAnnotatedText(usage.sourceContent);
-  const snippet = extractSentenceSnippet(
-    cleanText,
-    annotations,
-    usage.startOffset,
-    usage.endOffset
-  );
-  if (!snippet) return null;
-  return {
-    text: snippet.text,
-    annotations: snippet.annotations,
-    surfaceStart: snippet.surfaceStart,
-    surfaceEnd: snippet.surfaceEnd,
-  };
-}
-
 export default function Review() {
-  const { vocabEncountersLoaded, getWordRank } = useVocab();
-  // Snapshot the queue once per mount — reads in other tabs during the
-  // session shouldn't reshuffle the order under the user.
-  const [queue, setQueue] = useState<ReviewQueueRow[] | null>(null);
+  const { markRemoved } = useSentenceCards();
+  // Snapshot the queue once per mount — cards coming due, or mined in
+  // another tab mid-session, shouldn't reshuffle the deck under the user.
+  const [queue, setQueue] = useState<SentenceCard[] | null>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
-  const [usage, setUsage] = useState<WordUsage | null>(null);
-  const [usageLoading, setUsageLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getReviewQueue()
+    getSentenceCardQueue()
       .then((rows) => {
         if (!cancelled) setQueue(rows);
       })
@@ -66,101 +38,15 @@ export default function Review() {
     };
   }, []);
 
-  // Client-side sort by JPDB rank ascending (most common first), tiebreak
-  // by lastReadAt ascending (oldest exposure first). Unranked words sink
-  // to the bottom. Postgres has no rank index — it lives in the client's
-  // JPDB frequency cache — so the sort can't happen server-side.
-  const sortedQueue = useMemo(() => {
-    if (!queue || !vocabEncountersLoaded) return null;
-    return [...queue].sort((a, b) => {
-      const rankA = getWordRank(a.headword);
-      const rankB = getWordRank(b.headword);
-      if (rankA === null && rankB === null) {
-        return a.lastReadAt.localeCompare(b.lastReadAt);
-      }
-      if (rankA === null) return 1;
-      if (rankB === null) return -1;
-      if (rankA !== rankB) return rankA - rankB;
-      return a.lastReadAt.localeCompare(b.lastReadAt);
-    });
-  }, [queue, vocabEncountersLoaded, getWordRank]);
-
-  const current =
-    sortedQueue && index < sortedQueue.length ? sortedQueue[index] : null;
-
-  // Fetch the usage for the active headword and show the first example whose
-  // surface actually contains kanji. The queue qualifies a headword when
-  // *some* surface carries a rare kanji, but get_word_usages orders
-  // newest-first, so rows[0] can be a bare-kana spelling (来た stamped from
-  // the surface きた) — and revealing furigana over kana is pointless. The
-  // queue's rare-kanji gate guarantees a kanji-bearing surface exists among
-  // these rows (same read-source set as the queue), so the find succeeds for
-  // any queued word; `?? null` is only a defensive fallback.
-  useEffect(() => {
-    if (!current) {
-      /* eslint-disable react-hooks/set-state-in-effect -- clear stale usage at end-of-queue */
-      setUsage(null);
-      /* eslint-enable react-hooks/set-state-in-effect */
-      return;
-    }
-    let cancelled = false;
-    setUsage(null);
-    setUsageLoading(true);
-    getWordUsages(current.headword)
-      .then((rows) => {
-        if (cancelled) return;
-        setUsage(rows.find((r) => KANJI_REGEX.test(r.surface)) ?? null);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setUsage(null);
-      })
-      .finally(() => {
-        if (!cancelled) setUsageLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [current]);
-
-  const snippet = useMemo(
-    () => (usage ? buildSnippet(usage) : null),
-    [usage]
-  );
-
-  // Show Answer reveals the reading as furigana over the highlighted word
-  // only — the rest of the sentence stays bare so the card still tests
-  // recall of just the target word. Annotations are character-level, so the
-  // ones inside the surface span are exactly the target word's readings.
-  // When the source had no ruby on the target (malformed LLM output), fall
-  // back to one ruby spanning the whole surface, using the indexer's stored
-  // reading, so Show Answer always reveals something.
-  const revealedAnnotations = useMemo<FuriganaAnnotation[]>(() => {
-    if (!snippet) return [];
-    const within = snippet.annotations.filter(
-      (a) => a.start >= snippet.surfaceStart && a.end <= snippet.surfaceEnd
-    );
-    if (within.length > 0) return within;
-    if (usage?.reading) {
-      return [
-        {
-          start: snippet.surfaceStart,
-          end: snippet.surfaceEnd,
-          reading: usage.reading,
-        },
-      ];
-    }
-    return [];
-  }, [snippet, usage]);
+  const current = queue && index < queue.length ? queue[index] : null;
 
   const advance = useCallback(
     (passed: boolean) => {
       if (current) {
-        // Fire-and-forget — a failed upsert just means the word will
-        // reappear next session. The api wrapper swallows the error.
-        // Scoring is independent of review state so no vocab refresh
-        // is needed here.
-        void recordWordReview(current.headword, passed);
+        // Fire-and-forget — a failed stamp just means the card reappears
+        // next session. Scoring is independent of review state, so nothing
+        // else needs refreshing.
+        void recordSentenceCardReview(current.id, passed);
       }
       setRevealed(false);
       setIndex((i) => i + 1);
@@ -171,6 +57,33 @@ export default function Review() {
   const handlePass = useCallback(() => advance(true), [advance]);
   const handleFail = useCallback(() => advance(false), [advance]);
 
+  // Delete drops the card from the deck in place: the index stays put, so
+  // the next card slides into view without a gap (and lands on the
+  // end-of-queue state if it was the last one).
+  const handleDelete = useCallback(async () => {
+    if (!current) return;
+    if (!window.confirm("Delete this card? This cannot be undone.")) return;
+    try {
+      await deleteSentenceCard(current.id);
+      const key = sentenceCardKeyFromIds(
+        current.storyId,
+        current.chatMessageId,
+        current.sentenceStart,
+        current.sentenceEnd
+      );
+      // Let the word popover offer "Add to Reviews" on this sentence again.
+      if (key) markRemoved(key);
+      setQueue((prev) =>
+        prev ? prev.filter((c) => c.id !== current.id) : prev
+      );
+      setRevealed(false);
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : "Failed to delete card"
+      );
+    }
+  }, [current, markRemoved]);
+
   if (queueError) {
     return (
       <div className="review-page review-page--message">
@@ -179,7 +92,7 @@ export default function Review() {
     );
   }
 
-  if (queue === null || !vocabEncountersLoaded || sortedQueue === null) {
+  if (queue === null) {
     return (
       <div className="loading">
         Loading review
@@ -191,22 +104,22 @@ export default function Review() {
   const header = (
     <header className="review-header">
       <h1>Review</h1>
-      {sortedQueue.length > 0 && current && (
+      {queue.length > 0 && current && (
         <span className="review-progress">
-          {index + 1} / {sortedQueue.length}
+          {index + 1} / {queue.length}
         </span>
       )}
     </header>
   );
 
-  if (sortedQueue.length === 0) {
+  if (queue.length === 0) {
     return (
       <div className="review-page review-page--message">
         {header}
         <p className="review-empty">Nothing to review right now.</p>
         <p className="review-empty-hint">
-          Words you've encountered fewer than 10 times will appear here,
-          most common first. Read a story or chat to build up your queue.
+          Tap a word while reading and choose "Add to Reviews" to save the
+          sentence it's in. Saved sentences show up here.
         </p>
       </div>
     );
@@ -218,8 +131,8 @@ export default function Review() {
         {header}
         <p className="review-empty">All caught up ✓</p>
         <p className="review-empty-hint">
-          You've reviewed every word in the queue. Come back later —
-          new exposures and words coming off cooldown will show up here.
+          You've reviewed every card that's due. Come back later — cards
+          coming off their interval will show up here.
         </p>
       </div>
     );
@@ -229,26 +142,39 @@ export default function Review() {
     <div className="review-page">
       {header}
 
+      {actionError && <div className="error">{actionError}</div>}
+
       <div className="review-card">
-        {usageLoading ? (
-          <div className="review-card__loading">
-            Loading
-            <AnimatedDots />
-          </div>
-        ) : snippet ? (
-          <div className="review-card__sentence">
-            {renderSnippet(
-              snippet.text,
-              revealed ? revealedAnnotations : [],
-              snippet.surfaceStart,
-              snippet.surfaceEnd,
-              "review-card__highlight"
-            )}
-          </div>
-        ) : (
-          <div className="review-card__sentence review-card__sentence--missing">
-            (No example sentence available.)
-          </div>
+        <button
+          type="button"
+          className="review-card__delete"
+          onClick={() => void handleDelete()}
+          title="Delete this card"
+          aria-label="Delete this card"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
+            <line x1="3" y1="3" x2="11" y2="11" />
+            <line x1="11" y1="3" x2="3" y2="11" />
+          </svg>
+        </button>
+
+        {/* The annotations argument is the reveal: the front passes none, so
+            the sentence renders as bare Japanese; the back passes the card's
+            full set, so every reading appears at once. */}
+        <div className="review-card__sentence">
+          {renderRuby(current.sentenceText, revealed ? current.annotations : [])}
+        </div>
+
+        {revealed && (
+          <div className="review-card__translation">{current.translation}</div>
         )}
       </div>
 
@@ -275,7 +201,6 @@ export default function Review() {
             type="button"
             className="review-show-btn"
             onClick={() => setRevealed(true)}
-            disabled={usageLoading || !snippet}
           >
             Show Answer
           </button>

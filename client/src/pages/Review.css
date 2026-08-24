@@ -31,19 +31,41 @@
 }
 
 .review-card {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-dim);
   padding: 1.75rem 1.5rem;
   min-height: 9rem;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1.1rem;
 }
 
-.review-card__loading {
+/* Sits in the card corner rather than the action row: deleting is a
+   management action, not one of the two grading answers. */
+.review-card__delete {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
   color: var(--text-dim);
-  font-size: 0.95rem;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.review-card__delete:hover {
+  opacity: 1;
+  color: var(--error-fg);
 }
 
 .review-card__sentence {
@@ -55,17 +77,16 @@
   word-break: break-word;
 }
 
-.review-card__sentence--missing {
+/* Only ever rendered on the revealed side, under the furigana'd sentence. */
+.review-card__translation {
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
+  width: 100%;
+  font-size: 0.95rem;
+  line-height: 1.6;
   color: var(--text-dim);
-  font-style: italic;
-  font-size: 1rem;
-}
-
-.review-card__highlight {
-  background: var(--accent-soft);
-  color: inherit;
-  border-radius: 3px;
-  padding: 0 0.1em;
+  text-align: center;
+  white-space: pre-wrap;
 }
 
 .review-actions {

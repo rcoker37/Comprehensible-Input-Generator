@@ -168,6 +168,69 @@ export type Database = {
         }
         Relationships: []
       }
+      sentence_cards: {
+        Row: {
+          annotations: Json
+          box: number
+          chat_message_id: number | null
+          created_at: string
+          eligible_at: string
+          id: number
+          last_reviewed_at: string | null
+          sentence_end: number
+          sentence_start: number
+          sentence_text: string
+          story_id: number | null
+          translation: string
+          user_id: string
+        }
+        Insert: {
+          annotations?: Json
+          box?: number
+          chat_message_id?: number | null
+          created_at?: string
+          eligible_at?: string
+          id?: never
+          last_reviewed_at?: string | null
+          sentence_end: number
+          sentence_start: number
+          sentence_text: string
+          story_id?: number | null
+          translation: string
+          user_id: string
+        }
+        Update: {
+          annotations?: Json
+          box?: number
+          chat_message_id?: number | null
+          created_at?: string
+          eligible_at?: string
+          id?: never
+          last_reviewed_at?: string | null
+          sentence_end?: number
+          sentence_start?: number
+          sentence_text?: string
+          story_id?: number | null
+          translation?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sentence_cards_chat_message_id_fkey"
+            columns: ["chat_message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sentence_cards_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stories: {
         Row: {
           allowed_kanji: string
@@ -389,35 +452,23 @@ export type Database = {
           },
         ]
       }
-      word_reviews: {
-        Row: {
-          box: number
-          eligible_at: string
-          headword: string
-          last_reviewed_at: string
-          user_id: string
-        }
-        Insert: {
-          box?: number
-          eligible_at?: string
-          headword: string
-          last_reviewed_at?: string
-          user_id: string
-        }
-        Update: {
-          box?: number
-          eligible_at?: string
-          headword?: string
-          last_reviewed_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      add_sentence_card: {
+        Args: {
+          p_annotations: Json
+          p_chat_message_id: number
+          p_sentence_end: number
+          p_sentence_start: number
+          p_sentence_text: string
+          p_story_id: number
+          p_translation: string
+        }
+        Returns: number
+      }
       clear_all_story_word_overrides: {
         Args: { p_story_id: number }
         Returns: undefined
@@ -432,6 +483,7 @@ export type Database = {
         Returns: undefined
       }
       delete_chat: { Args: { p_chat_id: number }; Returns: undefined }
+      delete_sentence_card: { Args: { p_card_id: number }; Returns: undefined }
       get_chat_message_word_encounters: {
         Args: { p_message_id: number }
         Returns: {
@@ -472,11 +524,28 @@ export type Database = {
           story_id: number
         }[]
       }
-      get_review_queue: {
+      get_sentence_card_keys: {
         Args: never
         Returns: {
-          headword: string
-          last_read_at: string
+          chat_message_id: number
+          sentence_end: number
+          sentence_start: number
+          story_id: number
+        }[]
+      }
+      get_sentence_card_queue: {
+        Args: never
+        Returns: {
+          annotations: Json
+          box: number
+          chat_message_id: number
+          created_at: string
+          id: number
+          sentence_end: number
+          sentence_start: number
+          sentence_text: string
+          story_id: number
+          translation: string
         }[]
       }
       get_stories_needing_refinement: {
@@ -556,6 +625,10 @@ export type Database = {
           read_count: number
         }[]
       }
+      record_sentence_card_review: {
+        Args: { p_card_id: number; p_passed: boolean }
+        Returns: undefined
+      }
       record_word_lookup: {
         Args: {
           p_chat_message_id?: number
@@ -566,10 +639,6 @@ export type Database = {
           p_story_id: number
           p_surface: string
         }
-        Returns: undefined
-      }
-      record_word_review: {
-        Args: { p_headword: string; p_passed: boolean }
         Returns: undefined
       }
       reset_chat_word_index: { Args: { p_chat_id: number }; Returns: undefined }
