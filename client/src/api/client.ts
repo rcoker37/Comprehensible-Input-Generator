@@ -4,6 +4,11 @@ import type { VocabLevel } from "../lib/comprehensibility";
 import { headwordFromHit } from "../lib/headword";
 import type { LookupHit } from "../lib/lookupAtCursor";
 import { WORD_INDEX_VERSION } from "../lib/storyWordIndex";
+import type { FuriganaAnnotation } from "../lib/furigana";
+import {
+  sentenceCardKeyFromIds,
+  type SentenceCardSource,
+} from "../lib/sentenceCardKey";
 import type {
   Chat,
   ChatMessage,
@@ -15,6 +20,7 @@ import type {
   Kanji,
   PerChatPayoutRow,
   Preferences,
+  SentenceCard,
   SentenceTranslation,
   Story,
   StoryReadState,
@@ -402,55 +408,124 @@ export async function getWordEncounters(headword: string): Promise<number> {
 // ORDER BY (for stable pagination) and stop when we get a short page.
 const VOCAB_PAGE_SIZE = 1000;
 
-/**
- * Once-seen vocab for the Review tab. Server-side filter: encounters = 1
- * across read sources, excluding any reviewed within their per-row
- * cooldown window (or marked Never forget). The client sorts the
- * returned rows by JPDB frequency rank — Postgres doesn't know about
- * the rank index, which is a client-side asset.
- */
-export interface ReviewQueueRow {
-  headword: string;
-  lastReadAt: string;
+// ─── Sentence cards (Review SRS) ────────────────────────────────────────
+// Cards are mined by hand from the WordPopover, so these result sets are
+// bounded by what the user actually saved — no VOCAB_PAGE_SIZE paging.
+
+interface SentenceCardRow {
+  id: number;
+  story_id: number | null;
+  chat_message_id: number | null;
+  sentence_start: number;
+  sentence_end: number;
+  sentence_text: string;
+  annotations: FuriganaAnnotation[] | null;
+  translation: string;
+  box: number;
+  created_at: string;
 }
 
-export async function getReviewQueue(): Promise<ReviewQueueRow[]> {
-  const out: ReviewQueueRow[] = [];
-  for (let from = 0; ; ) {
-    const { data, error } = await supabase
-      .rpc("get_review_queue")
-      .order("headword")
-      .range(from, from + VOCAB_PAGE_SIZE - 1);
-    if (error) throw new Error(error.message);
-    const rows =
-      (data as { headword: string; last_read_at: string }[] | null) ?? [];
-    if (rows.length === 0) break;
-    for (const r of rows) {
-      out.push({ headword: r.headword, lastReadAt: r.last_read_at });
-    }
-    from += rows.length;
-    if (rows.length < VOCAB_PAGE_SIZE) break;
+/**
+ * Save the sentence containing a tapped word as a review card. The caller
+ * supplies the already-translated text: the card snapshots everything it
+ * renders, so it survives later edits to the source story.
+ *
+ * Idempotent server-side — re-adding an already-mined sentence returns the
+ * existing card id and leaves its SRS progress alone.
+ */
+export async function addSentenceCard(params: {
+  source: SentenceCardSource;
+  sentenceStart: number;
+  sentenceEnd: number;
+  sentenceText: string;
+  annotations: FuriganaAnnotation[];
+  translation: string;
+}): Promise<number> {
+  const { source } = params;
+  const { data, error } = await supabase.rpc("add_sentence_card", {
+    p_story_id: source.kind === "story" ? source.storyId : null,
+    p_chat_message_id: source.kind === "chat" ? source.chatMessageId : null,
+    p_sentence_start: params.sentenceStart,
+    p_sentence_end: params.sentenceEnd,
+    p_sentence_text: params.sentenceText,
+    p_annotations: params.annotations,
+    p_translation: params.translation,
+  });
+  if (error) throw new Error(error.message);
+  return data as number;
+}
+
+/** Cards due right now, oldest-due first. Already ordered server-side. */
+export async function getSentenceCardQueue(): Promise<SentenceCard[]> {
+  const { data, error } = await supabase.rpc("get_sentence_card_queue");
+  if (error) throw new Error(error.message);
+  const rows = (data as SentenceCardRow[] | null) ?? [];
+  return rows.map((r) => ({
+    id: r.id,
+    storyId: r.story_id,
+    chatMessageId: r.chat_message_id,
+    sentenceStart: r.sentence_start,
+    sentenceEnd: r.sentence_end,
+    sentenceText: r.sentence_text,
+    annotations: r.annotations ?? [],
+    translation: r.translation,
+    box: r.box,
+    createdAt: r.created_at,
+  }));
+}
+
+/**
+ * Identity of every card the user has (not just the due ones), as
+ * `sentenceCardKey` strings. Lets the WordPopover tell whether the tapped
+ * word's sentence is already mined without a round-trip per open.
+ */
+export async function getSentenceCardKeys(): Promise<Set<string>> {
+  const { data, error } = await supabase.rpc("get_sentence_card_keys");
+  if (error) throw new Error(error.message);
+  const rows =
+    (data as
+      | {
+          story_id: number | null;
+          chat_message_id: number | null;
+          sentence_start: number;
+          sentence_end: number;
+        }[]
+      | null) ?? [];
+  const keys = new Set<string>();
+  for (const r of rows) {
+    const key = sentenceCardKeyFromIds(
+      r.story_id,
+      r.chat_message_id,
+      r.sentence_start,
+      r.sentence_end
+    );
+    if (key) keys.add(key);
   }
-  return out;
+  return keys;
 }
 
 /**
- * Stamp a pass/fail review on `headword`. The server walks the Leitner
- * ladder (see the record_word_review migration): a pass advances one box
- * so the next interval grows, a fail resets to box 0 (due in a day), and
- * eligible_at is recomputed from the new box. Best-effort — a failed
- * upsert just means the word reappears next session. Scoring is
- * independent of review state, so no vocab refresh is needed.
+ * Stamp a pass/fail review on a card. The server walks the same Leitner
+ * ladder the old per-word review used: a pass advances one box so the next
+ * interval grows, a fail resets to box 0 (due in a day). Best-effort — a
+ * failed call just means the card reappears next session.
  */
-export async function recordWordReview(
-  headword: string,
+export async function recordSentenceCardReview(
+  cardId: number,
   passed: boolean
 ): Promise<void> {
-  const { error } = await supabase.rpc("record_word_review", {
-    p_headword: headword,
+  const { error } = await supabase.rpc("record_sentence_card_review", {
+    p_card_id: cardId,
     p_passed: passed,
   });
-  if (error) console.warn("recordWordReview failed:", error.message);
+  if (error) console.warn("recordSentenceCardReview failed:", error.message);
+}
+
+export async function deleteSentenceCard(cardId: number): Promise<void> {
+  const { error } = await supabase.rpc("delete_sentence_card", {
+    p_card_id: cardId,
+  });
+  if (error) throw new Error(error.message);
 }
 
 /**

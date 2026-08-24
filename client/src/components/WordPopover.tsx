@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import Modal from "./Modal";
 import { useAuth } from "../contexts/AuthContext";
 import { useDictionary } from "../contexts/DictionaryContext";
+import { useSentenceCards } from "../contexts/SentenceCardsContext";
 import { useGeneration } from "../contexts/GenerationContext";
 import { useSeenKanji } from "../contexts/KanjiContext";
 import {
@@ -16,6 +17,7 @@ import {
   getWordUsages,
   recordWordLookup,
   translateSentence,
+  addSentenceCard,
 } from "../api/client";
 import { KANJI_REGEX } from "../lib/constants";
 import {
@@ -273,6 +275,7 @@ export default function WordPopover({
   const { user, profile } = useAuth();
   const { loading: generationInFlight, generate } = useGeneration();
   const { seenKanji } = useSeenKanji();
+  const { hasCard, markAdded } = useSentenceCards();
   // Narrow once so downstream code can read mode-specific fields without
   // re-narrowing. Tap-only fields default to null in headword mode.
   const isTap = mode.kind === "tap";
@@ -354,6 +357,14 @@ export default function WordPopover({
   const [frequency, setFrequency] = useState<BestFrequencyResult | null>(null);
   const [encounters, setEncounters] = useState<number | null>(null);
 
+  // "Add to Reviews" mines the active card's sentence into the Review SRS.
+  // Whether the sentence is ALREADY mined lives in SentenceCardsContext, not
+  // here — a local "added" flag would only know about clicks made in this
+  // popover's lifetime, and would show a live button for a sentence mined
+  // last session or via a different word in the same sentence.
+  const [addingCard, setAddingCard] = useState(false);
+  const [addCardError, setAddCardError] = useState<string | null>(null);
+
   // "Explain Word" kicks off a fire-and-forget learn_word generation for the
   // active headword (the lesson lands on the Compositions page). Tracks
   // whether this word view already started one so the button can't double-fire.
@@ -432,6 +443,8 @@ export default function WordPopover({
     setFrequency(null);
     setEncounters(null);
     setExplainStarted(false);
+    setAddingCard(false);
+    setAddCardError(null);
     setUsagesLoading(true);
     setEncountersLoading(true);
     setFrequencyLoading(true);
@@ -1066,6 +1079,68 @@ export default function WordPopover({
       });
   }, [activeCard, snippet, translationPending, storeTranslation]);
 
+  // Mine the active card's sentence into the Review SRS. Translating first
+  // when needed is the point: a card's back shows the translation, and the
+  // card SNAPSHOTS it rather than pointing at stories.translations, which
+  // revise-story / update_story_content wipe.
+  const handleAddToReviews = useCallback(() => {
+    if (!activeCard || !snippet || addingCard || translationPending) return;
+    const cardSource = activeCard.source;
+    const start = snippet.sentenceStart;
+    const end = snippet.sentenceEnd;
+    if (hasCard(cardSource, start, end)) return;
+
+    const translateSource =
+      cardSource.kind === "story"
+        ? { storyId: cardSource.storyId }
+        : { chatMessageId: cardSource.chatMessageId };
+    const key = sentenceKey(start, end);
+
+    setAddingCard(true);
+    setAddCardError(null);
+
+    const ensureTranslation = async (): Promise<string> => {
+      if (cachedTranslation) return cachedTranslation.text;
+      const t = await translateSentence(translateSource, start, end);
+      // Feed it back through the normal cache path so the sentence is also
+      // translated for the popover and the parent's stories.translations.
+      storeTranslation(cardSource, key, t);
+      return t.text;
+    };
+
+    void ensureTranslation()
+      .then((translation) =>
+        addSentenceCard({
+          source: cardSource,
+          sentenceStart: start,
+          sentenceEnd: end,
+          sentenceText: snippet.text,
+          annotations: snippet.annotations,
+          translation,
+        })
+      )
+      .then(() => {
+        markAdded(cardSource, start, end);
+      })
+      .catch((err: unknown) => {
+        setAddCardError(
+          err instanceof Error ? err.message : "Couldn't add to reviews"
+        );
+      })
+      .finally(() => {
+        setAddingCard(false);
+      });
+  }, [
+    activeCard,
+    snippet,
+    addingCard,
+    translationPending,
+    hasCard,
+    cachedTranslation,
+    storeTranslation,
+    markAdded,
+  ]);
+
   // Kick off a "Learn Word" generation for the active headword. Generation
   // is fire-and-forget (the finished lesson shows up on the Compositions
   // page); formality comes from the user's saved generator preferences, but
@@ -1096,15 +1171,32 @@ export default function WordPopover({
   ]);
 
   // Reset card scroll + per-card translation state when navigating. Each
-  // card requires its own opt-in click before a translation is fetched.
+  // card requires its own opt-in click before a translation is fetched, and
+  // each card is a different sentence, so the add-to-reviews state is
+  // per-card too.
   useEffect(() => {
     if (cardScrollRef.current) cardScrollRef.current.scrollTop = 0;
     setTranslationError(null);
     setTranslationPending(false);
     setTranslationRequested(false);
+    setAddingCard(false);
+    setAddCardError(null);
   }, [cardIndex]);
 
   if (!open) return null;
+
+  // Is the active card's sentence already a review card? Read from
+  // SentenceCardsContext (loaded once for the whole account) rather than from
+  // click state, so the button is honest on a sentence mined last session or
+  // reached via a different word in the same sentence.
+  const sentenceMined =
+    activeCard && snippet
+      ? hasCard(activeCard.source, snippet.sentenceStart, snippet.sentenceEnd)
+      : false;
+  // Mining may need a translation, which needs a key. An already-mined
+  // sentence still shows its "✓ In Reviews" state without one.
+  const canMineSentence =
+    !!activeCard && !!snippet && (profile?.has_openrouter_api_key ?? false);
 
   // Per-card display surface — keeps the literal surface when it's already
   // one of the entry's k/r forms (うち stays うち, 中 stays 中), but rewrites
@@ -1386,10 +1478,23 @@ export default function WordPopover({
                   )}
                   <section className="word-popover__translation">
                     {cachedTranslation && !translationRegenerating ? (
-                      <>
-                        <div className="word-popover__translation-text">
-                          {cachedTranslation.text}
-                        </div>
+                      <div className="word-popover__translation-text">
+                        {cachedTranslation.text}
+                      </div>
+                    ) : translationError ? (
+                      <div className="word-popover__error">
+                        {translationError}
+                      </div>
+                    ) : translationPending ? (
+                      <div className="word-popover__translation-loading">
+                        Translating<AnimatedDots />
+                      </div>
+                    ) : null}
+                    {/* The translate control and Add to Reviews sit on one
+                        row: mining a sentence is the natural next step after
+                        reading its translation. */}
+                    <div className="word-popover__translation-actions">
+                      {cachedTranslation && !translationRegenerating ? (
                         <button
                           type="button"
                           className="word-popover__regenerate"
@@ -1398,12 +1503,7 @@ export default function WordPopover({
                         >
                           ↻ Regenerate
                         </button>
-                      </>
-                    ) : translationError ? (
-                      <>
-                        <div className="word-popover__error">
-                          {translationError}
-                        </div>
+                      ) : translationError ? (
                         <button
                           type="button"
                           className="word-popover__regenerate"
@@ -1412,19 +1512,40 @@ export default function WordPopover({
                         >
                           ↻ Retry
                         </button>
-                      </>
-                    ) : translationPending ? (
-                      <div className="word-popover__translation-loading">
-                        Translating<AnimatedDots />
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="word-popover__translate-btn"
-                        onClick={handleTranslate}
-                      >
-                        AI Translation
-                      </button>
+                      ) : translationPending ? null : (
+                        <button
+                          type="button"
+                          className="word-popover__translate-btn"
+                          onClick={handleTranslate}
+                        >
+                          AI Translation
+                        </button>
+                      )}
+                      {(sentenceMined || canMineSentence) && (
+                        <button
+                          type="button"
+                          className="word-popover__translate-btn"
+                          onClick={handleAddToReviews}
+                          disabled={
+                            sentenceMined || addingCard || translationPending
+                          }
+                          title={
+                            sentenceMined
+                              ? "This sentence is already a review card"
+                              : "Save this sentence to Reviews, translating it first if needed"
+                          }
+                        >
+                          {sentenceMined
+                            ? "✓ In Reviews"
+                            : addingCard
+                              ? "Adding"
+                              : "Add to Reviews"}
+                          {addingCard && <AnimatedDots />}
+                        </button>
+                      )}
+                    </div>
+                    {addCardError && (
+                      <div className="word-popover__error">{addCardError}</div>
                     )}
                   </section>
                 </>

@@ -10,6 +10,7 @@ import { DictionaryProvider, useDictionary } from "../contexts/DictionaryContext
 import { WordIndexBackfillProvider } from "../contexts/WordIndexBackfillContext";
 import { StoriesProvider } from "../contexts/StoriesContext";
 import { RefinementProvider } from "../contexts/RefinementContext";
+import { SentenceCardsProvider } from "../contexts/SentenceCardsContext";
 import { CHATS_ENABLED } from "../lib/constants";
 import { formatScore, totalScore } from "../lib/rarity";
 import { totalVocabScore } from "../lib/vocabScore";
@@ -76,6 +77,7 @@ export default function AppLayout() {
         <VocabProvider>
           <WordIndexBackfillProvider>
             <StoriesProvider>
+              <SentenceCardsProvider>
               <RefinementProvider>
               <ChatsWrap>
                 <ChatGenerationWrap>
@@ -106,6 +108,7 @@ export default function AppLayout() {
                 </ChatGenerationWrap>
               </ChatsWrap>
               </RefinementProvider>
+              </SentenceCardsProvider>
             </StoriesProvider>
           </WordIndexBackfillProvider>
         </VocabProvider>

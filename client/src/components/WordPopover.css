@@ -432,6 +432,15 @@
   color: var(--error-fg);
 }
 
+/* Translate control + Add to Reviews share one row. Wraps rather than
+   squashing, since "Add to Reviews" is a wide label on a narrow popover. */
+.word-popover__translation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .word-popover__translate-btn {
   align-self: flex-start;
   background: var(--bg-dim);

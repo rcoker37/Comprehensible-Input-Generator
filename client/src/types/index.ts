@@ -1,3 +1,5 @@
+import type { FuriganaAnnotation } from "../lib/furigana";
+
 export interface Kanji {
   character: string;
   grade: number;
@@ -245,6 +247,31 @@ export interface Preferences {
   stories?: Partial<StoriesPreferences>;
   chats?: Partial<ChatsPreferences>;
   reader?: Partial<ReaderPreferences>;
+}
+
+/**
+ * One mined sentence card in the Review SRS. The text, its furigana and its
+ * translation are all SNAPSHOTTED at add time rather than pointed at via
+ * (story, offsets) — revise-story and update_story_content both rewrite story
+ * bodies and wipe translations, so a reference would rot into the wrong
+ * sentence. storyId / chatMessageId are provenance only and go null if the
+ * source is deleted.
+ *
+ * Pure sentence card: no word is special, so there is no headword or surface
+ * span. Front renders `sentenceText` with no ruby; back adds `annotations`
+ * plus `translation`.
+ */
+export interface SentenceCard {
+  id: number;
+  storyId: number | null;
+  chatMessageId: number | null;
+  sentenceStart: number;
+  sentenceEnd: number;
+  sentenceText: string;
+  annotations: FuriganaAnnotation[];
+  translation: string;
+  box: number;
+  createdAt: string;
 }
 
 export interface Profile {
