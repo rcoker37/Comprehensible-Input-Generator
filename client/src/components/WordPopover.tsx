@@ -18,7 +18,16 @@ import {
   recordWordLookup,
   translateSentence,
   addSentenceCard,
+  generateCardAudio,
+  generateSourceSentenceAudio,
 } from "../api/client";
+import {
+  awaitGeneration,
+  isTtsUnavailable,
+  sentenceAudioKey,
+  trackGeneration,
+} from "../lib/sentenceAudio";
+import { SentenceAudioButton } from "./SentenceAudioButton";
 import { KANJI_REGEX } from "../lib/constants";
 import {
   parseAnnotatedText,
@@ -990,6 +999,8 @@ export default function WordPopover({
   activeCardRef.current = activeCard;
   const storeTranslationRef = useRef(storeTranslation);
   storeTranslationRef.current = storeTranslation;
+  const snippetRef = useRef(snippet);
+  snippetRef.current = snippet;
   const activeSourceKey = activeCard ? sourceKey(activeCard.source) : null;
   const activeSentenceStart = snippet?.sentenceStart ?? null;
   const activeSentenceEnd = snippet?.sentenceEnd ?? null;
@@ -1024,6 +1035,28 @@ export default function WordPopover({
       .then((t) => {
         if (cancelled) return;
         storeTranslationRef.current(cardSource, key, t);
+        // Audio rides translation: a freshly-translated sentence gets its
+        // TTS generated in the background, deduped through the module
+        // in-flight map so a play-button click or Add to Reviews on the
+        // same sentence coalesces into this one request. Cache-hit opens
+        // bail above, so cached pre-feature translations don't auto-fire —
+        // the play button generates on demand instead.
+        const snip = snippetRef.current;
+        if (snip && !isTtsUnavailable()) {
+          const audioKey = sentenceAudioKey(
+            cardSource,
+            activeSentenceStart,
+            activeSentenceEnd
+          );
+          trackGeneration(audioKey, () =>
+            generateSourceSentenceAudio(
+              translateSource,
+              activeSentenceStart,
+              activeSentenceEnd,
+              snip.annotations
+            )
+          ).catch(() => {});
+        }
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -1119,8 +1152,19 @@ export default function WordPopover({
           translation,
         })
       )
-      .then(() => {
+      .then((cardId) => {
         markAdded(cardSource, start, end);
+        // Couple Add to Reviews with audio: snapshot the card's audio in
+        // the background (never gating the button). Await any in-flight
+        // source generation for this sentence first so the server's cheap
+        // copy path hits instead of a second synthesis; when card mode does
+        // synthesize, it dual-writes to the source path, so the sentence is
+        // covered for future popover plays either way.
+        if (!isTtsUnavailable()) {
+          void awaitGeneration(sentenceAudioKey(cardSource, start, end))
+            .then(() => generateCardAudio(cardId))
+            .catch(() => {});
+        }
       })
       .catch((err: unknown) => {
         setAddCardError(
@@ -1494,6 +1538,19 @@ export default function WordPopover({
                         row: mining a sentence is the natural next step after
                         reading its translation. */}
                     <div className="word-popover__translation-actions">
+                      {activeCard &&
+                        snippet &&
+                        cachedTranslation &&
+                        !translationRegenerating && (
+                          <SentenceAudioButton
+                            key={`${sourceKey(activeCard.source)}:${snippet.sentenceStart}-${snippet.sentenceEnd}`}
+                            kind="source"
+                            source={activeCard.source}
+                            sentenceStart={snippet.sentenceStart}
+                            sentenceEnd={snippet.sentenceEnd}
+                            annotations={snippet.annotations}
+                          />
+                        )}
                       {cachedTranslation && !translationRegenerating ? (
                         <button
                           type="button"

@@ -272,6 +272,21 @@ export interface SentenceCard {
   translation: string;
   box: number;
   createdAt: string;
+  audio: SentenceCardAudio | null;
+}
+
+/**
+ * TTS audio snapshotted onto a review card (`sentence_cards.audio`), written
+ * by the generate-sentence-audio Edge Function. Null until generated — the
+ * back of the Review card offers on-demand generation. `durationMs` is null
+ * when the object was cheaply copied from already-synthesized source audio.
+ */
+export interface SentenceCardAudio {
+  path: string;
+  voice: string;
+  durationMs: number | null;
+  generatedAt: string;
+  version: number;
 }
 
 export interface Profile {

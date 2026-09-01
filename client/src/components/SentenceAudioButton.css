@@ -1,0 +1,38 @@
+.sentence-audio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Matches .word-popover__translate-btn so the popover's action row reads as
+   one family; the Review page inherits the same look. */
+.sentence-audio__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-dim);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 0.35rem 0.7rem;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+@media (hover: hover) {
+  .sentence-audio__btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.sentence-audio__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sentence-audio__error {
+  font-size: 0.78rem;
+  color: var(--error-fg);
+}

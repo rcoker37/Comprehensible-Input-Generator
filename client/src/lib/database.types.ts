@@ -171,6 +171,7 @@ export type Database = {
       sentence_cards: {
         Row: {
           annotations: Json
+          audio: Json | null
           box: number
           chat_message_id: number | null
           created_at: string
@@ -186,6 +187,7 @@ export type Database = {
         }
         Insert: {
           annotations?: Json
+          audio?: Json | null
           box?: number
           chat_message_id?: number | null
           created_at?: string
@@ -201,6 +203,7 @@ export type Database = {
         }
         Update: {
           annotations?: Json
+          audio?: Json | null
           box?: number
           chat_message_id?: number | null
           created_at?: string
@@ -537,6 +540,7 @@ export type Database = {
         Args: never
         Returns: {
           annotations: Json
+          audio: Json
           box: number
           chat_message_id: number
           created_at: string

@@ -9,6 +9,17 @@ import {
   sentenceCardKeyFromIds,
   type SentenceCardSource,
 } from "../lib/sentenceCardKey";
+import {
+  AUDIO_BUCKET,
+  SIGNED_URL_TTL_SECONDS,
+  cacheAudioUrl,
+  cardAudioPath,
+  evictCachedAudioUrl,
+  getCachedAudioUrl,
+  markTtsUnavailable,
+  storyAudioFolder,
+  TtsUnconfiguredError,
+} from "../lib/sentenceAudio";
 import type {
   Chat,
   ChatMessage,
@@ -21,6 +32,7 @@ import type {
   PerChatPayoutRow,
   Preferences,
   SentenceCard,
+  SentenceCardAudio,
   SentenceTranslation,
   Story,
   StoryReadState,
@@ -262,6 +274,39 @@ export async function getKanjiExposures(): Promise<{
 export async function deleteStory(id: number): Promise<void> {
   const { error } = await supabase.from("stories").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  // Sentence-audio cleanup must happen through the Storage API — SQL can't
+  // touch storage.objects (see migration 20260426000000) — so a cascade
+  // can't do it. Best-effort: a miss just leaves unreachable orphans.
+  await removeSentenceAudioFolder(await storyAudioFolderForCurrentUser(id));
+}
+
+// Sentence audio (TTS) — storage cleanup helpers. All best-effort: audio is
+// a cache of synthesizable data, so a failed removal never blocks (or
+// un-does) the primary operation.
+
+async function storyAudioFolderForCurrentUser(
+  storyId: number
+): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  const userId = data.session?.user.id;
+  return userId ? storyAudioFolder(userId, storyId) : null;
+}
+
+async function removeSentenceAudioFolder(
+  folder: string | null
+): Promise<void> {
+  if (!folder) return;
+  try {
+    const { data: objects } = await supabase.storage
+      .from(AUDIO_BUCKET)
+      .list(folder);
+    if (!objects || objects.length === 0) return;
+    const paths = objects.map((o) => `${folder}/${o.name}`);
+    await supabase.storage.from(AUDIO_BUCKET).remove(paths);
+    for (const p of paths) evictCachedAudioUrl(p);
+  } catch (e) {
+    console.warn("sentence-audio folder cleanup failed:", e);
+  }
 }
 
 // Stories — sentence translations
@@ -309,6 +354,117 @@ export async function translateSentence(
 
   const { translation } = await response.json();
   return translation as SentenceTranslation;
+}
+
+// Sentence audio (TTS) — generation + playback URLs
+
+/**
+ * Shared invoker for the generate-sentence-audio Edge Function. A 503 with
+ * code `tts_unconfigured` means Azure isn't set up on the server at all —
+ * latch it so the UI hides every generate affordance for the session, and
+ * throw the typed error so callers can stay quiet about it.
+ */
+async function invokeSentenceAudio<T>(body: Record<string, unknown>): Promise<T> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) throw new Error("Not authenticated");
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/generate-sentence-audio`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!response.ok) {
+    const errBody = await response
+      .json()
+      .catch(() => ({ error: "Audio generation failed" }));
+    if (response.status === 503 && errBody.code === "tts_unconfigured") {
+      markTtsUnavailable();
+      throw new TtsUnconfiguredError();
+    }
+    throw new Error(errBody.error || `HTTP ${response.status}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+/**
+ * Generate (or find) the TTS audio for one sentence of a story / chat
+ * message. Idempotent server-side: the storage object's deterministic path
+ * is the cache, so re-firing for an already-synthesized sentence is a cheap
+ * existence check. Returns the storage path.
+ */
+export async function generateSourceSentenceAudio(
+  source: { storyId: number } | { chatMessageId: number },
+  sentenceStart: number,
+  sentenceEnd: number,
+  annotations: FuriganaAnnotation[]
+): Promise<string> {
+  const { path } = await invokeSentenceAudio<{ path: string }>({
+    ...("storyId" in source ? { story_id: source.storyId } : {}),
+    ...("chatMessageId" in source
+      ? { chat_message_id: source.chatMessageId }
+      : {}),
+    sentence_start: sentenceStart,
+    sentence_end: sentenceEnd,
+    annotations,
+  });
+  return path;
+}
+
+/**
+ * Generate (or find) the TTS audio snapshot for a review card. The server
+ * prefers copying already-synthesized source-sentence audio, synthesizes
+ * from the card's text snapshot otherwise (so orphaned cards work), and
+ * stamps `sentence_cards.audio`. Idempotent — an already-stamped card
+ * returns its record without touching Azure.
+ */
+export async function generateCardAudio(
+  cardId: number
+): Promise<SentenceCardAudio> {
+  const { audio } = await invokeSentenceAudio<{
+    audio: {
+      path: string;
+      voice: string;
+      duration_ms: number | null;
+      generated_at: string;
+      version: number;
+    };
+  }>({ card_id: cardId });
+  return {
+    path: audio.path,
+    voice: audio.voice,
+    durationMs: audio.duration_ms,
+    generatedAt: audio.generated_at,
+    version: audio.version,
+  };
+}
+
+/**
+ * A playable URL for a sentence-audio storage path, or null when the object
+ * doesn't exist ("not generated yet" — the bucket is the record for source
+ * sentences). Signed URLs are cached module-wide for ~45 of their 60
+ * minutes.
+ */
+export async function getSentenceAudioUrl(
+  path: string
+): Promise<string | null> {
+  const cached = getCachedAudioUrl(path);
+  if (cached) return cached;
+  const { data, error } = await supabase.storage
+    .from(AUDIO_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (error || !data?.signedUrl) return null;
+  cacheAudioUrl(path, data.signedUrl);
+  return data.signedUrl;
 }
 
 // Stories — word lookup history
@@ -423,6 +579,13 @@ interface SentenceCardRow {
   translation: string;
   box: number;
   created_at: string;
+  audio: {
+    path: string;
+    voice: string;
+    duration_ms: number | null;
+    generated_at: string;
+    version: number;
+  } | null;
 }
 
 /**
@@ -471,6 +634,15 @@ export async function getSentenceCardQueue(): Promise<SentenceCard[]> {
     translation: r.translation,
     box: r.box,
     createdAt: r.created_at,
+    audio: r.audio
+      ? {
+          path: r.audio.path,
+          voice: r.audio.voice,
+          durationMs: r.audio.duration_ms,
+          generatedAt: r.audio.generated_at,
+          version: r.audio.version,
+        }
+      : null,
   }));
 }
 
@@ -526,6 +698,19 @@ export async function deleteSentenceCard(cardId: number): Promise<void> {
     p_card_id: cardId,
   });
   if (error) throw new Error(error.message);
+  // The card's audio object can't cascade (SQL can't touch storage.objects);
+  // best-effort removal, orphans are harmless.
+  try {
+    const { data } = await supabase.auth.getSession();
+    const userId = data.session?.user.id;
+    if (userId) {
+      const path = cardAudioPath(userId, cardId);
+      await supabase.storage.from(AUDIO_BUCKET).remove([path]);
+      evictCachedAudioUrl(path);
+    }
+  } catch (e) {
+    console.warn("sentence-audio card cleanup failed:", e);
+  }
 }
 
 /**
@@ -745,6 +930,11 @@ export async function updateStoryContent(
     p_content: content,
   });
   if (error) throw new Error(error.message);
+  // Sentence audio is offset-keyed like the caches the RPC wipes — and the
+  // edited text could put a different sentence at identical offsets, which
+  // would play the wrong audio. Best-effort Storage API cleanup (the RPC
+  // can't do it: SQL can't touch storage.objects).
+  await removeSentenceAudioFolder(await storyAudioFolderForCurrentUser(storyId));
 }
 
 // Stories — comprehensibility refinement loop
