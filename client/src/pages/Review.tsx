@@ -8,7 +8,8 @@ import { renderRuby } from "../lib/renderSnippet";
 import { sentenceCardKeyFromIds } from "../lib/sentenceCardKey";
 import { useSentenceCards } from "../contexts/SentenceCardsContext";
 import AnimatedDots from "../components/AnimatedDots";
-import type { SentenceCard } from "../types";
+import { SentenceAudioButton } from "../components/SentenceAudioButton";
+import type { SentenceCard, SentenceCardAudio } from "../types";
 import "./Review.css";
 
 export default function Review() {
@@ -56,6 +57,18 @@ export default function Review() {
 
   const handlePass = useCallback(() => advance(true), [advance]);
   const handleFail = useCallback(() => advance(false), [advance]);
+
+  // A card generated its audio on demand (pre-feature card, or the
+  // fire-and-forget generation from Add to Reviews hadn't landed when the
+  // queue was snapshotted) — patch it in place so replays skip generation.
+  const handleAudioGenerated = useCallback(
+    (cardId: number, audio: SentenceCardAudio) => {
+      setQueue((prev) =>
+        prev ? prev.map((c) => (c.id === cardId ? { ...c, audio } : c)) : prev
+      );
+    },
+    []
+  );
 
   // Delete drops the card from the deck in place: the index stays put, so
   // the next card slides into view without a gap (and lands on the
@@ -174,7 +187,20 @@ export default function Review() {
         </div>
 
         {revealed && (
-          <div className="review-card__translation">{current.translation}</div>
+          <>
+            <div className="review-card__translation">
+              {current.translation}
+            </div>
+            <div className="review-card__audio">
+              <SentenceAudioButton
+                key={current.id}
+                kind="card"
+                cardId={current.id}
+                audioPath={current.audio?.path ?? null}
+                onGenerated={(audio) => handleAudioGenerated(current.id, audio)}
+              />
+            </div>
+          </>
         )}
       </div>
 

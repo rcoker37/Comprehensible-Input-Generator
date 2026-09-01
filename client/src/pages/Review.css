@@ -89,6 +89,14 @@
   white-space: pre-wrap;
 }
 
+/* Revealed side only, under the translation: play (or generate) the
+   sentence's TTS audio. */
+.review-card__audio {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
 .review-actions {
   display: flex;
   justify-content: center;

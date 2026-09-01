@@ -186,6 +186,24 @@ async function applyRevision(args: {
     .from("story_word_occurrences")
     .delete()
     .eq("story_id", storyId);
+
+  // Sentence audio is offset-keyed too — and worse than stale: the rewritten
+  // text could put a *different* sentence at identical offsets, so a leftover
+  // object would play the wrong audio. Best-effort; SQL can't touch
+  // storage.objects (see migration 20260426000000).
+  try {
+    const folder = `${userId}/story-${storyId}`;
+    const { data: objects } = await supabaseAdmin.storage
+      .from("sentence-audio")
+      .list(folder);
+    if (objects && objects.length > 0) {
+      await supabaseAdmin.storage
+        .from("sentence-audio")
+        .remove(objects.map((o) => `${folder}/${o.name}`));
+    }
+  } catch (e) {
+    console.warn("revise-story: sentence-audio cleanup failed", storyId, e);
+  }
 }
 
 async function runRevision(args: {
