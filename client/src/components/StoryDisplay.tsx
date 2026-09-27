@@ -9,6 +9,7 @@ import { useDictionary } from "../contexts/DictionaryContext";
 import { useWordIndexBackfill } from "../contexts/WordIndexBackfillContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useVocab } from "../contexts/VocabContext";
+import { useSentenceCards } from "../contexts/SentenceCardsContext";
 import {
   getStoryOccurrences,
   type StoryOccurrence,
@@ -69,6 +70,7 @@ export default function StoryDisplay({
   const { currentStoryId: backfillCurrentStoryId } = useWordIndexBackfill();
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [font, setFont] = useState<FontMode>("sans");
+  const { cardKeysLoaded, hasCard } = useSentenceCards();
   const [iPlusOne, setIPlusOne] = useState(true);
 
   // Hydrate the furigana / font controls from the persisted `reader`
@@ -268,14 +270,15 @@ export default function StoryDisplay({
     (paragraphs === null || regenerating || popoverDisabled);
 
   const iPlusOneSentences = useMemo(() => {
-    if (!iPlusOne || !vocabEncountersLoaded || !occurrences || !paragraphs ||
+    if (!iPlusOne || !cardKeysLoaded || !vocabEncountersLoaded || !occurrences || !paragraphs ||
         regenerating || popoverDisabled) return new Map<number, string>();
     return findIPlusOneSentences(
       paragraphs, occurrences, vocabEncounters, getWordRank,
-      vocabFrontier(vocabEncounters, getWordRank)
+      vocabFrontier(vocabEncounters, getWordRank),
+      (start, end) => hasCard({ kind: "story", storyId: story.id }, start, end)
     );
   }, [iPlusOne, vocabEncountersLoaded, occurrences, paragraphs, regenerating,
-    popoverDisabled, vocabEncounters, getWordRank]);
+    popoverDisabled, vocabEncounters, getWordRank, cardKeysLoaded, hasCard, story.id]);
 
   // Translation cache mirrored from server `stories.translations`. Local edits
   // bubble up via `onTranslationUpdated` and are written back to the DB by
