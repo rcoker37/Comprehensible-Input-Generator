@@ -509,7 +509,7 @@ export default function StoryDisplay({
       </div>
       {iPlusOne && (
         <p className="story-i-plus-one-legend">
-          Highlighted sentences have one new word within reach, underlined.
+          Highlighted sentences have one new word within reach.
           {" "}A vocabulary estimate based on your reading history.
         </p>
       )}
