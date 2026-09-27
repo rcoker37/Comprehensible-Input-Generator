@@ -99,11 +99,11 @@ export default function ChatDetail() {
 
   const persistReader = useCallback(
     (next: { furigana: DisplayMode; font: FontMode }) => {
-      updatePreferences({ reader: next }).catch((err) =>
+      updatePreferences({ reader: { ...profile?.preferences?.reader, ...next } }).catch((err) =>
         console.warn("Failed to save reader preferences:", err)
       );
     },
-    [updatePreferences]
+    [updatePreferences, profile?.preferences?.reader]
   );
 
   const cycleFurigana = () => {

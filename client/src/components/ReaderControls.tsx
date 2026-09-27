@@ -19,6 +19,8 @@ interface Props {
   font: FontMode;
   onFuriganaCycle: () => void;
   onFontCycle: () => void;
+  iPlusOne?: boolean;
+  onIPlusOneToggle?: () => void;
 }
 
 export default function ReaderControls({
@@ -26,6 +28,8 @@ export default function ReaderControls({
   font,
   onFuriganaCycle,
   onFontCycle,
+  iPlusOne,
+  onIPlusOneToggle,
 }: Props) {
   return (
     <div className="story-display-controls">
@@ -49,6 +53,20 @@ export default function ReaderControls({
           {FONT_LABEL[font]}
         </button>
       </div>
+      {onIPlusOneToggle && (
+        <div className="furigana-control">
+          <span className="furigana-label">i+1: </span>
+          <button
+            type="button"
+            className="furigana-toggle"
+            aria-label="Highlight i+1 sentences"
+            aria-pressed={iPlusOne}
+            onClick={onIPlusOneToggle}
+          >
+            {iPlusOne ? "on" : "off"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

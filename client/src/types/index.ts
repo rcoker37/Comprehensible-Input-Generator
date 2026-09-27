@@ -240,6 +240,7 @@ export type FontMode = "serif" | "sans";
 export interface ReaderPreferences {
   furigana: DisplayMode;
   font: FontMode;
+  iPlusOne: boolean;
 }
 
 export interface Preferences {

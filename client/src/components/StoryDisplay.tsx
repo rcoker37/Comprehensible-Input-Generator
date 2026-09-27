@@ -25,6 +25,8 @@ import {
 } from "../lib/storySegments";
 import { regroupWords } from "../lib/regroupWords";
 import { applyOccurrences } from "../lib/applyOccurrences";
+import { vocabFrontier } from "../lib/comprehensibility";
+import { findIPlusOneSentences } from "../lib/iPlusOne";
 import ReaderControls from "./ReaderControls";
 import WordPopover from "./WordPopover";
 import AnimatedDots from "./AnimatedDots";
@@ -63,10 +65,11 @@ export default function StoryDisplay({
 }: Props) {
   const { state: dictState } = useDictionary();
   const { profile, updatePreferences } = useAuth();
-  const { vocabEncounters } = useVocab();
+  const { vocabEncounters, vocabEncountersLoaded, getWordRank } = useVocab();
   const { currentStoryId: backfillCurrentStoryId } = useWordIndexBackfill();
   const [furiganaMode, setFuriganaMode] = useState<DisplayMode>("unseen");
   const [font, setFont] = useState<FontMode>("sans");
+  const [iPlusOne, setIPlusOne] = useState(true);
 
   // Hydrate the furigana / font controls from the persisted `reader`
   // preferences section exactly once.
@@ -79,16 +82,23 @@ export default function StoryDisplay({
        async-resolved profile; state initializers run before the fetch lands. */
     if (reader?.furigana) setFuriganaMode(reader.furigana);
     if (reader?.font === "serif" || reader?.font === "sans") setFont(reader.font);
+    if (typeof reader?.iPlusOne === "boolean") setIPlusOne(reader.iPlusOne);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [profile]);
 
   const persistReader = (next: {
     furigana: DisplayMode;
     font: FontMode;
+    iPlusOne?: boolean;
   }) => {
-    updatePreferences({ reader: next }).catch((err) =>
+    updatePreferences({ reader: { ...profile?.preferences?.reader, iPlusOne, ...next } }).catch((err) =>
       console.warn("Failed to save reader preferences:", err)
     );
+  };
+  const toggleIPlusOne = () => {
+    const next = !iPlusOne;
+    setIPlusOne(next);
+    persistReader({ furigana: furiganaMode, font, iPlusOne: next });
   };
   const cycleFurigana = () => {
     setFuriganaMode((prev) => {
@@ -188,27 +198,38 @@ export default function StoryDisplay({
     };
   }, [baseParagraphs, cleanContent, rubyAnnotations, dictState]);
 
-  const [occurrences, setOccurrences] = useState<StoryOccurrence[] | null>(
-    null
-  );
+  // Associate rows with their source so a new story or edited body never
+  // briefly inherits highlights (or tap targets) from the previous index.
+  const [occurrenceState, setOccurrenceState] = useState<{
+    storyId: number;
+    indexAt: string | null;
+    content: string;
+    rows: StoryOccurrence[];
+  } | null>(null);
+  const occurrences = occurrenceState?.storyId === story.id &&
+    occurrenceState.indexAt === story.word_index_at &&
+    occurrenceState.content === story.content
+      ? occurrenceState.rows : null;
   useEffect(() => {
     if (story.word_index_at === null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOccurrences(null);
+      setOccurrenceState(null);
       return;
     }
     let cancelled = false;
     getStoryOccurrences(story.id)
       .then((rows) => {
-        if (!cancelled) setOccurrences(rows);
+        if (!cancelled) setOccurrenceState({
+          storyId: story.id, indexAt: story.word_index_at, content: story.content, rows,
+        });
       })
       .catch(() => {
-        if (!cancelled) setOccurrences(null);
+        if (!cancelled) setOccurrenceState(null);
       });
     return () => {
       cancelled = true;
     };
-  }, [story.id, story.word_index_at, backfillCurrentStoryId]);
+  }, [story.id, story.word_index_at, story.content, backfillCurrentStoryId]);
 
   const paragraphs: DisplayParagraph[] | null = useMemo(() => {
     const base =
@@ -245,6 +266,16 @@ export default function StoryDisplay({
   const showLoadingOverlay =
     hasBeenIndexed &&
     (paragraphs === null || regenerating || popoverDisabled);
+
+  const iPlusOneSentences = useMemo(() => {
+    if (!iPlusOne || !vocabEncountersLoaded || !occurrences || !paragraphs ||
+        regenerating || popoverDisabled) return new Map<number, string>();
+    return findIPlusOneSentences(
+      paragraphs, occurrences, vocabEncounters, getWordRank,
+      vocabFrontier(vocabEncounters, getWordRank)
+    );
+  }, [iPlusOne, vocabEncountersLoaded, occurrences, paragraphs, regenerating,
+    popoverDisabled, vocabEncounters, getWordRank]);
 
   // Translation cache mirrored from server `stories.translations`. Local edits
   // bubble up via `onTranslationUpdated` and are written back to the DB by
@@ -378,7 +409,13 @@ export default function StoryDisplay({
     return <span key={key}>{part.char}</span>;
   };
 
-  const renderPart = (part: SegmentPart, key: number) => {
+  const renderPart = (part: SegmentPart, key: number, target?: string) => {
+    const start = part.kind === "char" ? part.offset : part.start;
+    const end = part.kind === "char" ? part.offset + part.char.length : part.end;
+    const occurrence = occurrenceBySpan.get(`${start}-${end}`);
+    const isTarget = target !== undefined && occurrence?.headword === target && !occurrence.isName;
+    const className = `word-token${isTarget ? " word-token--i-plus-one" : ""}`;
+    const explanation = isTarget ? `i+1: ${target} is the one new word within reach in this sentence.` : undefined;
     if (part.kind === "annotated") {
       const showRuby = showRubyForOccurrence(part.start, part.end);
       const inner = showRuby ? (
@@ -393,7 +430,9 @@ export default function StoryDisplay({
         <button
           type="button"
           key={key}
-          className="word-token"
+          className={className}
+          title={explanation}
+          aria-description={explanation}
           data-offset={part.start}
           onClick={() => handleWordClick(part.start, part.end)}
         >
@@ -411,7 +450,9 @@ export default function StoryDisplay({
         <button
           type="button"
           key={key}
-          className="word-token"
+          className={className}
+          title={explanation}
+          aria-description={explanation}
           data-offset={part.start}
           onClick={() => handleWordClick(part.start, part.end)}
         >
@@ -428,7 +469,9 @@ export default function StoryDisplay({
       <button
         type="button"
         key={key}
-        className="word-token"
+        className={className}
+        title={explanation}
+        aria-description={explanation}
         data-offset={part.offset}
         onClick={() => handleWordClick(part.offset, part.offset + 1)}
       >
@@ -460,8 +503,16 @@ export default function StoryDisplay({
           font={font}
           onFuriganaCycle={cycleFurigana}
           onFontCycle={cycleFont}
+          iPlusOne={iPlusOne}
+          onIPlusOneToggle={toggleIPlusOne}
         />
       </div>
+      {iPlusOne && (
+        <p className="story-i-plus-one-legend">
+          Highlighted sentences have one new word within reach, underlined.
+          {" "}A vocabulary estimate based on your reading history.
+        </p>
+      )}
       <div className={`story-content story-content--font-${font}`}>
         {firstIndexPending ? (
           <div className="story-content__preparing">
@@ -472,11 +523,18 @@ export default function StoryDisplay({
             <div className="story-paragraphs">
               {displayParagraphs.map((para, pIdx) => (
                 <p key={pIdx} className="story-paragraph">
-                  {para.sentences.map((sent) => (
-                    <span key={sent.start} className="story-sentence">
-                      {sent.parts.map((part, i) => renderPart(part, i))}
-                    </span>
-                  ))}
+                  {para.sentences.map((sent) => {
+                    const target = iPlusOneSentences.get(sent.start);
+                    return (
+                      <span
+                        key={sent.start}
+                        className={`story-sentence${target ? " story-sentence--i-plus-one" : ""}`}
+                        title={target ? `i+1 · New word: ${target}` : undefined}
+                      >
+                        {sent.parts.map((part, i) => renderPart(part, i, target))}
+                      </span>
+                    );
+                  })}
                 </p>
               ))}
             </div>
