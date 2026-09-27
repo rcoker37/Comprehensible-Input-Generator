@@ -7,13 +7,15 @@ type Occurrence = Pick<WordOccurrence, "start" | "end" | "surface" | "headword" 
 /** Vocabulary estimate using the same known-word and reach rules as story
  * scoring. Learning words also prevent an "everything else familiar" match.
  * Repeated forms of one headword count as a single new word; names are ignored.
+ * Sentences already saved to Reviews are excluded by their source offsets.
  */
 export function findIPlusOneSentences(
   paragraphs: DisplayParagraph[],
   occurrences: Occurrence[],
   encounters: Map<string, number>,
   getRank: (headword: string) => number | null,
-  frontier: number
+  frontier: number,
+  hasReviewCard?: (start: number, end: number) => boolean
 ): Map<number, string> {
   const result = new Map<number, string>();
   const sorted = [...occurrences].sort((a, b) => a.start - b.start);
@@ -22,6 +24,7 @@ export function findIPlusOneSentences(
     const last = sentence.parts.at(-1);
     if (!last) continue;
     const end = last.kind === "char" ? last.offset + last.char.length : last.end;
+    if (hasReviewCard?.(sentence.start, end)) continue;
     while (cursor < sorted.length && sorted[cursor]!.end <= sentence.start) cursor++;
     let target: string | null = null;
     let eligible = true;
